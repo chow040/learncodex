@@ -1,0 +1,1038 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Equity Insight</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: radial-gradient(circle at top, #edf2ff 0%, #d7e3ff 45%, #c7d6ff 100%);
+      min-height: 100%;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      min-height: 100vh;
+      background: var(--page-bg, transparent);
+      color: #172b4d;
+      padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.5rem, 3vw, 2.75rem) clamp(2.2rem, 6vw, 3rem);
+    }
+
+    .app-shell {
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+      gap: clamp(1.5rem, 4vw, 2.5rem);
+      align-items: start;
+    }
+
+    main {
+      width: min(960px, 100%);
+      display: grid;
+      gap: 2rem;
+    }
+
+    header {
+      text-align: center;
+      display: grid;
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 1.4rem + 1.5vw, 2.8rem);
+      font-weight: 700;
+    }
+
+    header p {
+      color: #3b4a69;
+      font-size: clamp(1rem, 0.9rem + 0.3vw, 1.15rem);
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 1.5rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+      padding: clamp(1.5rem, 4vw, 2.5rem);
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    form {
+      display: grid;
+      gap: 1.1rem;
+      align-items: start;
+    }
+
+    label {
+      font-weight: 600;
+      color: #243b53;
+    }
+
+    .ticker-row {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    input[type="text"] {
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(118, 132, 167, 0.5);
+      border-radius: 0.85rem;
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.85);
+      color: #0f172a;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4c6ef5;
+      box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.2);
+    }
+
+    button {
+      border: none;
+      border-radius: 0.85rem;
+      padding: 1rem 1.4rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #4653ff, #5d9bff);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(70, 83, 255, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .report {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .report-section {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .report-section h2 {
+      font-size: 1.2rem;
+      color: #1e2a54;
+      letter-spacing: 0.02em;
+    }
+
+    .report-grid {
+      display: grid;
+      gap: 0.6rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .metric {
+      padding: 1.1rem;
+      border-radius: 1rem;
+      background: rgba(76, 110, 245, 0.08);
+      border: 1px solid rgba(76, 110, 245, 0.12);
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .metric span:first-child {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #516082;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      font-size: 1.35rem;
+      color: #16213e;
+      letter-spacing: 0.03em;
+    }
+
+    .metric strong.metric-rating {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(70, 83, 255, 0.12);
+      color: #1e2a54;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .analysis {
+      line-height: 1.6;
+      color: #263958;
+      white-space: pre-line;
+    }
+
+    .insight-list {
+      list-style: none;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .insight-list li {
+      padding: 0.9rem 1rem;
+      border-radius: 0.85rem;
+      background: rgba(23, 43, 77, 0.06);
+      border: 1px solid rgba(23, 43, 77, 0.08);
+      line-height: 1.4;
+      color: #283b60;
+    }
+
+    .report-split {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .scenario-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .scenario-card {
+      padding: 1rem 1.2rem;
+      border-radius: 1rem;
+      background: rgba(70, 83, 255, 0.08);
+      border: 1px solid rgba(70, 83, 255, 0.18);
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .scenario-card h3 {
+      font-size: 0.95rem;
+      color: #243b53;
+    }
+
+    .scenario-card p {
+      font-size: 0.9rem;
+      color: #33476b;
+      line-height: 1.4;
+    }
+
+    .scenario-card .tag {
+      justify-self: start;
+    }
+
+    .target-price {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #16213e;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(22, 33, 62, 0.08);
+      color: #1e2a54;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .report-section h3 {
+      font-size: 0.95rem;
+      color: #31456a;
+    }
+
+    .timestamp {
+      font-size: 0.82rem;
+      color: #516082;
+      text-align: right;
+    }
+
+    .placeholder {
+      text-align: center;
+      padding: 2rem;
+      color: #5b6b88;
+      border: 2px dashed rgba(91, 107, 136, 0.25);
+      border-radius: 1.2rem;
+    }
+
+    .sidebar {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 1.5rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+      padding: clamp(1.4rem, 3vw, 2rem);
+      display: grid;
+      gap: 1.5rem;
+      position: sticky;
+      top: clamp(1.2rem, 4vh, 2rem);
+      max-height: calc(100vh - clamp(1.2rem, 4vh, 2rem) * 2);
+      overflow: hidden auto;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 0.55rem;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(55, 78, 128, 0.25);
+      border-radius: 999px;
+    }
+
+    .sidebar-header {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .sidebar-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1f2a4b;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-header p {
+      font-size: 0.9rem;
+      color: #4b5b7a;
+      line-height: 1.4;
+    }
+
+    .sidebar-section {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .sidebar-section h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #2b3d66;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .quick-picks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .quick-picks button {
+      border: 1px solid rgba(70, 83, 255, 0.4);
+      background: rgba(70, 83, 255, 0.12);
+      color: #1f2a4b;
+      border-radius: 999px;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+    }
+
+    .quick-picks button:hover {
+      transform: translateY(-1px);
+      background: rgba(70, 83, 255, 0.2);
+      color: #0f172a;
+    }
+
+    .section-nav {
+      list-style: none;
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .section-nav button {
+      width: 100%;
+      border-radius: 0.9rem;
+      border: 1px solid rgba(44, 62, 99, 0.15);
+      background: rgba(245, 247, 255, 0.8);
+      color: #243b53;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .section-nav button:hover {
+      border-color: rgba(70, 83, 255, 0.5);
+      box-shadow: 0 10px 24px rgba(70, 83, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .history-list {
+      list-style: none;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .history-item {
+      width: 100%;
+      border-radius: 1rem;
+      border: 1px solid rgba(35, 52, 97, 0.16);
+      background: rgba(248, 250, 255, 0.85);
+      padding: 0.75rem 0.85rem;
+      display: grid;
+      gap: 0.45rem;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .history-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(70, 83, 255, 0.52);
+      box-shadow: 0 12px 26px rgba(31, 53, 114, 0.18);
+    }
+
+    .history-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    .history-ticker {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .history-price {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #253660;
+    }
+
+    .history-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: #52606d;
+    }
+
+    .history-time {
+      font-family: "Segoe UI", sans-serif;
+    }
+
+    .history-empty {
+      padding: 1rem;
+      border-radius: 1rem;
+      border: 1px dashed rgba(76, 89, 122, 0.32);
+      text-align: center;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+
+    .clear-history {
+      border: none;
+      background: transparent;
+      color: #4c6ef5;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.2s ease;
+    }
+
+    .clear-history:hover {
+      color: #2738a6;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        max-height: none;
+        order: -1;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1.75rem 1rem 2.5rem;
+      }
+
+      .app-shell {
+        gap: 1.25rem;
+      }
+
+      .sidebar {
+        order: -1;
+        padding: 1.25rem;
+      }
+
+      main {
+        gap: 1.5rem;
+      }
+
+      .card {
+        padding: 1.5rem;
+      }
+
+      .history-item {
+        padding: 0.65rem 0.75rem;
+      }
+
+      .section-nav button {
+        padding: 0.55rem 0.65rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Research Hub</h2>
+        <p>Use quick picks or revisit a ticker to regenerate its mock insights.</p>
+      </div>
+      <section class="sidebar-section">
+        <h3>Quick Picks</h3>
+        <div class="quick-picks">
+          <button type="button" data-quick-ticker="AAPL">AAPL</button>
+          <button type="button" data-quick-ticker="MSFT">MSFT</button>
+          <button type="button" data-quick-ticker="GOOGL">GOOGL</button>
+          <button type="button" data-quick-ticker="AMZN">AMZN</button>
+          <button type="button" data-quick-ticker="NVDA">NVDA</button>
+        </div>
+      </section>
+      <section class="sidebar-section">
+        <h3>Report Sections</h3>
+        <ul class="section-nav">
+          <li><button type="button" data-scroll-target="snapshot">Snapshot</button></li>
+          <li><button type="button" data-scroll-target="drivers">Valuation Drivers</button></li>
+          <li><button type="button" data-scroll-target="scenarios">Price Targets</button></li>
+          <li><button type="button" data-scroll-target="catalysts">Catalysts &amp; Risks</button></li>
+          <li><button type="button" data-scroll-target="analyst">Analyst Take</button></li>
+        </ul>
+      </section>
+      <section class="sidebar-section">
+        <div class="sidebar-section-heading">
+          <h3>History</h3>
+          <button type="button" class="clear-history" data-clear-history>Clear</button>
+        </div>
+        <ul class="history-list" id="history-list">
+          <li class="history-empty">No reports yet.</li>
+        </ul>
+      </section>
+    </aside>
+    <main>
+      <header>
+        <h1>Equity Insight</h1>
+        <p>Generate a quick equity snapshot by entering a stock ticker symbol.</p>
+      </header>
+
+      <section class="card">
+        <form id="ticker-form" autocomplete="off">
+          <div>
+            <label for="ticker">Ticker symbol</label>
+            <div class="ticker-row">
+              <input type="text" id="ticker" name="ticker" placeholder="AAPL" maxlength="8" required />
+              <button type="submit">Generate Report</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="card report" id="report" aria-live="polite" aria-busy="false">
+        <div class="placeholder">
+          Provide a ticker symbol to see valuation metrics, trends, and qualitative insights.
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+    const form = document.querySelector('#ticker-form');
+    const tickerInput = document.querySelector('#ticker');
+    const report = document.querySelector('#report');
+    const historyList = document.querySelector('#history-list');
+    const quickPickButtons = document.querySelectorAll('[data-quick-ticker]');
+    const sectionNavButtons = document.querySelectorAll('[data-scroll-target]');
+    const clearHistoryButton = document.querySelector('[data-clear-history]');
+    const historyEntries = [];
+    const historyLimit = 12;
+
+    const companyOverrides = {
+      AAPL: {
+        summary:
+          'Apple balances resilient Services momentum with steady hardware refresh cycles.\nGross margin discipline funds ongoing buybacks and dividend growth.\nManagement continues to prioritize ecosystem lock-in and premium positioning.',
+        catalysts: [
+          'Upside from higher average selling prices as the Pro lineup refresh lands',
+          'Acceleration in Services ARPU from bundled content tiers',
+          'Ongoing share repurchase program tightening the float'
+        ],
+        risks: [
+          'Regulatory pressure on App Store economics',
+          'Hardware demand sensitivity to global consumer spending',
+          'FX volatility weighing on reported revenue'
+        ],
+        keyDrivers: [
+          'Mix shift toward Services bolsters blended gross margin trajectory',
+          'Wearables attach rates extend lifetime value per customer',
+          'Balance-sheet cash enables disciplined capital allocation'
+        ],
+        rating: 'Outperform'
+      },
+      MSFT: {
+        summary:
+          'Microsoft benefits from secular cloud adoption with Azure leading growth.\nOperating leverage from commercial cloud supports durable EPS compounding.\nBalance sheet strength keeps capital returns and investment capacity intact.',
+        catalysts: [
+          'Azure consumption trends re-accelerating with AI workloads',
+          'Seat expansion from Microsoft 365 E5 upgrades across enterprise accounts',
+          'Strategic partnerships extending Teams and Dynamics integrations'
+        ],
+        risks: [
+          'Large-deal scrutiny in a slower macro spending environment',
+          'Heightened competition in productivity suites and collaboration tools',
+          'Cloud optimization efforts temper near-term Azure revenue growth'
+        ],
+        keyDrivers: [
+          'Commercial cloud scale maintains premium operating margin profile',
+          'AI integrations deepen switching costs across the product portfolio',
+          'Net cash position supports balanced inorganic and organic investment'
+        ],
+        rating: 'Moderate Buy'
+      }
+    };
+
+    const driverPool = [
+      'Expanding subscription mix stabilizes revenue visibility',
+      'Improving supply chain efficiency supports margin expansion',
+      'Platform ecosystem unlocks incremental monetization pathways',
+      'Cloud migration tailwinds sustain double-digit services growth',
+      'Cost discipline keeps opex growth below revenue trajectory',
+      'AI-driven tooling deepens customer engagement and wallet share'
+    ];
+
+    const catalystPool = [
+      'Management signaling disciplined M&A to broaden the platform moat',
+      'Upside from international expansion where penetration remains low',
+      'Margin tailwinds as infrastructure optimization programs scale',
+      'New product roadmap expected to refresh premium pricing power',
+      'Partnership pipeline opening cross-selling opportunities',
+      'Share buybacks providing consistent EPS accretion'
+    ];
+
+    const riskPool = [
+      'Macro slowdown could delay enterprise purchasing decisions',
+      'Competitive pricing pressure may limit near-term margin gains',
+      'Higher rates increase discount rates applied to future cash flows',
+      'Currency volatility continues to create translation headwinds',
+      'Regulatory scrutiny could alter preferred business practices',
+      'Supply chain constraints risk near-term fulfillment delays'
+    ];
+
+    const bullNotes = [
+      'Premium positioning supports sustained double-digit top-line growth.',
+      'Margin expansion accelerates as scale efficiencies kick in.',
+      'AI-enabled features unlock new cross-sell attach rates.'
+    ];
+
+    const baseNotes = [
+      'Execution tracks plan with mid-teens EPS growth and stable margins.',
+      'Balanced demand keeps revenue growth in the high-single-digit range.',
+      'Recurring revenue mix offsets cyclical softness in transactional lines.'
+    ];
+
+    const bearNotes = [
+      'Demand softens as customers delay upgrade cycles.',
+      'Execution risk on the roadmap pushes out monetization gains.',
+      'Macro volatility pressures valuation multiples toward long-term averages.'
+    ];
+
+    function createRng(seed) {
+      let value = seed % 2147483647;
+      if (value <= 0) {
+        value += 2147483646;
+      }
+      return function () {
+        value = (value * 16807) % 2147483647;
+        return value / 2147483647;
+      };
+    }
+
+    function seedFromTicker(ticker) {
+      return ticker.split('').reduce((acc, char, index) => acc + char.charCodeAt(0) * (index + 11), 0) + ticker.length * 97;
+    }
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    }
+
+    function formatMarketCap(billions) {
+      if (billions >= 1000) {
+        return `$${(billions / 1000).toFixed(1)}T`;
+      }
+      return `$${billions.toFixed(1)}B`;
+    }
+
+    function pickItems(source, count, rng) {
+      const pool = [...source];
+      const items = [];
+      while (pool.length && items.length < count) {
+        const index = Math.floor(rng() * pool.length);
+        items.push(pool.splice(index, 1)[0]);
+      }
+      return items;
+    }
+
+    function pickItem(source, rng) {
+      return source[Math.floor(rng() * source.length)];
+    }
+
+    function generateMockReport(ticker) {
+      const upperTicker = ticker.toUpperCase();
+      const override = companyOverrides[upperTicker] || {};
+      const rng = createRng(seedFromTicker(upperTicker));
+
+      const price = Number((20 + rng() * 350).toFixed(2));
+      const peRatio = Number((12 + rng() * 24).toFixed(1));
+      const epsValue = Number((price / peRatio).toFixed(2));
+      const dividendYieldValue = Number((0.2 + rng() * 2.2).toFixed(2));
+      const marketCapBillions = 10 + rng() * 1800;
+      const revenueGrowthValue = Number((4 + rng() * 24).toFixed(1));
+      const operatingMarginValue = Number((12 + rng() * 26).toFixed(1));
+      const freeCashFlowValue = Number((0.4 + rng() * 35).toFixed(1));
+      const debtToEquityValue = Number((0.15 + rng() * 1.1).toFixed(2));
+      const earningsRevisionValue = Number((-5 + rng() * 13).toFixed(1));
+
+      const ratingOptions = ['Outperform', 'Moderate Buy', 'Market Perform', 'Accumulate'];
+      const rating = override.rating || ratingOptions[Math.floor(rng() * ratingOptions.length)];
+
+      const baseSummary = `${upperTicker} posts ${revenueGrowthValue.toFixed(1)}% revenue growth with operating margins around ${operatingMarginValue.toFixed(1)}%.\n` +
+        `Free cash flow near ~$${freeCashFlowValue.toFixed(1)}B supports balanced capital allocation while leverage stays manageable at ${debtToEquityValue}x.\n` +
+        `Consensus earnings revisions are ${earningsRevisionValue >= 0 ? 'positive' : 'negative'} at ${Math.abs(earningsRevisionValue).toFixed(1)}% this quarter, aligning with a ${rating.toLowerCase()} stance.`;
+
+      const keyDrivers = override.keyDrivers || pickItems(driverPool, 3, rng);
+      const catalysts = override.catalysts || pickItems(catalystPool, 3, rng);
+      const risks = override.risks || pickItems(riskPool, 3, rng);
+
+      const bullPrice = price * (1 + 0.18 + rng() * 0.18);
+      const basePrice = price * (1 + 0.05 + rng() * 0.08);
+      const bearPrice = price * (1 - (0.08 + rng() * 0.12));
+
+      const scenarioWeights = [0.3 + rng() * 0.1, 0.5 + rng() * 0.1, 0.2 + rng() * 0.08];
+      const weightSum = scenarioWeights.reduce((sum, value) => sum + value, 0);
+      const bullProbability = Math.round((scenarioWeights[0] / weightSum) * 100);
+      const baseProbability = Math.round((scenarioWeights[1] / weightSum) * 100);
+      let bearProbability = 100 - bullProbability - baseProbability;
+      if (bearProbability < 0) {
+        bearProbability = 0;
+      }
+
+      const priceTargets = [
+        {
+          label: 'Bull Case',
+          price: formatCurrency(bullPrice),
+          probability: `${bullProbability}%`,
+          note: pickItem(bullNotes, rng)
+        },
+        {
+          label: 'Base Case',
+          price: formatCurrency(basePrice),
+          probability: `${baseProbability}%`,
+          note: pickItem(baseNotes, rng)
+        },
+        {
+          label: 'Bear Case',
+          price: formatCurrency(bearPrice),
+          probability: `${bearProbability}%`,
+          note: pickItem(bearNotes, rng)
+        }
+      ];
+
+      const summary = override.summary || baseSummary;
+
+      return {
+        price: formatCurrency(price),
+        marketCap: formatMarketCap(marketCapBillions),
+        pe: `${peRatio.toFixed(1)}x`,
+        eps: formatCurrency(epsValue),
+        dividendYield: `${dividendYieldValue.toFixed(2)}%`,
+        revenueGrowth: `${revenueGrowthValue.toFixed(1)}%`,
+        operatingMargin: `${operatingMarginValue.toFixed(1)}%`,
+        freeCashFlow: `~$${freeCashFlowValue.toFixed(1)}B`,
+        debtToEquity: `${debtToEquityValue.toFixed(2)}x`,
+        earningsRevision: `${earningsRevisionValue >= 0 ? '+' : ''}${earningsRevisionValue.toFixed(1)}%`,
+        rating,
+        summary,
+        keyDrivers,
+        catalysts,
+        risks,
+        priceTargets,
+        asOf: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      };
+    }
+
+    function loadingState(isLoading) {
+      report.setAttribute('aria-busy', String(isLoading));
+      if (isLoading) {
+        report.innerHTML = '<div class="placeholder">Analyzing fundamentals...</div>';
+      }
+    }
+
+    function renderReport(ticker, data) {
+      const driverList = data.keyDrivers.map((item) => `<li>${item}</li>`).join('');
+      const catalystList = data.catalysts.map((item) => `<li>${item}</li>`).join('');
+      const riskList = data.risks.map((item) => `<li>${item}</li>`).join('');
+      const targetCards = data.priceTargets
+        .map(
+          (target) => `
+            <div class="scenario-card">
+              <span class="tag">${target.probability}</span>
+              <h3>${target.label}</h3>
+              <div class="target-price">${target.price}</div>
+              <p>${target.note}</p>
+            </div>
+          `
+        )
+        .join('');
+
+      report.innerHTML = `
+        <article class="report-section" id="snapshot">
+          <h2>${ticker} Snapshot</h2>
+          <div class="report-grid">
+            <div class="metric">
+              <span>Last Price</span>
+              <strong>${data.price}</strong>
+            </div>
+            <div class="metric">
+              <span>Market Cap</span>
+              <strong>${data.marketCap}</strong>
+            </div>
+            <div class="metric">
+              <span>P/E (TTM)</span>
+              <strong>${data.pe}</strong>
+            </div>
+            <div class="metric">
+              <span>EPS (TTM)</span>
+              <strong>${data.eps}</strong>
+            </div>
+            <div class="metric">
+              <span>Revenue Growth</span>
+              <strong>${data.revenueGrowth}</strong>
+            </div>
+            <div class="metric">
+              <span>Operating Margin</span>
+              <strong>${data.operatingMargin}</strong>
+            </div>
+            <div class="metric">
+              <span>Dividend Yield</span>
+              <strong>${data.dividendYield}</strong>
+            </div>
+            <div class="metric">
+              <span>Free Cash Flow</span>
+              <strong>${data.freeCashFlow}</strong>
+            </div>
+            <div class="metric">
+              <span>Debt / Equity</span>
+              <strong>${data.debtToEquity}</strong>
+            </div>
+            <div class="metric">
+              <span>Earnings Revision</span>
+              <strong>${data.earningsRevision}</strong>
+            </div>
+            <div class="metric">
+              <span>Analyst View</span>
+              <strong class="metric-rating">${data.rating}</strong>
+            </div>
+          </div>
+        </article>
+        <article class="report-section" id="drivers">
+          <h2>Valuation Drivers</h2>
+          <ul class="insight-list">${driverList}</ul>
+        </article>
+        <article class="report-section" id="scenarios">
+          <h2>Scenario Price Targets</h2>
+          <div class="scenario-grid">${targetCards}</div>
+        </article>
+        <article class="report-section" id="catalysts">
+          <h2>Catalysts & Risks</h2>
+          <div class="report-split">
+            <div>
+              <h3>Catalysts</h3>
+              <ul class="insight-list">${catalystList}</ul>
+            </div>
+            <div>
+              <h3>Risks</h3>
+              <ul class="insight-list">${riskList}</ul>
+            </div>
+          </div>
+        </article>
+        <article class="report-section" id="analyst">
+          <h2>Analyst Take</h2>
+          <p class="analysis">${data.summary}</p>
+        </article>
+        <p class="timestamp">Mock data refreshed ${data.asOf}</p>
+      `;
+    }
+
+    function renderHistory() {
+      if (!historyList) {
+        return;
+      }
+
+      if (!historyEntries.length) {
+        historyList.innerHTML = '<li class="history-empty">No reports yet.</li>';
+        return;
+      }
+
+      historyList.innerHTML = historyEntries
+        .map(
+          (entry, index) => `
+            <li>
+              <button type="button" class="history-item" data-history-index="${index}">
+                <div class="history-heading">
+                  <span class="history-ticker">${entry.ticker}</span>
+                  <span class="history-price">${entry.price}</span>
+                </div>
+                <div class="history-sub">
+                  <span class="history-rating tag">${entry.rating}</span>
+                  <span class="history-time">${entry.asOf}</span>
+                </div>
+              </button>
+            </li>
+          `
+        )
+        .join('');
+    }
+
+    function addToHistory(ticker, data) {
+      const existingIndex = historyEntries.findIndex((entry) => entry.ticker === ticker);
+      if (existingIndex !== -1) {
+        historyEntries.splice(existingIndex, 1);
+      }
+
+      historyEntries.unshift({
+        ticker,
+        price: data.price,
+        rating: data.rating,
+        asOf: data.asOf
+      });
+
+      if (historyEntries.length > historyLimit) {
+        historyEntries.length = historyLimit;
+      }
+
+      renderHistory();
+    }
+
+    function processTicker(inputValue) {
+      const normalized = (inputValue || '').trim().toUpperCase();
+      if (!normalized) {
+        return;
+      }
+
+      tickerInput.value = normalized;
+      loadingState(true);
+
+      setTimeout(() => {
+        const data = generateMockReport(normalized);
+        renderReport(normalized, data);
+        addToHistory(normalized, data);
+        loadingState(false);
+        report.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 550);
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      processTicker(tickerInput.value);
+    });
+
+    if (historyList) {
+      historyList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-history-index]');
+        if (!button) {
+          return;
+        }
+        const index = Number(button.getAttribute('data-history-index'));
+        const entry = historyEntries[index];
+        if (!entry) {
+          return;
+        }
+        processTicker(entry.ticker);
+      });
+    }
+
+    if (clearHistoryButton) {
+      clearHistoryButton.addEventListener('click', () => {
+        historyEntries.length = 0;
+        renderHistory();
+      });
+    }
+
+    quickPickButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        processTicker(button.getAttribute('data-quick-ticker') || '');
+      });
+    });
+
+    sectionNavButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-scroll-target');
+        if (!targetId) {
+          return;
+        }
+        const section = document.getElementById(targetId);
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    renderHistory();
+  </script>
+</body>
+</html>
