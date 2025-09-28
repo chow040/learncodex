@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | My App</title>
+  <style>
+    :root {
+      font-size: 16px;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color-scheme: light dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #f5f7ff 0%, #d9e4ff 50%, #c6d4ff 100%);
+      color: #1f2933;
+      padding: 1rem;
+    }
+
+    main {
+      width: min(90vw, 440px);
+      padding: clamp(2rem, 4vw, 2.75rem) clamp(1.5rem, 4vw, 2.75rem);
+      background-color: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+      transition: transform 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 24px 55px rgba(15, 23, 42, 0.2);
+    }
+
+    .title {
+      font-size: clamp(1.75rem, 2vw + 1rem, 2.4rem);
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #4b5563;
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+
+    form {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.9rem;
+      color: #243b53;
+      font-weight: 600;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      border-radius: 0.9rem;
+      font-size: 1rem;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #4c6ef5;
+      box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.2);
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+
+    input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #4c6ef5;
+    }
+
+    a {
+      color: #4c6ef5;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.95rem;
+      border: none;
+      border-radius: 0.9rem;
+      background: linear-gradient(135deg, #4c6ef5, #5b8def);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button[type="submit"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(76, 110, 245, 0.25);
+    }
+
+    button[type="submit"]:active {
+      transform: translateY(0);
+    }
+
+    .toggle {
+      display: flex;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 1.75rem;
+      font-size: 0.95rem;
+      color: #475569;
+    }
+
+    .toggle button {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #4c6ef5;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .toggle button:hover {
+      text-decoration: underline;
+    }
+
+    main[data-mode="signup"] .form-login,
+    main[data-mode="signup"] .title-login,
+    main[data-mode="signup"] .subtitle-login,
+    main[data-mode="login"] .form-signup,
+    main[data-mode="login"] .title-signup,
+    main[data-mode="login"] .subtitle-signup,
+    main[data-mode="signup"] .toggle-login,
+    main[data-mode="login"] .toggle-signup {
+      display: none;
+    }
+
+    .terms {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #52606d;
+      line-height: 1.4;
+    }
+
+    .terms input {
+      margin-top: 0.2rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 1.5rem 0;
+      }
+
+      main {
+        width: min(94vw, 360px);
+        padding: 2rem 1.5rem;
+        border-radius: 1.1rem;
+      }
+
+      .actions {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .actions a {
+        order: -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main data-mode="login">
+    <h1 class="title title-login">Welcome Back</h1>
+    <h1 class="title title-signup">Join the Community</h1>
+
+    <p class="subtitle subtitle-login">Log in to access your dashboard and stay on top of your work.</p>
+    <p class="subtitle subtitle-signup">Create your personal account to start tracking projects in minutes.</p>
+
+    <form class="form-login" aria-label="Sign in form">
+      <div class="field-group">
+        <label for="login-email">Email address</label>
+        <input type="email" id="login-email" name="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="field-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" name="password" placeholder="********" autocomplete="current-password" required />
+      </div>
+      <div class="actions">
+        <label class="remember">
+          <input type="checkbox" name="remember" />
+          Remember me
+        </label>
+        <a href="#">Forgot password?</a>
+      </div>
+      <button type="submit">Sign In</button>
+    </form>
+
+    <form class="form-signup" aria-label="Create account form">
+      <div class="field-group">
+        <label for="signup-name">Full name</label>
+        <input type="text" id="signup-name" name="name" placeholder="Alex Taylor" autocomplete="name" required />
+      </div>
+      <div class="field-group">
+        <label for="signup-email">Email address</label>
+        <input type="email" id="signup-email" name="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="field-group">
+        <label for="signup-password">Password</label>
+        <input type="password" id="signup-password" name="password" placeholder="********" autocomplete="new-password" required />
+      </div>
+      <div class="field-group">
+        <label for="signup-confirm">Confirm password</label>
+        <input type="password" id="signup-confirm" name="confirm" placeholder="********" autocomplete="new-password" required />
+      </div>
+      <label class="terms">
+        <input type="checkbox" name="terms" required />
+        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+      </label>
+      <button type="submit">Create Account</button>
+    </form>
+
+    <div class="toggle toggle-login" aria-live="polite">
+      <span>New here?</span>
+      <button type="button" data-switch="signup">Create an account</button>
+    </div>
+
+    <div class="toggle toggle-signup" aria-live="polite">
+      <span>Already have an account?</span>
+      <button type="button" data-switch="login">Back to sign in</button>
+    </div>
+  </main>
+
+  <script>
+    const main = document.querySelector('main');
+    const switchers = document.querySelectorAll('[data-switch]');
+
+    switchers.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-switch');
+        if (target === 'login' || target === 'signup') {
+          main.setAttribute('data-mode', target);
+          document.querySelectorAll('form').forEach((form) => form.reset());
+        }
+      });
+    });
+  </script>
+</body>
+</html>
