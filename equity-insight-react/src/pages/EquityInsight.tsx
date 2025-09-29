@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
@@ -88,6 +88,18 @@ type ReportPayload = {
 type HistoryEntry = {
   ticker: string
   data: ReportPayload
+}
+
+type FinnhubMetrics = {
+  symbol: string
+  pe: number | null
+  eps: number | null
+  revenueGrowth: number | null
+  operatingMargin: number | null
+  dividendYield: number | null
+  priceToFreeCashFlow: number | null
+  debtToEquity: number | null
+  earningsRevision: number | null
 }
 
 const companyOverrides: Record<string, CompanyOverride> = {
@@ -197,9 +209,9 @@ const tradePlanPool = [
   'Scale in above anchored VWAP when momentum breadth exceeds 60% and volume confirms.'
 ]
 const riskNotesPool = [
-  'Watch macro catalysts – elevated beta implies headline sensitivity.',
+  'Watch macro catalysts - elevated beta implies headline sensitivity.',
   'Position sizing: 50 bps of capital max with ATR-based stop below structure.',
-  'Avoid holding through earnings – implied move pricing is elevated.',
+  'Avoid holding through earnings - implied move pricing is elevated.',
   'Liquidity pockets appear around opening range; reduce size during lunch session.',
   'Confirm signals with broader sector rotation before committing full risk.'
 ]
@@ -326,6 +338,8 @@ const Placeholder = ({ text }: { text: string }) => <div className="placeholder"
 type SnapshotView = 'fundamental' | 'technical'
 
 const EquityInsight = () => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+
   // Form + report state drives the UI.
   const [tickerInput, setTickerInput] = useState('')
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
@@ -333,31 +347,120 @@ const EquityInsight = () => {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
 
-  // Refs keep track of scrolling targets and pending timers without re-rendering.
+  // Refs keep track of scrolling targets.
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
-  const loadingTimer = useRef<number | undefined>(undefined)
 
-  useEffect(() => () => window.clearTimeout(loadingTimer.current), [])
-
-  const handleGenerate = (nextTicker: string) => {
+  
+  const handleGenerate = async (nextTicker: string) => {
     const trimmed = nextTicker.trim().toUpperCase()
     if (!trimmed) return
 
     setTickerInput(trimmed)
     setIsLoading(true)
-    window.clearTimeout(loadingTimer.current)
 
-    loadingTimer.current = window.setTimeout(() => {
+    try {
+      const [quoteResponse, profileResponse, metricsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/finance/quote?symbol=${encodeURIComponent(trimmed)}`),
+        fetch(`${API_BASE_URL}/api/finance/profile?symbol=${encodeURIComponent(trimmed)}`),
+        fetch(`${API_BASE_URL}/api/finance/metrics?symbol=${encodeURIComponent(trimmed)}`)
+      ])
+
+      if (!quoteResponse.ok || !profileResponse.ok || !metricsResponse.ok) {
+        throw new Error('Failed to fetch market data.')
+      }
+
+      const quote = await quoteResponse.json()
+      const profile = await profileResponse.json()
+      const metrics: FinnhubMetrics = await metricsResponse.json()
+
+      const assessmentResponse = await fetch(`${API_BASE_URL}/api/assessment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: trimmed })
+      })
+
+      if (!assessmentResponse.ok) {
+        throw new Error('Failed to fetch assessment data.')
+      }
+
+      const assessment = await assessmentResponse.json()
+
+      const safeCurrency = typeof profile.currency === 'string' && profile.currency.trim().length === 3 ? profile.currency : 'USD'
+      const formatCurrencyValue = (value: number) =>
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: safeCurrency }).format(value)
+
+      const formattedPrice = typeof quote.current === 'number' ? formatCurrencyValue(quote.current) : formatCurrencyValue(0)
+      const marketCapValue =
+        typeof profile.marketCapitalization === 'number' && profile.marketCapitalization > 0
+          ? formatMarketCap(profile.marketCapitalization)
+          : 'N/A'
+
+      const formatMultiple = (value: number | null, decimals = 1) =>
+        value !== null ? value.toFixed(decimals) + 'x' : 'N/A'
+      const formatPercent = (value: number | null, decimals = 1) =>
+        value !== null ? value.toFixed(decimals) + '%' : 'N/A'
+      const formatPercentWithSign = (value: number | null, decimals = 1) =>
+        value !== null ? (value >= 0 ? '+' : '') + value.toFixed(decimals) + '%' : 'N/A'
+      const formatCurrencyOrNA = (value: number | null) => (value !== null ? formatCurrencyValue(value) : 'N/A')
+      const formatFreeCashFlow = (value: number | null) => {
+        if (value === null) return 'N/A'
+        const rounded = value >= 100 ? value.toFixed(0) : value.toFixed(1)
+        return '~$' + rounded + 'B'
+      }
+      const priceToFcfRatio =
+        typeof metrics.priceToFreeCashFlow === 'number' && Number.isFinite(metrics.priceToFreeCashFlow) && metrics.priceToFreeCashFlow > 0
+          ? metrics.priceToFreeCashFlow
+          : null
+      const currentPrice =
+        typeof quote.current === 'number' && Number.isFinite(quote.current) && quote.current > 0 ? quote.current : null
+      const fcfPerShare = priceToFcfRatio && currentPrice ? currentPrice / priceToFcfRatio : null
+      const sharesOutstandingMillions =
+        typeof profile.shareOutstanding === 'number' && Number.isFinite(profile.shareOutstanding) && profile.shareOutstanding > 0
+          ? profile.shareOutstanding
+          : null
+      const freeCashFlowBillions =
+        fcfPerShare !== null && sharesOutstandingMillions !== null
+          ? (fcfPerShare * sharesOutstandingMillions) / 1000
+          : null
+
+      const riskLabel =
+        typeof assessment.riskRating === 'string' && assessment.riskRating.length > 0
+          ? assessment.riskRating.charAt(0).toUpperCase() + assessment.riskRating.slice(1)
+          : 'N/A'
+
+      const opportunities = Array.isArray(assessment.opportunities) ? assessment.opportunities : []
+      const watchItems = Array.isArray(assessment.watchItems) ? assessment.watchItems : []
+      const nextSteps = Array.isArray(assessment.nextSteps) ? assessment.nextSteps : []
+
       const data = generateMockReport(trimmed)
+      data.price = formattedPrice
+      data.marketCap = marketCapValue
+      data.pe = formatMultiple(metrics.pe)
+      data.eps = formatCurrencyOrNA(metrics.eps)
+      data.revenueGrowth = formatPercent(metrics.revenueGrowth, 2)
+      data.operatingMargin = formatPercent(metrics.operatingMargin, 1)
+      data.dividendYield = formatPercent(metrics.dividendYield, 2)
+      data.freeCashFlow = formatFreeCashFlow(freeCashFlowBillions)
+      data.debtToEquity = formatMultiple(metrics.debtToEquity, 2)
+      data.earningsRevision = formatPercentWithSign(metrics.earningsRevision, 1)
+      data.rating = riskLabel
+      data.summary = typeof assessment.summary === 'string' ? assessment.summary : data.summary
+      if (opportunities.length) data.keyDrivers = opportunities
+      if (nextSteps.length) data.catalysts = nextSteps
+      if (watchItems.length) data.risks = watchItems
+
       setReportData({ ticker: trimmed, data })
       setHistory((prev) => {
         const filtered = prev.filter((entry) => entry.ticker !== trimmed)
         return [{ ticker: trimmed, data }, ...filtered].slice(0, 12)
       })
       setSnapshotView('fundamental')
-      setIsLoading(false)
       scrollTargets.current.snapshot?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 550)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -431,7 +534,7 @@ const EquityInsight = () => {
               <div className="technical-card">
                 <div className="technical-label">MACD</div>
                 <div className="technical-value">{data.technical.macdLine}</div>
-                <div className="technical-subtext">Signal {data.technical.macdSignal} · {data.technical.macdView}</div>
+                <div className="technical-subtext">Signal {data.technical.macdSignal} / {data.technical.macdView}</div>
               </div>
               <div className="technical-card">
                 <div className="technical-label">Price vs 50 DMA</div>
@@ -446,7 +549,7 @@ const EquityInsight = () => {
               <div className="technical-card">
                 <div className="technical-label">Key Levels</div>
                 <div className="technical-value">{data.technical.support} / {data.technical.resistance}</div>
-                <div className="technical-subtext">Support · Resistance</div>
+                <div className="technical-subtext">Support / Resistance</div>
               </div>
               <div className="technical-card">
                 <div className="technical-label">Average Volume</div>
@@ -606,5 +709,3 @@ const EquityInsight = () => {
 }
 
 export default EquityInsight
-
-
