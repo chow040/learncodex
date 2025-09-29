@@ -1,0 +1,98 @@
+# Equity Insight Backend
+
+Node.js/Express API that powers the Equity Insight frontend with two integrations:
+
+- Assessments via OpenAI's GPT models
+- Market data via Finnhub
+
+## Getting Started
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy the example environment variables and fill in your API keys:
+   ```bash
+   cp .env.example .env
+   ```
+3. Update `.env` with valid values for `OPENAI_API_KEY` and `FINNHUB_API_KEY`.
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The API listens on `http://localhost:4000` by default. Override the port by setting `PORT` in `.env`.
+
+## Available Endpoints
+
+### `POST /api/assessment`
+Generate an equity assessment using ChatGPT.
+
+Request body:
+```json
+{
+  "symbol": "AAPL",
+  "timeframe": "6 months",
+  "strategyFocus": "swing trading",
+  "additionalContext": "Prioritize risk controls"
+}
+```
+
+Response body:
+```json
+{
+  "summary": "High level insight",
+  "riskRating": "medium",
+  "opportunities": ["Catalyst", "Momentum"],
+  "watchItems": ["Earnings date"],
+  "nextSteps": ["Review technicals"],
+  "rawText": "Original model response"
+}
+```
+
+### `GET /api/finance/quote?symbol=AAPL`
+Fetch real-time quote data from Finnhub.
+
+Response body:
+```json
+{
+  "symbol": "AAPL",
+  "current": 220.02,
+  "high": 222.15,
+  "low": 218.9,
+  "open": 219.5,
+  "previousClose": 218.4,
+  "timestamp": 1727572800
+}
+```
+
+### `GET /api/finance/profile?symbol=AAPL`
+Retrieve company fundamentals from Finnhub.
+
+Response body:
+```json
+{
+  "symbol": "AAPL",
+  "name": "Apple Inc",
+  "exchange": "NASDAQ",
+  "currency": "USD",
+  "ipo": "1980-12-12",
+  "marketCapitalization": 3400000,
+  "shareOutstanding": 15100,
+  "logo": "https://logo.clearbit.com/apple.com",
+  "weburl": "https://www.apple.com"
+}
+```
+
+## Production Build
+
+```bash
+npm run build
+npm start
+```
+
+`npm run build` compiles TypeScript to `dist/`, and `npm start` runs the compiled output.
+
+## Health Check
+
+`GET /health` returns a simple uptime payload to help with monitoring.
