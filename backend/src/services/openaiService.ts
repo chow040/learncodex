@@ -145,14 +145,14 @@ const buildSupplementalContext = (context?: AssessmentContext): string | null =>
     const metricLines = [
       `P/E ratio: ${formatNumber(metrics.pe)}`,
       `EPS (TTM): ${formatNumber(metrics.eps)}`,
-      `Revenue growth YoY: ${formatPercent(metrics.revenueGrowth)}`,
-      `Operating margin: ${formatPercent(metrics.operatingMargin)}`,
-      `Dividend yield: ${formatPercent(metrics.dividendYield)}`,
+      `Revenue growth YoY: ${formatPercent(metrics.revenueGrowth)} (percentage already scaled)` ,
+      `Operating margin: ${formatPercent(metrics.operatingMargin)} (percentage already scaled)` ,
+      `Dividend yield: ${formatPercent(metrics.dividendYield)} (percentage already scaled)` ,
       `Price to free cash flow: ${formatNumber(metrics.priceToFreeCashFlow)}`,
       `Debt to equity: ${formatNumber(metrics.debtToEquity)}`,
-      `Earnings revision trend: ${formatPercent(metrics.earningsRevision)}`,
+      `Earnings revision trend: ${formatPercent(metrics.earningsRevision)} (percentage already scaled)` ,
     ];
-    sections.push(`Key financial metrics (Finnhub Basic Financials):\n${metricLines.join('\n')}`);
+    sections.push(`Key financial metrics (Finnhub Basic Financials):\n${metricLines.join('\n')}\nAll percentages above are already calculated—do not multiply or rescale them.`);
   }
 
   if (context.profile) {
@@ -196,7 +196,7 @@ const buildSupplementalContext = (context?: AssessmentContext): string | null =>
 export const requestEquityAssessment = async (
   input: AssessmentInput,
   context?: AssessmentContext,
-): Promise<AssessmentPayload> => {
+): Promise<{ assessment: AssessmentPayload; prompt: string; systemPrompt: string }> => {
   const client = getClient();
   const { symbol, timeframe, strategyFocus, additionalContext } = input;
   const supplementalContext = buildSupplementalContext(context);
@@ -214,12 +214,7 @@ export const requestEquityAssessment = async (
     userContentLines.push(supplementalContext);
   }
 
-  const response = await client.responses.create({
-    model: env.openAiModel,
-    input: [
-      {
-        role: 'system',
-        content: `You are an equity analyst who produces concise, actionable insights.
+  const systemPrompt = `You are an equity analyst who produces concise, actionable insights.
 Respond only in JSON with the schema:
 {
   "summary": string,
@@ -227,11 +222,19 @@ Respond only in JSON with the schema:
   "opportunities": string[],
   "watchItems": string[],
   "nextSteps": string[]
-}`,
+}`;
+  const prompt = userContentLines.join('\n').trim();
+
+  const response = await client.responses.create({
+    model: env.openAiModel,
+    input: [
+      {
+        role: 'system',
+        content: systemPrompt,
       },
       {
         role: 'user',
-        content: userContentLines.join('\n').trim(),
+        content: prompt,
       },
     ],
   });
@@ -247,11 +250,23 @@ Respond only in JSON with the schema:
     const parsed = JSON.parse(jsonPayload) as Omit<AssessmentPayload, 'rawText'>;
 
     return {
-      ...parsed,
-      rawText: responseText,
-    } satisfies AssessmentPayload;
+      assessment: {
+        ...parsed,
+        rawText: responseText,
+      } satisfies AssessmentPayload,
+      prompt,
+      systemPrompt,
+    };
   } catch (error) {
     throw new Error(`Unable to parse OpenAI response: ${responseText}`);
   }
 };
+
+
+
+
+
+
+
+
 
