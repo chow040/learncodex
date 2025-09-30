@@ -4,6 +4,7 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
 
 - Assessments via OpenAI's GPT models
 - Market data via Finnhub
+- Optional PostgreSQL logging for ChatGPT assessment requests/responses
 
 ## Getting Started
 
@@ -15,8 +16,9 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    ```bash
    cp .env.example .env
    ```
-3. Update `.env` with valid values for `OPENAI_API_KEY` and `FINNHUB_API_KEY`.
-4. Start the development server:
+3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, and optionally `DATABASE_URL` to enable assessment logging.
+4. If `DATABASE_URL` is set, run the migrations in `sql/001_create_assessment_logs.sql` and `sql/002_add_prompt_columns.sql` against your PostgreSQL instance.
+5. Start the development server:
    ```bash
    npm run dev
    ```
@@ -84,6 +86,10 @@ Response body:
 }
 ```
 
+## Assessment Logging
+
+When `DATABASE_URL` is configured, each successful `/api/assessment` request is persisted to PostgreSQL. The log stores the request payload, enriched Finnhub context, generated prompt/system prompt, structured AI response, and raw model output. Use the provided migration `sql/001_create_assessment_logs.sql` to create the `assessment_logs` table, and query it to audit past assessments.
+
 ## Production Build
 
 ```bash
@@ -96,3 +102,4 @@ npm start
 ## Health Check
 
 `GET /health` returns a simple uptime payload to help with monitoring.
+

@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
@@ -522,7 +522,7 @@ const EquityInsight = () => {
               <div className="metric"><span>Free Cash Flow</span><strong>{data.freeCashFlow}</strong></div>
               <div className="metric"><span>Debt / Equity</span><strong>{data.debtToEquity}</strong></div>
               <div className="metric"><span>Earnings Revision</span><strong>{data.earningsRevision}</strong></div>
-              <div className="metric"><span>Analyst View</span><strong className="metric-rating">{data.rating}</strong></div>
+              <div className="metric"><span>Risk Rating (AI)</span><strong className="metric-rating">{data.rating}</strong></div>
             </div>
           ) : (
             <div className="technical-grid" role="tabpanel">
@@ -709,3 +709,4 @@ const EquityInsight = () => {
 }
 
 export default EquityInsight
+
