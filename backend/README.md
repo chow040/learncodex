@@ -88,7 +88,7 @@ Response body:
 
 ## Assessment Logging
 
-When `DATABASE_URL` is configured, each successful `/api/assessment` request is persisted to PostgreSQL. The log stores the request payload, enriched Finnhub context, generated prompt/system prompt, structured AI response, and raw model output. Use the provided migration `sql/001_create_assessment_logs.sql` to create the `assessment_logs` table, and query it to audit past assessments.
+When `DATABASE_URL` is configured, each successful `/api/assessment` request is persisted to PostgreSQL (see `src/db/schema.ts` for the Drizzle schema definition). The log stores the request payload, enriched Finnhub context, generated prompt/system prompt, structured AI response, and raw model output. Use the provided migration `sql/001_create_assessment_logs.sql` to create the `assessment_logs` table, and query it to audit past assessments.
 
 ## Production Build
 
@@ -102,4 +102,5 @@ npm start
 ## Health Check
 
 `GET /health` returns a simple uptime payload to help with monitoring.
+
 
