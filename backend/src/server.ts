@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { assessmentRouter } from './routes/assessmentRoutes.js';
 import { financeRouter } from './routes/financeRoutes.js';
+import { socialRouter } from './routes/socialRoutes.js';
 
 export const app = express();
 
@@ -17,6 +18,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/assessment', assessmentRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/social', socialRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(error);
