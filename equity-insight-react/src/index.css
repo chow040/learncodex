@@ -1185,3 +1185,109 @@ button:active {
     padding: 1.5rem;
   }
 }
+.social-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.social-summary {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.social-metric {
+  background: #f4f6fb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.social-metric span {
+  color: #526086;
+  font-size: 0.8rem;
+}
+
+.social-metric strong {
+  font-size: 1.15rem;
+  color: #1e2a54;
+}
+
+.social-breakdown {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.social-subreddit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.social-subreddit-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d8deeb;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.9rem;
+  color: #1e2a54;
+}
+
+.social-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #ebf1ff;
+  color: #324b97;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.social-posts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.social-posts li a {
+  display: grid;
+  gap: 0.35rem;
+  text-decoration: none;
+}
+
+.social-posts li a:hover .social-post-title {
+  color: #2f5ae7;
+}
+
+.social-post-title {
+  font-weight: 600;
+  color: #1e2a54;
+  line-height: 1.35;
+}
+
+.social-post-meta {
+  font-size: 0.78rem;
+  color: #65749b;
+}
+
+.social-footnote {
+  font-size: 0.75rem;
+  color: #65749b;
+}
+
+.social-message {
+  font-size: 0.85rem;
+  color: #65749b;
+  background: #f6f8ff;
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+}

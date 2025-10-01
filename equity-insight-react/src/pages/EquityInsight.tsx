@@ -19,6 +19,25 @@ const formatCurrency = (value: number) =>
 
 const formatMarketCap = (billions: number) => (billions >= 1000 ? `$${(billions / 1000).toFixed(1)}T` : `$${billions.toFixed(1)}B`)
 
+const formatRelativeTime = (isoDate: string) => {
+  const parsed = new Date(isoDate)
+  if (Number.isNaN(parsed.getTime())) return 'Unknown'
+
+  const diff = Date.now() - parsed.getTime()
+  if (diff <= 0) return 'Just now'
+
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${Math.max(1, minutes)}m ago`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 const pickItems = <T,>(source: T[], count: number, rng: () => number) => {
   const pool = [...source]
   const items: T[] = []
@@ -88,6 +107,32 @@ type ReportPayload = {
 type HistoryEntry = {
   ticker: string
   data: ReportPayload
+}
+
+type RedditPostInsight = {
+  id: string
+  title: string
+  url: string
+  score: number
+  comments: number
+  subreddit: string
+  createdAt: string
+}
+
+type RedditSubredditInsight = {
+  name: string
+  mentions: number
+}
+
+type RedditInsights = {
+  ticker: string
+  query: string
+  totalPosts: number
+  totalUpvotes: number
+  averageComments: number
+  topSubreddits: RedditSubredditInsight[]
+  posts: RedditPostInsight[]
+  lastUpdated: string
 }
 
 type FinnhubMetrics = {
@@ -197,6 +242,7 @@ const reportSections = [
   { id: 'drivers', label: 'Valuation Drivers' },
   { id: 'scenarios', label: 'Price Targets' },
   { id: 'catalysts', label: 'Catalysts & Risks' },
+  { id: 'social', label: 'Social Buzz' },
   { id: 'analyst', label: 'Analyst Take' }
 ]
 
@@ -345,6 +391,8 @@ const EquityInsight = () => {
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [socialInsights, setSocialInsights] = useState<RedditInsights | null>(null)
+  const [socialError, setSocialError] = useState<string | null>(null)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
 
   // Refs keep track of scrolling targets.
@@ -359,6 +407,8 @@ const EquityInsight = () => {
     setIsLoading(true)
 
     try {
+      const redditPromise: Promise<Response | null> = fetch(`${API_BASE_URL}/api/social/reddit?symbol=${encodeURIComponent(trimmed)}`).catch(() => null)
+
       const [quoteResponse, profileResponse, metricsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/finance/quote?symbol=${encodeURIComponent(trimmed)}`),
         fetch(`${API_BASE_URL}/api/finance/profile?symbol=${encodeURIComponent(trimmed)}`),
@@ -372,6 +422,23 @@ const EquityInsight = () => {
       const quote = await quoteResponse.json()
       const profile = await profileResponse.json()
       const metrics: FinnhubMetrics = await metricsResponse.json()
+
+      const redditResponse = await redditPromise
+
+      if (redditResponse?.ok) {
+        try {
+          const redditInsights: RedditInsights = await redditResponse.json()
+          setSocialInsights(redditInsights)
+          setSocialError(null)
+        } catch (error) {
+          console.error(error)
+          setSocialInsights(null)
+          setSocialError('Unable to load Reddit activity right now.')
+        }
+      } else {
+        setSocialInsights(null)
+        setSocialError('Unable to load Reddit activity right now.')
+      }
 
       const assessmentResponse = await fetch(`${API_BASE_URL}/api/assessment`, {
         method: 'POST',
@@ -601,6 +668,70 @@ const EquityInsight = () => {
           </div>
         </article>
 
+        <article className="report-section" id="social" ref={(node) => { scrollTargets.current.social = node }}>
+          <h2>Social Buzz</h2>
+          {socialError ? (
+            <p className="social-message">{socialError}</p>
+          ) : socialInsights ? (
+            <div className="social-grid">
+              <div className="social-summary">
+                <div className="social-metric">
+                  <span>Total Posts (7d)</span>
+                  <strong>{socialInsights.totalPosts.toLocaleString('en-US')}</strong>
+                </div>
+                <div className="social-metric">
+                  <span>Total Upvotes</span>
+                  <strong>{socialInsights.totalUpvotes.toLocaleString('en-US')}</strong>
+                </div>
+                <div className="social-metric">
+                  <span>Avg Comments</span>
+                  <strong>{new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(socialInsights.averageComments)}</strong>
+                </div>
+              </div>
+              <div className="social-breakdown">
+                <div>
+                  <h3>Active Subreddits</h3>
+                  {socialInsights.topSubreddits.length === 0 ? (
+                    <p className="social-message">No subreddit activity detected.</p>
+                  ) : (
+                    <ul className="social-subreddit-list">
+                      {socialInsights.topSubreddits.map((item) => (
+                        <li key={item.name}>
+                          <span>r/{item.name}</span>
+                          <span className="social-badge">{item.mentions}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <h3>Top Mentions</h3>
+                  {socialInsights.posts.length === 0 ? (
+                    <p className="social-message">No trending posts for this ticker yet.</p>
+                  ) : (
+                    <ul className="social-posts">
+                      {socialInsights.posts.slice(0, 5).map((post) => (
+                        <li key={post.id}>
+                          <a href={post.url} target="_blank" rel="noopener noreferrer">
+                            <span className="social-post-title">{post.title}</span>
+                            <span className="social-post-meta">
+                              r/{post.subreddit} | {formatRelativeTime(post.createdAt)} | upvotes {post.score.toLocaleString('en-US')} | comments {post.comments.toLocaleString('en-US')}
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <p className="social-footnote">
+                Search: {socialInsights.query} | Updated {new Date(socialInsights.lastUpdated).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            </div>
+          ) : (
+            <p className="social-message">No Reddit conversations available.</p>
+          )}
+        </article>
         <article className="report-section" id="analyst" ref={(node) => { scrollTargets.current.analyst = node }}>
           <h2>Analyst Take</h2>
           <p className="analysis">{data.summary}</p>
@@ -609,7 +740,7 @@ const EquityInsight = () => {
         <p className="timestamp">Mock data refreshed {data.asOf}</p>
       </>
     )
-  }, [isLoading, reportData, snapshotView])
+  }, [isLoading, reportData, snapshotView, socialError, socialInsights])
 
   return (
     <div className="app-shell">
@@ -709,4 +840,14 @@ const EquityInsight = () => {
 }
 
 export default EquityInsight
+
+
+
+
+
+
+
+
+
+
 
