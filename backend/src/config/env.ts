@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-const requiredEnvVars = ['OPENAI_API_KEY', 'FINNHUB_API_KEY'] as const;
+const requiredEnvVars = ['OPENAI_API_KEY', 'FINNHUB_API_KEY', 'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET'] as const;
 
 requiredEnvVars.forEach((key) => {
   if (!process.env[key]) {
@@ -19,5 +19,12 @@ export const env = {
   openAiModel: process.env.OPENAI_MODEL ?? 'gpt-4.1-mini',
   finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',
   finnhubBaseUrl: process.env.FINNHUB_BASE_URL ?? 'https://finnhub.io/api/v1',
+  redditClientId: process.env.REDDIT_CLIENT_ID ?? '',
+  redditClientSecret: process.env.REDDIT_CLIENT_SECRET ?? '',
+  redditUserAgent:
+    process.env.REDDIT_USER_AGENT ?? 'EquityInsightApp/1.0 (+https://example.com/contact)',
   databaseUrl: process.env.DATABASE_URL,
 } as const;
+
+
+
