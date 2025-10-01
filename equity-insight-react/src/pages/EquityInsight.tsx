@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
@@ -379,14 +380,18 @@ const generateMockReport = (ticker: string): ReportPayload => {
   }
 }
 
-const Placeholder = ({ text }: { text: string }) => <div className="placeholder">{text}</div>
+
+const Placeholder = ({ text }: { text: string }) => (
+  <div className="glass-panel flex min-h-[22rem] items-center justify-center p-8 text-center text-slate-300">
+    <p className="max-w-xl leading-relaxed">{text}</p>
+  </div>
+)
 
 type SnapshotView = 'fundamental' | 'technical'
 
 const EquityInsight = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 
-  // Form + report state drives the UI.
   const [tickerInput, setTickerInput] = useState('')
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -395,19 +400,21 @@ const EquityInsight = () => {
   const [socialError, setSocialError] = useState<string | null>(null)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
 
-  // Refs keep track of scrolling targets.
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
 
-  
   const handleGenerate = async (nextTicker: string) => {
     const trimmed = nextTicker.trim().toUpperCase()
     if (!trimmed) return
 
     setTickerInput(trimmed)
     setIsLoading(true)
+    setSocialInsights(null)
+    setSocialError(null)
 
     try {
-      const redditPromise: Promise<Response | null> = fetch(`${API_BASE_URL}/api/social/reddit?symbol=${encodeURIComponent(trimmed)}`).catch(() => null)
+      const redditPromise: Promise<Response | null> = fetch(
+        `${API_BASE_URL}/api/social/reddit?symbol=${encodeURIComponent(trimmed)}`
+      ).catch(() => null)
 
       const [quoteResponse, profileResponse, metricsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/finance/quote?symbol=${encodeURIComponent(trimmed)}`),
@@ -427,8 +434,8 @@ const EquityInsight = () => {
 
       if (redditResponse?.ok) {
         try {
-          const redditInsights: RedditInsights = await redditResponse.json()
-          setSocialInsights(redditInsights)
+          const redditData: RedditInsights = await redditResponse.json()
+          setSocialInsights(redditData)
           setSocialError(null)
         } catch (error) {
           console.error(error)
@@ -452,37 +459,48 @@ const EquityInsight = () => {
 
       const assessment = await assessmentResponse.json()
 
-      const safeCurrency = typeof profile.currency === 'string' && profile.currency.trim().length === 3 ? profile.currency : 'USD'
+      const safeCurrency =
+        typeof profile.currency === 'string' && profile.currency.trim().length === 3
+          ? profile.currency
+          : 'USD'
       const formatCurrencyValue = (value: number) =>
         new Intl.NumberFormat('en-US', { style: 'currency', currency: safeCurrency }).format(value)
 
-      const formattedPrice = typeof quote.current === 'number' ? formatCurrencyValue(quote.current) : formatCurrencyValue(0)
+      const formattedPrice =
+        typeof quote.current === 'number' ? formatCurrencyValue(quote.current) : formatCurrencyValue(0)
       const marketCapValue =
         typeof profile.marketCapitalization === 'number' && profile.marketCapitalization > 0
           ? formatMarketCap(profile.marketCapitalization)
           : 'N/A'
 
       const formatMultiple = (value: number | null, decimals = 1) =>
-        value !== null ? value.toFixed(decimals) + 'x' : 'N/A'
+        value !== null ? `${value.toFixed(decimals)}x` : 'N/A'
       const formatPercent = (value: number | null, decimals = 1) =>
-        value !== null ? value.toFixed(decimals) + '%' : 'N/A'
+        value !== null ? `${value.toFixed(decimals)}%` : 'N/A'
       const formatPercentWithSign = (value: number | null, decimals = 1) =>
-        value !== null ? (value >= 0 ? '+' : '') + value.toFixed(decimals) + '%' : 'N/A'
+        value !== null ? `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%` : 'N/A'
       const formatCurrencyOrNA = (value: number | null) => (value !== null ? formatCurrencyValue(value) : 'N/A')
       const formatFreeCashFlow = (value: number | null) => {
         if (value === null) return 'N/A'
         const rounded = value >= 100 ? value.toFixed(0) : value.toFixed(1)
-        return '~$' + rounded + 'B'
+        return `~$${rounded}B`
       }
+
       const priceToFcfRatio =
-        typeof metrics.priceToFreeCashFlow === 'number' && Number.isFinite(metrics.priceToFreeCashFlow) && metrics.priceToFreeCashFlow > 0
+        typeof metrics.priceToFreeCashFlow === 'number' &&
+        Number.isFinite(metrics.priceToFreeCashFlow) &&
+        metrics.priceToFreeCashFlow > 0
           ? metrics.priceToFreeCashFlow
           : null
       const currentPrice =
-        typeof quote.current === 'number' && Number.isFinite(quote.current) && quote.current > 0 ? quote.current : null
+        typeof quote.current === 'number' && Number.isFinite(quote.current) && quote.current > 0
+          ? quote.current
+          : null
       const fcfPerShare = priceToFcfRatio && currentPrice ? currentPrice / priceToFcfRatio : null
       const sharesOutstandingMillions =
-        typeof profile.shareOutstanding === 'number' && Number.isFinite(profile.shareOutstanding) && profile.shareOutstanding > 0
+        typeof profile.shareOutstanding === 'number' &&
+        Number.isFinite(profile.shareOutstanding) &&
+        profile.shareOutstanding > 0
           ? profile.shareOutstanding
           : null
       const freeCashFlowBillions =
@@ -545,31 +563,94 @@ const EquityInsight = () => {
     }
 
     if (!reportData) {
-      return <Placeholder text="Provide a ticker symbol to see valuation metrics, trends, and qualitative insights." />
+      return (
+        <Placeholder text="Provide a ticker symbol to see valuation metrics, trends, and qualitative insights." />
+      )
     }
 
     const { ticker, data } = reportData
 
+    const fundamentalMetrics = [
+      { label: 'Last Price', value: data.price },
+      { label: 'Market Cap', value: data.marketCap },
+      { label: 'P/E (TTM)', value: data.pe },
+      { label: 'EPS (TTM)', value: data.eps },
+      { label: 'Revenue Growth', value: data.revenueGrowth },
+      { label: 'Operating Margin', value: data.operatingMargin },
+      { label: 'Dividend Yield', value: data.dividendYield },
+      { label: 'Free Cash Flow', value: data.freeCashFlow },
+      { label: 'Debt / Equity', value: data.debtToEquity },
+      { label: 'Earnings Revision', value: data.earningsRevision },
+      { label: 'Risk Rating (AI)', value: data.rating }
+    ]
+
+    const technicalStats = [
+      { label: 'RSI (14)', value: data.technical.rsi, detail: data.technical.rsiBias },
+      {
+        label: 'MACD',
+        value: data.technical.macdLine,
+        detail: `Signal ${data.technical.macdSignal} / ${data.technical.macdView}`
+      },
+      {
+        label: 'Price vs 50 DMA',
+        value: data.technical.priceVs50,
+        detail: `vs 200 DMA ${data.technical.priceVs200}`
+      },
+      {
+        label: 'Momentum Score',
+        value: data.technical.momentumScore,
+        detail: data.technical.accDist
+      },
+      {
+        label: 'Key Levels',
+        value: `${data.technical.support} / ${data.technical.resistance}`,
+        detail: 'Support / Resistance'
+      },
+      {
+        label: 'Average Volume',
+        value: data.technical.avgVolume,
+        detail: `ATR (14): ${data.technical.atr}`
+      }
+    ]
+
     return (
-      <>
-        <article className="report-section" id="snapshot" ref={(node) => { scrollTargets.current.snapshot = node }}>
-          <div className="snapshot-header">
-            <h2>{ticker} Snapshot</h2>
-            <div className="snapshot-tabs" role="tablist" aria-label="Snapshot view selector">
+      <div className="flex flex-col gap-6">
+        <article
+          id="snapshot"
+          ref={(node) => {
+            scrollTargets.current.snapshot = node
+          }}
+          className="glass-panel space-y-6 p-6 sm:p-8"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Signal Monitor</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{ticker} Snapshot</h2>
+              <p className="mt-2 text-sm text-slate-300">
+                Blend of market structure, fundamentals, and AI insight.
+              </p>
+            </div>
+            <div className="flex rounded-full bg-white/10 p-1 text-sm font-semibold">
               <button
                 type="button"
-                role="tab"
-                aria-selected={snapshotView === 'fundamental'}
-                className={snapshotView === 'fundamental' ? 'active' : ''}
+                className={clsx(
+                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                  snapshotView === 'fundamental'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-200 hover:bg-white/10'
+                )}
                 onClick={() => setSnapshotView('fundamental')}
               >
                 Fundamental Pulse
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={snapshotView === 'technical'}
-                className={snapshotView === 'technical' ? 'active' : ''}
+                className={clsx(
+                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                  snapshotView === 'technical'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-200 hover:bg-white/10'
+                )}
                 onClick={() => setSnapshotView('technical')}
               >
                 Technical Playbook
@@ -578,144 +659,223 @@ const EquityInsight = () => {
           </div>
 
           {snapshotView === 'fundamental' ? (
-            <div className="report-grid" role="tabpanel">
-              <div className="metric"><span>Last Price</span><strong>{data.price}</strong></div>
-              <div className="metric"><span>Market Cap</span><strong>{data.marketCap}</strong></div>
-              <div className="metric"><span>P/E (TTM)</span><strong>{data.pe}</strong></div>
-              <div className="metric"><span>EPS (TTM)</span><strong>{data.eps}</strong></div>
-              <div className="metric"><span>Revenue Growth</span><strong>{data.revenueGrowth}</strong></div>
-              <div className="metric"><span>Operating Margin</span><strong>{data.operatingMargin}</strong></div>
-              <div className="metric"><span>Dividend Yield</span><strong>{data.dividendYield}</strong></div>
-              <div className="metric"><span>Free Cash Flow</span><strong>{data.freeCashFlow}</strong></div>
-              <div className="metric"><span>Debt / Equity</span><strong>{data.debtToEquity}</strong></div>
-              <div className="metric"><span>Earnings Revision</span><strong>{data.earningsRevision}</strong></div>
-              <div className="metric"><span>Risk Rating (AI)</span><strong className="metric-rating">{data.rating}</strong></div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {fundamentalMetrics.map((metric) => (
+                <div
+                  key={metric.label}
+                  className={clsx(
+                    'rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/20',
+                    metric.label === 'Risk Rating (AI)' && 'border-emerald-400/40 bg-emerald-400/10'
+                  )}
+                >
+                  <p
+                    className={clsx(
+                      'text-xs uppercase tracking-[0.3em] text-slate-400',
+                      metric.label === 'Risk Rating (AI)' && 'text-emerald-200'
+                    )}
+                  >
+                    {metric.label}
+                  </p>
+                  <p
+                    className={clsx(
+                      'mt-3 text-lg font-semibold text-white',
+                      metric.label === 'Risk Rating (AI)' && 'text-emerald-100'
+                    )}
+                  >
+                    {metric.value}
+                  </p>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="technical-grid" role="tabpanel">
-              <div className="technical-card">
-                <div className="technical-label">RSI (14)</div>
-                <div className="technical-value">{data.technical.rsi}</div>
-                <div className="technical-subtext">{data.technical.rsiBias}</div>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {technicalStats.map((stat) => (
+                  <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</p>
+                    <p className="mt-3 text-xl font-semibold text-white">{stat.value}</p>
+                    <p className="mt-2 text-sm text-slate-300">{stat.detail}</p>
+                  </div>
+                ))}
               </div>
-              <div className="technical-card">
-                <div className="technical-label">MACD</div>
-                <div className="technical-value">{data.technical.macdLine}</div>
-                <div className="technical-subtext">Signal {data.technical.macdSignal} / {data.technical.macdView}</div>
-              </div>
-              <div className="technical-card">
-                <div className="technical-label">Price vs 50 DMA</div>
-                <div className="technical-value">{data.technical.priceVs50}</div>
-                <div className="technical-subtext">vs 200 DMA {data.technical.priceVs200}</div>
-              </div>
-              <div className="technical-card">
-                <div className="technical-label">Momentum Score</div>
-                <div className="technical-value">{data.technical.momentumScore}</div>
-                <div className="technical-subtext">{data.technical.accDist}</div>
-              </div>
-              <div className="technical-card">
-                <div className="technical-label">Key Levels</div>
-                <div className="technical-value">{data.technical.support} / {data.technical.resistance}</div>
-                <div className="technical-subtext">Support / Resistance</div>
-              </div>
-              <div className="technical-card">
-                <div className="technical-label">Average Volume</div>
-                <div className="technical-value">{data.technical.avgVolume}</div>
-                <div className="technical-subtext">ATR (14): {data.technical.atr}</div>
-              </div>
-              <div className="technical-bloc">
-                <h3>Session Play</h3>
-                <p>{data.technical.sessionPlan}</p>
-              </div>
-              <div className="technical-bloc risk">
-                <h3>Risk Controls</h3>
-                <p>{data.technical.riskNote}</p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Session Play</h3>
+                  <p className="mt-2 text-sm text-slate-100/90">{data.technical.sessionPlan}</p>
+                </div>
+                <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-rose-100">Risk Controls</h3>
+                  <p className="mt-2 text-sm text-slate-100/90">{data.technical.riskNote}</p>
+                </div>
               </div>
             </div>
           )}
         </article>
 
-        <article className="report-section" id="drivers" ref={(node) => { scrollTargets.current.drivers = node }}>
-          <h2>Valuation Drivers</h2>
-          <ul className="insight-list">{data.keyDrivers.map((item) => <li key={item}>{item}</li>)}</ul>
+        <article
+          id="drivers"
+          ref={(node) => {
+            scrollTargets.current.drivers = node
+          }}
+          className="glass-panel space-y-4 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Fundamentals</p>
+            <h2 className="text-xl font-semibold text-white">Valuation Drivers</h2>
+          </div>
+          <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+            {data.keyDrivers.map((item) => (
+              <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                {item}
+              </li>
+            ))}
+          </ul>
         </article>
 
-        <article className="report-section" id="scenarios" ref={(node) => { scrollTargets.current.scenarios = node }}>
-          <h2>Scenario Price Targets</h2>
-          <div className="scenario-grid">
+        <article
+          id="scenarios"
+          ref={(node) => {
+            scrollTargets.current.scenarios = node
+          }}
+          className="glass-panel space-y-4 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Price Map</p>
+            <h2 className="text-xl font-semibold text-white">Scenario Targets</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.priceTargets.map((target) => (
-              <div className="scenario-card" key={target.label}>
-                <span className="tag">{target.probability}</span>
-                <h3>{target.label}</h3>
-                <div className="target-price">{target.price}</div>
-                <p>{target.note}</p>
+              <div
+                key={target.label}
+                className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-sky-400/30"
+              >
+                <span className="inline-flex items-center rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-sky-100">
+                  {target.probability}
+                </span>
+                <h3 className="mt-3 text-lg font-semibold text-white">{target.label}</h3>
+                <div className="mt-2 text-2xl font-bold text-white">{target.price}</div>
+                <p className="mt-2 text-sm text-slate-300">{target.note}</p>
               </div>
             ))}
           </div>
         </article>
 
-        <article className="report-section" id="catalysts" ref={(node) => { scrollTargets.current.catalysts = node }}>
-          <h2>Catalysts & Risks</h2>
-          <div className="report-split">
-            <div>
-              <h3>Catalysts</h3>
-              <ul className="insight-list">{data.catalysts.map((item) => <li key={item}>{item}</li>)}</ul>
+        <article
+          id="catalysts"
+          ref={(node) => {
+            scrollTargets.current.catalysts = node
+          }}
+          className="glass-panel space-y-6 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Playbook</p>
+            <h2 className="text-xl font-semibold text-white">Catalysts & Risks</h2>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-200">Catalysts</h3>
+              <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+                {data.catalysts.map((item) => (
+                  <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div>
-              <h3>Risks</h3>
-              <ul className="insight-list">{data.risks.map((item) => <li key={item}>{item}</li>)}</ul>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-rose-200">Risks</h3>
+              <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+                {data.risks.map((item) => (
+                  <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </article>
 
-        <article className="report-section" id="social" ref={(node) => { scrollTargets.current.social = node }}>
-          <h2>Social Buzz</h2>
+        <article
+          id="social"
+          ref={(node) => {
+            scrollTargets.current.social = node
+          }}
+          className="glass-panel space-y-5 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Reddit Intelligence</p>
+            <h2 className="text-xl font-semibold text-white">Social Buzz</h2>
+          </div>
           {socialError ? (
-            <p className="social-message">{socialError}</p>
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              {socialError}
+            </div>
           ) : socialInsights ? (
-            <div className="social-grid">
-              <div className="social-summary">
-                <div className="social-metric">
-                  <span>Total Posts (7d)</span>
-                  <strong>{socialInsights.totalPosts.toLocaleString('en-US')}</strong>
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Total Posts (7d)</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {socialInsights.totalPosts.toLocaleString('en-US')}
+                  </p>
                 </div>
-                <div className="social-metric">
-                  <span>Total Upvotes</span>
-                  <strong>{socialInsights.totalUpvotes.toLocaleString('en-US')}</strong>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Total Upvotes</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {socialInsights.totalUpvotes.toLocaleString('en-US')}
+                  </p>
                 </div>
-                <div className="social-metric">
-                  <span>Avg Comments</span>
-                  <strong>{new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(socialInsights.averageComments)}</strong>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Avg Comments</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(
+                      socialInsights.averageComments
+                    )}
+                  </p>
                 </div>
               </div>
-              <div className="social-breakdown">
-                <div>
-                  <h3>Active Subreddits</h3>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-200">Active Subreddits</h3>
                   {socialInsights.topSubreddits.length === 0 ? (
-                    <p className="social-message">No subreddit activity detected.</p>
+                    <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                      No subreddit activity detected.
+                    </p>
                   ) : (
-                    <ul className="social-subreddit-list">
+                    <ul className="space-y-2">
                       {socialInsights.topSubreddits.map((item) => (
-                        <li key={item.name}>
-                          <span>r/{item.name}</span>
-                          <span className="social-badge">{item.mentions}</span>
+                        <li
+                          key={item.name}
+                          className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                        >
+                          <span className="font-semibold text-white">r/{item.name}</span>
+                          <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200">
+                            {item.mentions}
+                          </span>
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
-                <div>
-                  <h3>Top Mentions</h3>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-200">Top Mentions</h3>
                   {socialInsights.posts.length === 0 ? (
-                    <p className="social-message">No trending posts for this ticker yet.</p>
+                    <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                      No trending posts for this ticker yet.
+                    </p>
                   ) : (
-                    <ul className="social-posts">
+                    <ul className="space-y-3">
                       {socialInsights.posts.slice(0, 5).map((post) => (
                         <li key={post.id}>
-                          <a href={post.url} target="_blank" rel="noopener noreferrer">
-                            <span className="social-post-title">{post.title}</span>
-                            <span className="social-post-meta">
-                              r/{post.subreddit} | {formatRelativeTime(post.createdAt)} | upvotes {post.score.toLocaleString('en-US')} | comments {post.comments.toLocaleString('en-US')}
+                          <a
+                            href={post.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-sky-400/30 hover:bg-sky-500/10"
+                          >
+                            <span className="font-semibold text-white">{post.title}</span>
+                            <span className="mt-2 block text-xs text-slate-300">
+                              r/{post.subreddit} - {formatRelativeTime(post.createdAt)} - upvotes {post.score.toLocaleString('en-US')} - comments {post.comments.toLocaleString('en-US')}
                             </span>
                           </a>
                         </li>
@@ -724,130 +884,181 @@ const EquityInsight = () => {
                   )}
                 </div>
               </div>
-              <p className="social-footnote">
-                Search: {socialInsights.query} | Updated {new Date(socialInsights.lastUpdated).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                Search: {socialInsights.query} - Updated{' '}
+                {new Date(socialInsights.lastUpdated).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}
               </p>
             </div>
           ) : (
-            <p className="social-message">No Reddit conversations available.</p>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              No Reddit conversations available.
+            </div>
           )}
         </article>
-        <article className="report-section" id="analyst" ref={(node) => { scrollTargets.current.analyst = node }}>
-          <h2>Analyst Take</h2>
-          <p className="analysis">{data.summary}</p>
+
+        <article
+          id="analyst"
+          ref={(node) => {
+            scrollTargets.current.analyst = node
+          }}
+          className="glass-panel space-y-4 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Analyst Desk</p>
+            <h2 className="text-xl font-semibold text-white">Analyst Take</h2>
+          </div>
+          <p className="leading-relaxed text-slate-200">{data.summary}</p>
         </article>
 
-        <p className="timestamp">Mock data refreshed {data.asOf}</p>
-      </>
+        <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+          Mock data refreshed {data.asOf}
+        </p>
+      </div>
     )
   }, [isLoading, reportData, snapshotView, socialError, socialInsights])
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>Research Hub</h2>
-          <p>Use quick picks or revisit a ticker to regenerate its mock insights.</p>
-        </div>
-
-        <section className="sidebar-section">
-          <h3>Quick Picks</h3>
-          <div className="quick-picks">
-            {quickPicks.map((symbol) => (
-              <button key={symbol} type="button" onClick={() => handleGenerate(symbol)}>
-                {symbol}
-              </button>
-            ))}
+    <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 lg:flex-row">
+        <aside className="order-2 flex flex-col gap-6 lg:order-1 lg:w-80">
+          <div className="glass-panel space-y-3 p-6">
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Navigator</p>
+            <h2 className="text-2xl font-semibold text-white">Research Hub</h2>
+            <p className="text-sm text-slate-300">
+              Use quick picks or revisit a ticker to regenerate its mock insights.
+            </p>
           </div>
-        </section>
 
-        <section className="sidebar-section">
-          <h3>Report Sections</h3>
-          <ul className="section-nav">
-            {reportSections.map((section) => (
-              <li key={section.id}>
-                <button type="button" onClick={() => handleSectionScroll(section.id)}>
-                  {section.label}
+          <section className="glass-panel space-y-4 p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">Quick Picks</h3>
+            <div className="flex flex-wrap gap-2">
+              {quickPicks.map((symbol) => (
+                <button
+                  key={symbol}
+                  type="button"
+                  className="pill-button px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em]"
+                  onClick={() => handleGenerate(symbol)}
+                >
+                  {symbol}
                 </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+              ))}
+            </div>
+          </section>
 
-        <section className="sidebar-section">
-          <div className="sidebar-section-heading">
-            <h3>History</h3>
-            <button type="button" className="clear-history" onClick={() => setHistory([])}>
-              Clear
-            </button>
-          </div>
-          <ul className="history-list">
-            {history.length === 0 ? (
-              <li className="history-empty">No reports yet.</li>
-            ) : (
-              history.map((entry) => (
-                <li key={entry.ticker}>
-                  <button type="button" className="history-item" onClick={() => handleGenerate(entry.ticker)}>
-                    <div className="history-heading">
-                      <span className="history-ticker">{entry.ticker}</span>
-                      <span className="history-price">{entry.data.price}</span>
-                    </div>
-                    <div className="history-sub">
-                      <span className="history-rating tag">{entry.data.rating}</span>
-                      <span className="history-time">{entry.data.asOf}</span>
-                    </div>
+          <section className="glass-panel space-y-4 p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">Report Sections</h3>
+            <ul className="space-y-2">
+              {reportSections.map((section) => (
+                <li key={section.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-sky-400/30 hover:bg-sky-500/10 hover:text-white"
+                    onClick={() => handleSectionScroll(section.id)}
+                  >
+                    <span>{section.label}</span>
+                    <span className="text-xs text-slate-400">View</span>
                   </button>
                 </li>
-              ))
-            )}
-          </ul>
-        </section>
-      </aside>
+              ))}
+            </ul>
+          </section>
 
-      <main>
-        <header>
-          <h1>Equity Insight</h1>
-          <p>Generate a quick equity snapshot by entering a stock ticker symbol.</p>
-        </header>
-
-        <section className="card">
-          <form autoComplete="off" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="ticker">Ticker symbol</label>
-              <div className="ticker-row">
-                <input
-                  id="ticker"
-                  name="ticker"
-                  type="text"
-                  placeholder="AAPL"
-                  maxLength={8}
-                  value={tickerInput}
-                  onChange={(event) => setTickerInput(event.target.value.toUpperCase())}
-                  required
-                />
-                <button type="submit">Generate Report</button>
-              </div>
+          <section className="glass-panel space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">History</h3>
+              <button
+                type="button"
+                className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400 transition hover:text-sky-200"
+                onClick={() => setHistory([])}
+              >
+                Clear
+              </button>
             </div>
-          </form>
-        </section>
+            <ul className="space-y-3">
+              {history.length === 0 ? (
+                <li className="rounded-2xl border border-dashed border-white/20 p-4 text-sm text-slate-300">
+                  No reports yet.
+                </li>
+              ) : (
+                history.map((entry) => (
+                  <li key={entry.ticker}>
+                    <button
+                      type="button"
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-sky-400/30 hover:bg-sky-500/10"
+                      onClick={() => handleGenerate(entry.ticker)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-semibold text-white">{entry.ticker}</span>
+                        <span className="text-sm text-slate-300">{entry.data.price}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                        <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                          {entry.data.rating}
+                        </span>
+                        <span>{entry.data.asOf}</span>
+                      </div>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+        </aside>
 
-        <section className="card report" aria-live="polite" aria-busy={isLoading}>
-          {reportContent}
-        </section>
-      </main>
+        <main className="order-1 flex-1 space-y-8 lg:order-2">
+          <header className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Aurora Desk</p>
+            <h1 className="text-3xl font-semibold text-white sm:text-4xl">Equity Insight</h1>
+            <p className="max-w-2xl text-slate-300">
+              Generate a quick equity snapshot by entering a stock ticker symbol.
+            </p>
+          </header>
+
+          <section className="glass-panel p-6 sm:p-8">
+            <form autoComplete="off" onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-3">
+                <label
+                  htmlFor="ticker"
+                  className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300"
+                >
+                  Ticker Symbol
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    id="ticker"
+                    name="ticker"
+                    type="text"
+                    placeholder="AAPL"
+                    maxLength={8}
+                    value={tickerInput}
+                    onChange={(event) => setTickerInput(event.target.value.toUpperCase())}
+                    className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-lg font-semibold uppercase tracking-[0.35em] text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    required
+                  />
+                  <button type="submit" className="pill-button px-6 py-3 text-xs uppercase tracking-[0.3em]">
+                    Generate
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-slate-400">
+                We blend Finnhub fundamentals, OpenAI commentary, and Reddit sentiment for rapid context.
+              </p>
+            </form>
+          </section>
+
+          <section className="space-y-6" aria-live="polite" aria-busy={isLoading}>
+            {reportContent}
+          </section>
+        </main>
+      </div>
     </div>
   )
 }
 
 export default EquityInsight
-
-
-
-
-
-
-
-
-
-
 

@@ -4,6 +4,7 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
 
 - Assessments via OpenAI's GPT models
 - Market data via Finnhub
+- Reddit sentiment via the official API search endpoint
 - Optional PostgreSQL logging for ChatGPT assessment requests/responses
 
 ## Getting Started
@@ -16,9 +17,10 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    ```bash
    cp .env.example .env
    ```
-3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, and optionally `DATABASE_URL` to enable assessment logging.
-4. If `DATABASE_URL` is set, run the migrations in `sql/001_create_assessment_logs.sql` and `sql/002_add_prompt_columns.sql` against your PostgreSQL instance.
-5. Start the development server:
+3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging.
+4. Create a Reddit script application at https://www.reddit.com/prefs/apps, then copy the generated client ID/secret into `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` (choose the script app type).
+5. If `DATABASE_URL` is set, run the migrations in `sql/001_create_assessment_logs.sql` and `sql/002_add_prompt_columns.sql` against your PostgreSQL instance.
+6. Start the development server:
    ```bash
    npm run dev
    ```
@@ -104,3 +106,35 @@ npm start
 `GET /health` returns a simple uptime payload to help with monitoring.
 
 
+
+
+
+### `GET /api/social/reddit?symbol=AAPL`
+Fetch Reddit posts mentioning the ticker using the official API (requires `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`).
+
+Response body:
+```json
+{
+  "ticker": "AAPL",
+  "query": "AAPL stock",
+  "totalPosts": 10,
+  "totalUpvotes": 1243,
+  "averageComments": 36.7,
+  "topSubreddits": [
+    { "name": "stocks", "mentions": 4 },
+    { "name": "investing", "mentions": 3 }
+  ],
+  "posts": [
+    {
+      "id": "abc123",
+      "title": "Why AAPL could rally into earnings",
+      "url": "https://www.reddit.com/r/stocks/comments/abc123",
+      "score": 512,
+      "comments": 88,
+      "subreddit": "stocks",
+      "createdAt": "2025-01-01T12:34:56.000Z"
+    }
+  ],
+  "lastUpdated": "2025-01-01T12:45:00.000Z"
+}
+```
