@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { assessmentRouter } from './routes/assessmentRoutes.js';
 import { financeRouter } from './routes/financeRoutes.js';
+import { socialRouter } from './routes/socialRoutes.js';
+import { tradingRouter } from './routes/tradingRoutes.js';
 export const app = express();
 app.use(cors());
 app.use(express.json());
@@ -12,6 +14,8 @@ app.get('/health', (_req, res) => {
 });
 app.use('/api/assessment', assessmentRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/trading', tradingRouter);
+app.use('/api/social', socialRouter);
 app.use((error, _req, res, _next) => {
     console.error(error);
     const message = error instanceof Error ? error.message : 'Unexpected server error occurred.';
@@ -19,8 +23,15 @@ app.use((error, _req, res, _next) => {
 });
 const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMainModule) {
-    app.listen(env.port, () => {
+    const server = app.listen(env.port, () => {
         console.log(`API server running on http://localhost:${env.port}`);
     });
+    // Loosen Node HTTP server timeouts to support long-running TA calls
+    // headersTimeout: time allowed for receiving request headers
+    // requestTimeout: overall timeout for an incoming request (0 = no timeout)
+    // keepAliveTimeout: how long to keep idle connections
+    server.headersTimeout = 600_000; // 10 minutes
+    server.requestTimeout = 0; // 0 disables the timeout (allow long-running requests)
+    server.keepAliveTimeout = 650_000; // slightly above headersTimeout
 }
 //# sourceMappingURL=server.js.map

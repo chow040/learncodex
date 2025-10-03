@@ -13,6 +13,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const env = {
+  openAiBaseUrl: process.env.OPENAI_BASE_URL ?? undefined,
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number.parseInt(process.env.PORT ?? '4000', 10),
   openAiApiKey: process.env.OPENAI_API_KEY ?? '',
@@ -24,7 +25,8 @@ export const env = {
   redditUserAgent:
     process.env.REDDIT_USER_AGENT ?? 'EquityInsightApp/1.0 (+https://example.com/contact)',
   databaseUrl: process.env.DATABASE_URL,
+  tradingAgentsPython: process.env.TRADING_AGENTS_PYTHON ?? 'python',
+  tradingAgentsPath: process.env.TRADING_AGENTS_PATH,
+  tradingAgentsResultsDir: process.env.TRADING_AGENTS_RESULTS_DIR ?? undefined,
+  tradingAgentsTimeoutMs: Number.parseInt(process.env.TRADING_AGENTS_TIMEOUT ?? '600000', 10),
 } as const;
-
-
-

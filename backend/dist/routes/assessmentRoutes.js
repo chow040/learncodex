@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requestEquityAssessment, } from '../services/openaiService.js';
+import { insertAssessmentLog } from '../db/assessmentLogRepository.js';
 import { getCompanyNews, getCompanyProfile, getQuote, getStockMetrics, } from '../services/finnhubService.js';
 export const assessmentRouter = Router();
 const createAssessmentContext = async (symbol) => {
@@ -73,7 +74,8 @@ assessmentRouter.post('/', async (req, res, next) => {
     };
     try {
         const context = await createAssessmentContext(symbol);
-        const assessment = await requestEquityAssessment(assessmentInput, context);
+        const { assessment, prompt, systemPrompt } = await requestEquityAssessment(assessmentInput, context);
+        await insertAssessmentLog({ input: assessmentInput, context, assessment, prompt, systemPrompt });
         res.json(assessment);
     }
     catch (error) {

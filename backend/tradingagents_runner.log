@@ -1,0 +1,624 @@
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 13:38:25 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": false}
+2025-10-03 13:38:25 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 13:38:27 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 13:38:27 ERROR [tradingagents_runner] starting propagate
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 13:40:32 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": false}
+2025-10-03 13:40:32 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 13:40:34 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 13:40:34 ERROR [tradingagents_runner] heartbeat 0 - propagate still running
+2025-10-03 13:40:34 ERROR [tradingagents_runner] starting propagate
+2025-10-03 13:40:36 ERROR [tradingagents_runner] heartbeat 1 - propagate still running
+2025-10-03 13:40:38 ERROR [tradingagents_runner] heartbeat 2 - propagate still running
+2025-10-03 13:40:40 ERROR [tradingagents_runner] heartbeat 3 - propagate still running
+2025-10-03 13:40:42 ERROR [tradingagents_runner] heartbeat 4 - propagate still running
+2025-10-03 13:40:44 ERROR [tradingagents_runner] heartbeat 5 - propagate still running
+2025-10-03 13:40:46 ERROR [tradingagents_runner] heartbeat 6 - propagate still running
+2025-10-03 13:40:48 ERROR [tradingagents_runner] heartbeat 7 - propagate still running
+2025-10-03 13:40:50 ERROR [tradingagents_runner] heartbeat 8 - propagate still running
+2025-10-03 13:40:52 ERROR [tradingagents_runner] heartbeat 9 - propagate still running
+2025-10-03 13:40:54 ERROR [tradingagents_runner] heartbeat 10 - propagate still running
+2025-10-03 13:40:56 ERROR [tradingagents_runner] heartbeat 11 - propagate still running
+2025-10-03 13:40:58 ERROR [tradingagents_runner] heartbeat 12 - propagate still running
+2025-10-03 13:41:00 ERROR [tradingagents_runner] heartbeat 13 - propagate still running
+2025-10-03 13:41:02 ERROR [tradingagents_runner] heartbeat 14 - propagate still running
+2025-10-03 13:41:04 ERROR [tradingagents_runner] heartbeat 15 - propagate still running
+2025-10-03 13:41:06 ERROR [tradingagents_runner] heartbeat 16 - propagate still running
+2025-10-03 13:41:08 ERROR [tradingagents_runner] heartbeat 17 - propagate still running
+2025-10-03 13:41:10 ERROR [tradingagents_runner] heartbeat 18 - propagate still running
+2025-10-03 13:41:12 ERROR [tradingagents_runner] heartbeat 19 - propagate still running
+2025-10-03 13:41:14 ERROR [tradingagents_runner] heartbeat 20 - propagate still running
+2025-10-03 13:41:16 ERROR [tradingagents_runner] heartbeat 21 - propagate still running
+2025-10-03 13:41:18 ERROR [tradingagents_runner] heartbeat 22 - propagate still running
+2025-10-03 13:41:20 ERROR [tradingagents_runner] heartbeat 23 - propagate still running
+2025-10-03 13:41:22 ERROR [tradingagents_runner] heartbeat 24 - propagate still running
+2025-10-03 13:41:24 ERROR [tradingagents_runner] heartbeat 25 - propagate still running
+2025-10-03 13:41:26 ERROR [tradingagents_runner] heartbeat 26 - propagate still running
+2025-10-03 13:41:28 ERROR [tradingagents_runner] heartbeat 27 - propagate still running
+2025-10-03 13:41:30 ERROR [tradingagents_runner] heartbeat 28 - propagate still running
+2025-10-03 13:41:32 ERROR [tradingagents_runner] heartbeat 29 - propagate still running
+2025-10-03 13:41:34 ERROR [tradingagents_runner] heartbeat 30 - propagate still running
+2025-10-03 13:41:36 ERROR [tradingagents_runner] heartbeat 31 - propagate still running
+2025-10-03 13:41:38 ERROR [tradingagents_runner] heartbeat 32 - propagate still running
+2025-10-03 13:41:40 ERROR [tradingagents_runner] heartbeat 33 - propagate still running
+2025-10-03 13:41:42 ERROR [tradingagents_runner] heartbeat 34 - propagate still running
+2025-10-03 13:41:44 ERROR [tradingagents_runner] heartbeat 35 - propagate still running
+2025-10-03 13:41:46 ERROR [tradingagents_runner] heartbeat 36 - propagate still running
+2025-10-03 13:41:48 ERROR [tradingagents_runner] heartbeat 37 - propagate still running
+2025-10-03 13:41:50 ERROR [tradingagents_runner] heartbeat 38 - propagate still running
+2025-10-03 13:41:52 ERROR [tradingagents_runner] heartbeat 39 - propagate still running
+2025-10-03 13:41:54 ERROR [tradingagents_runner] heartbeat 40 - propagate still running
+2025-10-03 13:41:56 ERROR [tradingagents_runner] heartbeat 41 - propagate still running
+2025-10-03 13:41:58 ERROR [tradingagents_runner] heartbeat 42 - propagate still running
+2025-10-03 13:42:00 ERROR [tradingagents_runner] heartbeat 43 - propagate still running
+2025-10-03 13:42:02 ERROR [tradingagents_runner] heartbeat 44 - propagate still running
+2025-10-03 13:42:04 ERROR [tradingagents_runner] heartbeat 45 - propagate still running
+2025-10-03 13:42:06 ERROR [tradingagents_runner] heartbeat 46 - propagate still running
+2025-10-03 13:42:08 ERROR [tradingagents_runner] heartbeat 47 - propagate still running
+2025-10-03 13:42:10 ERROR [tradingagents_runner] heartbeat 48 - propagate still running
+2025-10-03 13:42:12 ERROR [tradingagents_runner] heartbeat 49 - propagate still running
+2025-10-03 13:42:14 ERROR [tradingagents_runner] heartbeat 50 - propagate still running
+2025-10-03 13:42:16 ERROR [tradingagents_runner] heartbeat 51 - propagate still running
+2025-10-03 13:42:18 ERROR [tradingagents_runner] heartbeat 52 - propagate still running
+2025-10-03 13:42:20 ERROR [tradingagents_runner] heartbeat 53 - propagate still running
+2025-10-03 13:42:22 ERROR [tradingagents_runner] heartbeat 54 - propagate still running
+2025-10-03 13:42:24 ERROR [tradingagents_runner] heartbeat 55 - propagate still running
+2025-10-03 13:42:26 ERROR [tradingagents_runner] heartbeat 56 - propagate still running
+2025-10-03 13:42:28 ERROR [tradingagents_runner] heartbeat 57 - propagate still running
+2025-10-03 13:42:30 ERROR [tradingagents_runner] heartbeat 58 - propagate still running
+2025-10-03 13:42:32 ERROR [tradingagents_runner] heartbeat 59 - propagate still running
+2025-10-03 13:42:34 ERROR [tradingagents_runner] heartbeat 60 - propagate still running
+2025-10-03 13:42:36 ERROR [tradingagents_runner] heartbeat 61 - propagate still running
+2025-10-03 13:42:38 ERROR [tradingagents_runner] heartbeat 62 - propagate still running
+2025-10-03 13:42:40 ERROR [tradingagents_runner] heartbeat 63 - propagate still running
+2025-10-03 13:42:42 ERROR [tradingagents_runner] heartbeat 64 - propagate still running
+2025-10-03 13:42:44 ERROR [tradingagents_runner] heartbeat 65 - propagate still running
+2025-10-03 13:42:46 ERROR [tradingagents_runner] heartbeat 66 - propagate still running
+2025-10-03 13:42:48 ERROR [tradingagents_runner] heartbeat 67 - propagate still running
+2025-10-03 13:42:50 ERROR [tradingagents_runner] heartbeat 68 - propagate still running
+2025-10-03 13:42:52 ERROR [tradingagents_runner] heartbeat 69 - propagate still running
+2025-10-03 13:42:54 ERROR [tradingagents_runner] heartbeat 70 - propagate still running
+2025-10-03 13:42:56 ERROR [tradingagents_runner] heartbeat 71 - propagate still running
+2025-10-03 13:42:58 ERROR [tradingagents_runner] heartbeat 72 - propagate still running
+2025-10-03 13:43:00 ERROR [tradingagents_runner] heartbeat 73 - propagate still running
+2025-10-03 13:43:02 ERROR [tradingagents_runner] heartbeat 74 - propagate still running
+2025-10-03 13:43:04 ERROR [tradingagents_runner] heartbeat 75 - propagate still running
+2025-10-03 13:43:06 ERROR [tradingagents_runner] heartbeat 76 - propagate still running
+2025-10-03 13:43:08 ERROR [tradingagents_runner] heartbeat 77 - propagate still running
+2025-10-03 13:43:10 ERROR [tradingagents_runner] heartbeat 78 - propagate still running
+2025-10-03 13:43:12 ERROR [tradingagents_runner] heartbeat 79 - propagate still running
+2025-10-03 13:43:14 ERROR [tradingagents_runner] heartbeat 80 - propagate still running
+2025-10-03 13:43:16 ERROR [tradingagents_runner] heartbeat 81 - propagate still running
+2025-10-03 13:43:18 ERROR [tradingagents_runner] heartbeat 82 - propagate still running
+2025-10-03 13:43:20 ERROR [tradingagents_runner] heartbeat 83 - propagate still running
+2025-10-03 13:43:22 ERROR [tradingagents_runner] heartbeat 84 - propagate still running
+2025-10-03 13:43:24 ERROR [tradingagents_runner] heartbeat 85 - propagate still running
+2025-10-03 13:43:26 ERROR [tradingagents_runner] heartbeat 86 - propagate still running
+2025-10-03 13:43:28 ERROR [tradingagents_runner] heartbeat 87 - propagate still running
+2025-10-03 13:43:30 ERROR [tradingagents_runner] heartbeat 88 - propagate still running
+2025-10-03 13:43:32 ERROR [tradingagents_runner] heartbeat 89 - propagate still running
+2025-10-03 13:43:34 ERROR [tradingagents_runner] heartbeat 90 - propagate still running
+2025-10-03 13:43:36 ERROR [tradingagents_runner] heartbeat 91 - propagate still running
+2025-10-03 13:43:38 ERROR [tradingagents_runner] heartbeat 92 - propagate still running
+2025-10-03 13:43:40 ERROR [tradingagents_runner] heartbeat 93 - propagate still running
+2025-10-03 13:43:42 ERROR [tradingagents_runner] heartbeat 94 - propagate still running
+2025-10-03 13:43:44 ERROR [tradingagents_runner] heartbeat 95 - propagate still running
+2025-10-03 13:43:46 ERROR [tradingagents_runner] heartbeat 96 - propagate still running
+2025-10-03 13:43:48 ERROR [tradingagents_runner] heartbeat 97 - propagate still running
+2025-10-03 13:43:50 ERROR [tradingagents_runner] heartbeat 98 - propagate still running
+2025-10-03 13:43:52 ERROR [tradingagents_runner] heartbeat 99 - propagate still running
+2025-10-03 13:43:54 ERROR [tradingagents_runner] heartbeat 100 - propagate still running
+2025-10-03 13:43:56 ERROR [tradingagents_runner] heartbeat 101 - propagate still running
+2025-10-03 13:43:58 ERROR [tradingagents_runner] heartbeat 102 - propagate still running
+2025-10-03 13:44:00 ERROR [tradingagents_runner] heartbeat 103 - propagate still running
+2025-10-03 13:44:02 ERROR [tradingagents_runner] heartbeat 104 - propagate still running
+2025-10-03 13:44:04 ERROR [tradingagents_runner] heartbeat 105 - propagate still running
+2025-10-03 13:44:06 ERROR [tradingagents_runner] heartbeat 106 - propagate still running
+2025-10-03 13:44:08 ERROR [tradingagents_runner] heartbeat 107 - propagate still running
+2025-10-03 13:44:11 ERROR [tradingagents_runner] heartbeat 108 - propagate still running
+2025-10-03 13:44:13 ERROR [tradingagents_runner] heartbeat 109 - propagate still running
+2025-10-03 13:44:15 ERROR [tradingagents_runner] heartbeat 110 - propagate still running
+2025-10-03 13:44:17 ERROR [tradingagents_runner] heartbeat 111 - propagate still running
+2025-10-03 13:44:19 ERROR [tradingagents_runner] heartbeat 112 - propagate still running
+2025-10-03 13:44:21 ERROR [tradingagents_runner] heartbeat 113 - propagate still running
+2025-10-03 13:44:23 ERROR [tradingagents_runner] heartbeat 114 - propagate still running
+2025-10-03 13:44:25 ERROR [tradingagents_runner] heartbeat 115 - propagate still running
+2025-10-03 13:44:27 ERROR [tradingagents_runner] heartbeat 116 - propagate still running
+2025-10-03 13:44:29 ERROR [tradingagents_runner] heartbeat 117 - propagate still running
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 14:24:51 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": true}
+2025-10-03 14:24:51 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 14:24:53 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 14:24:53 ERROR [tradingagents_runner] heartbeat 0 - propagate still running
+2025-10-03 14:24:53 ERROR [tradingagents_runner] starting propagate
+2025-10-03 14:24:55 ERROR [tradingagents_runner] heartbeat 1 - propagate still running
+2025-10-03 14:24:57 ERROR [tradingagents_runner] heartbeat 2 - propagate still running
+2025-10-03 14:24:59 ERROR [tradingagents_runner] heartbeat 3 - propagate still running
+2025-10-03 14:25:01 ERROR [tradingagents_runner] heartbeat 4 - propagate still running
+2025-10-03 14:25:03 ERROR [tradingagents_runner] heartbeat 5 - propagate still running
+2025-10-03 14:25:05 ERROR [tradingagents_runner] heartbeat 6 - propagate still running
+2025-10-03 14:25:07 ERROR [tradingagents_runner] heartbeat 7 - propagate still running
+2025-10-03 14:25:09 ERROR [tradingagents_runner] heartbeat 8 - propagate still running
+2025-10-03 14:25:11 ERROR [tradingagents_runner] heartbeat 9 - propagate still running
+2025-10-03 14:25:13 ERROR [tradingagents_runner] heartbeat 10 - propagate still running
+2025-10-03 14:25:15 ERROR [tradingagents_runner] heartbeat 11 - propagate still running
+2025-10-03 14:25:17 ERROR [tradingagents_runner] heartbeat 12 - propagate still running
+2025-10-03 14:25:19 ERROR [tradingagents_runner] heartbeat 13 - propagate still running
+2025-10-03 14:25:21 ERROR [tradingagents_runner] heartbeat 14 - propagate still running
+2025-10-03 14:25:23 ERROR [tradingagents_runner] heartbeat 15 - propagate still running
+2025-10-03 14:25:25 ERROR [tradingagents_runner] heartbeat 16 - propagate still running
+2025-10-03 14:25:27 ERROR [tradingagents_runner] heartbeat 17 - propagate still running
+2025-10-03 14:25:29 ERROR [tradingagents_runner] heartbeat 18 - propagate still running
+2025-10-03 14:25:31 ERROR [tradingagents_runner] heartbeat 19 - propagate still running
+2025-10-03 14:25:33 ERROR [tradingagents_runner] heartbeat 20 - propagate still running
+2025-10-03 14:25:35 ERROR [tradingagents_runner] heartbeat 21 - propagate still running
+2025-10-03 14:25:37 ERROR [tradingagents_runner] heartbeat 22 - propagate still running
+2025-10-03 14:25:39 ERROR [tradingagents_runner] heartbeat 23 - propagate still running
+2025-10-03 14:25:41 ERROR [tradingagents_runner] heartbeat 24 - propagate still running
+2025-10-03 14:25:43 ERROR [tradingagents_runner] heartbeat 25 - propagate still running
+2025-10-03 14:25:45 ERROR [tradingagents_runner] heartbeat 26 - propagate still running
+2025-10-03 14:25:47 ERROR [tradingagents_runner] heartbeat 27 - propagate still running
+2025-10-03 14:25:49 ERROR [tradingagents_runner] heartbeat 28 - propagate still running
+2025-10-03 14:25:51 ERROR [tradingagents_runner] heartbeat 29 - propagate still running
+2025-10-03 14:25:53 ERROR [tradingagents_runner] heartbeat 30 - propagate still running
+2025-10-03 14:25:55 ERROR [tradingagents_runner] heartbeat 31 - propagate still running
+2025-10-03 14:25:57 ERROR [tradingagents_runner] heartbeat 32 - propagate still running
+2025-10-03 14:25:59 ERROR [tradingagents_runner] heartbeat 33 - propagate still running
+2025-10-03 14:26:01 ERROR [tradingagents_runner] heartbeat 34 - propagate still running
+2025-10-03 14:26:03 ERROR [tradingagents_runner] heartbeat 35 - propagate still running
+2025-10-03 14:26:05 ERROR [tradingagents_runner] heartbeat 36 - propagate still running
+2025-10-03 14:26:07 ERROR [tradingagents_runner] heartbeat 37 - propagate still running
+2025-10-03 14:26:09 ERROR [tradingagents_runner] heartbeat 38 - propagate still running
+2025-10-03 14:26:11 ERROR [tradingagents_runner] heartbeat 39 - propagate still running
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 14:26:58 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": true}
+2025-10-03 14:26:58 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 14:27:00 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 14:27:00 ERROR [tradingagents_runner] heartbeat 0 - propagate still running
+2025-10-03 14:27:00 ERROR [tradingagents_runner] starting propagate
+2025-10-03 14:27:02 ERROR [tradingagents_runner] heartbeat 1 - propagate still running
+2025-10-03 14:27:05 ERROR [tradingagents_runner] heartbeat 2 - propagate still running
+2025-10-03 14:27:07 ERROR [tradingagents_runner] heartbeat 3 - propagate still running
+2025-10-03 14:27:09 ERROR [tradingagents_runner] heartbeat 4 - propagate still running
+2025-10-03 14:27:11 ERROR [tradingagents_runner] heartbeat 5 - propagate still running
+2025-10-03 14:27:13 ERROR [tradingagents_runner] heartbeat 6 - propagate still running
+2025-10-03 14:27:15 ERROR [tradingagents_runner] heartbeat 7 - propagate still running
+2025-10-03 14:27:17 ERROR [tradingagents_runner] heartbeat 8 - propagate still running
+2025-10-03 14:27:19 ERROR [tradingagents_runner] heartbeat 9 - propagate still running
+2025-10-03 14:27:21 ERROR [tradingagents_runner] heartbeat 10 - propagate still running
+2025-10-03 14:27:23 ERROR [tradingagents_runner] heartbeat 11 - propagate still running
+2025-10-03 14:27:25 ERROR [tradingagents_runner] heartbeat 12 - propagate still running
+2025-10-03 14:27:27 ERROR [tradingagents_runner] heartbeat 13 - propagate still running
+2025-10-03 14:27:29 ERROR [tradingagents_runner] heartbeat 14 - propagate still running
+2025-10-03 14:27:31 ERROR [tradingagents_runner] heartbeat 15 - propagate still running
+2025-10-03 14:27:33 ERROR [tradingagents_runner] heartbeat 16 - propagate still running
+2025-10-03 14:27:35 ERROR [tradingagents_runner] heartbeat 17 - propagate still running
+2025-10-03 14:27:37 ERROR [tradingagents_runner] heartbeat 18 - propagate still running
+2025-10-03 14:27:39 ERROR [tradingagents_runner] heartbeat 19 - propagate still running
+2025-10-03 14:27:41 ERROR [tradingagents_runner] heartbeat 20 - propagate still running
+2025-10-03 14:27:43 ERROR [tradingagents_runner] heartbeat 21 - propagate still running
+2025-10-03 14:27:45 ERROR [tradingagents_runner] heartbeat 22 - propagate still running
+2025-10-03 14:27:47 ERROR [tradingagents_runner] heartbeat 23 - propagate still running
+2025-10-03 14:27:49 ERROR [tradingagents_runner] heartbeat 24 - propagate still running
+2025-10-03 14:27:51 ERROR [tradingagents_runner] heartbeat 25 - propagate still running
+2025-10-03 14:27:53 ERROR [tradingagents_runner] heartbeat 26 - propagate still running
+2025-10-03 14:27:55 ERROR [tradingagents_runner] heartbeat 27 - propagate still running
+2025-10-03 14:27:57 ERROR [tradingagents_runner] heartbeat 28 - propagate still running
+2025-10-03 14:27:59 ERROR [tradingagents_runner] heartbeat 29 - propagate still running
+2025-10-03 14:28:01 ERROR [tradingagents_runner] heartbeat 30 - propagate still running
+2025-10-03 14:28:03 ERROR [tradingagents_runner] heartbeat 31 - propagate still running
+2025-10-03 14:28:05 ERROR [tradingagents_runner] heartbeat 32 - propagate still running
+2025-10-03 14:28:07 ERROR [tradingagents_runner] heartbeat 33 - propagate still running
+2025-10-03 14:28:09 ERROR [tradingagents_runner] heartbeat 34 - propagate still running
+2025-10-03 14:28:11 ERROR [tradingagents_runner] heartbeat 35 - propagate still running
+2025-10-03 14:28:13 ERROR [tradingagents_runner] heartbeat 36 - propagate still running
+2025-10-03 14:28:15 ERROR [tradingagents_runner] heartbeat 37 - propagate still running
+2025-10-03 14:28:17 ERROR [tradingagents_runner] heartbeat 38 - propagate still running
+2025-10-03 14:28:19 ERROR [tradingagents_runner] heartbeat 39 - propagate still running
+2025-10-03 14:28:21 ERROR [tradingagents_runner] heartbeat 40 - propagate still running
+2025-10-03 14:28:23 ERROR [tradingagents_runner] heartbeat 41 - propagate still running
+2025-10-03 14:28:25 ERROR [tradingagents_runner] heartbeat 42 - propagate still running
+2025-10-03 14:28:27 ERROR [tradingagents_runner] heartbeat 43 - propagate still running
+2025-10-03 14:28:29 ERROR [tradingagents_runner] heartbeat 44 - propagate still running
+2025-10-03 14:28:31 ERROR [tradingagents_runner] heartbeat 45 - propagate still running
+2025-10-03 14:28:33 ERROR [tradingagents_runner] heartbeat 46 - propagate still running
+2025-10-03 14:28:35 ERROR [tradingagents_runner] heartbeat 47 - propagate still running
+2025-10-03 14:28:37 ERROR [tradingagents_runner] heartbeat 48 - propagate still running
+2025-10-03 14:28:39 ERROR [tradingagents_runner] heartbeat 49 - propagate still running
+2025-10-03 14:28:41 ERROR [tradingagents_runner] heartbeat 50 - propagate still running
+2025-10-03 14:28:43 ERROR [tradingagents_runner] heartbeat 51 - propagate still running
+2025-10-03 14:28:45 ERROR [tradingagents_runner] heartbeat 52 - propagate still running
+2025-10-03 14:28:47 ERROR [tradingagents_runner] heartbeat 53 - propagate still running
+2025-10-03 14:28:49 ERROR [tradingagents_runner] heartbeat 54 - propagate still running
+2025-10-03 14:28:51 ERROR [tradingagents_runner] heartbeat 55 - propagate still running
+2025-10-03 14:28:53 ERROR [tradingagents_runner] heartbeat 56 - propagate still running
+2025-10-03 14:28:55 ERROR [tradingagents_runner] heartbeat 57 - propagate still running
+2025-10-03 14:28:57 ERROR [tradingagents_runner] heartbeat 58 - propagate still running
+2025-10-03 14:28:59 ERROR [tradingagents_runner] heartbeat 59 - propagate still running
+2025-10-03 14:29:01 ERROR [tradingagents_runner] heartbeat 60 - propagate still running
+2025-10-03 14:29:03 ERROR [tradingagents_runner] heartbeat 61 - propagate still running
+2025-10-03 14:29:05 ERROR [tradingagents_runner] heartbeat 62 - propagate still running
+2025-10-03 14:29:07 ERROR [tradingagents_runner] heartbeat 63 - propagate still running
+2025-10-03 14:29:09 ERROR [tradingagents_runner] heartbeat 64 - propagate still running
+2025-10-03 14:29:11 ERROR [tradingagents_runner] heartbeat 65 - propagate still running
+2025-10-03 14:29:13 ERROR [tradingagents_runner] heartbeat 66 - propagate still running
+2025-10-03 14:29:15 ERROR [tradingagents_runner] heartbeat 67 - propagate still running
+2025-10-03 14:29:17 ERROR [tradingagents_runner] heartbeat 68 - propagate still running
+2025-10-03 14:29:19 ERROR [tradingagents_runner] heartbeat 69 - propagate still running
+2025-10-03 14:29:21 ERROR [tradingagents_runner] heartbeat 70 - propagate still running
+2025-10-03 14:29:23 ERROR [tradingagents_runner] heartbeat 71 - propagate still running
+2025-10-03 14:29:25 ERROR [tradingagents_runner] heartbeat 72 - propagate still running
+2025-10-03 14:29:27 ERROR [tradingagents_runner] heartbeat 73 - propagate still running
+2025-10-03 14:29:29 ERROR [tradingagents_runner] heartbeat 74 - propagate still running
+2025-10-03 14:29:31 ERROR [tradingagents_runner] heartbeat 75 - propagate still running
+2025-10-03 14:29:33 ERROR [tradingagents_runner] heartbeat 76 - propagate still running
+2025-10-03 14:29:35 ERROR [tradingagents_runner] heartbeat 77 - propagate still running
+2025-10-03 14:29:37 ERROR [tradingagents_runner] heartbeat 78 - propagate still running
+2025-10-03 14:29:39 ERROR [tradingagents_runner] heartbeat 79 - propagate still running
+2025-10-03 14:29:41 ERROR [tradingagents_runner] heartbeat 80 - propagate still running
+2025-10-03 14:29:43 ERROR [tradingagents_runner] heartbeat 81 - propagate still running
+2025-10-03 14:29:45 ERROR [tradingagents_runner] heartbeat 82 - propagate still running
+2025-10-03 14:29:47 ERROR [tradingagents_runner] heartbeat 83 - propagate still running
+2025-10-03 14:29:49 ERROR [tradingagents_runner] heartbeat 84 - propagate still running
+2025-10-03 14:29:51 ERROR [tradingagents_runner] heartbeat 85 - propagate still running
+2025-10-03 14:29:53 ERROR [tradingagents_runner] heartbeat 86 - propagate still running
+2025-10-03 14:29:55 ERROR [tradingagents_runner] heartbeat 87 - propagate still running
+2025-10-03 14:29:57 ERROR [tradingagents_runner] heartbeat 88 - propagate still running
+2025-10-03 14:29:59 ERROR [tradingagents_runner] heartbeat 89 - propagate still running
+2025-10-03 14:30:01 ERROR [tradingagents_runner] heartbeat 90 - propagate still running
+2025-10-03 14:30:03 ERROR [tradingagents_runner] heartbeat 91 - propagate still running
+2025-10-03 14:30:05 ERROR [tradingagents_runner] heartbeat 92 - propagate still running
+2025-10-03 14:30:07 ERROR [tradingagents_runner] heartbeat 93 - propagate still running
+2025-10-03 14:30:09 ERROR [tradingagents_runner] heartbeat 94 - propagate still running
+2025-10-03 14:30:11 ERROR [tradingagents_runner] heartbeat 95 - propagate still running
+2025-10-03 14:30:13 ERROR [tradingagents_runner] heartbeat 96 - propagate still running
+2025-10-03 14:30:15 ERROR [tradingagents_runner] heartbeat 97 - propagate still running
+2025-10-03 14:30:17 ERROR [tradingagents_runner] heartbeat 98 - propagate still running
+2025-10-03 14:30:19 ERROR [tradingagents_runner] heartbeat 99 - propagate still running
+2025-10-03 14:30:21 ERROR [tradingagents_runner] heartbeat 100 - propagate still running
+2025-10-03 14:30:23 ERROR [tradingagents_runner] heartbeat 101 - propagate still running
+2025-10-03 14:30:25 ERROR [tradingagents_runner] heartbeat 102 - propagate still running
+2025-10-03 14:30:27 ERROR [tradingagents_runner] heartbeat 103 - propagate still running
+2025-10-03 14:30:29 ERROR [tradingagents_runner] heartbeat 104 - propagate still running
+2025-10-03 14:30:31 ERROR [tradingagents_runner] heartbeat 105 - propagate still running
+2025-10-03 14:30:33 ERROR [tradingagents_runner] heartbeat 106 - propagate still running
+2025-10-03 14:30:35 ERROR [tradingagents_runner] heartbeat 107 - propagate still running
+2025-10-03 14:30:37 ERROR [tradingagents_runner] heartbeat 108 - propagate still running
+2025-10-03 14:30:39 ERROR [tradingagents_runner] heartbeat 109 - propagate still running
+2025-10-03 14:30:41 ERROR [tradingagents_runner] heartbeat 110 - propagate still running
+2025-10-03 14:30:43 ERROR [tradingagents_runner] heartbeat 111 - propagate still running
+2025-10-03 14:30:45 ERROR [tradingagents_runner] heartbeat 112 - propagate still running
+2025-10-03 14:30:47 ERROR [tradingagents_runner] heartbeat 113 - propagate still running
+2025-10-03 14:30:49 ERROR [tradingagents_runner] heartbeat 114 - propagate still running
+2025-10-03 14:30:51 ERROR [tradingagents_runner] heartbeat 115 - propagate still running
+2025-10-03 14:30:53 ERROR [tradingagents_runner] heartbeat 116 - propagate still running
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 15:25:50 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": true}
+2025-10-03 15:25:50 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 15:25:52 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 15:25:52 ERROR [tradingagents_runner] heartbeat 0 - propagate still running
+2025-10-03 15:25:52 ERROR [tradingagents_runner] starting propagate
+2025-10-03 15:25:54 ERROR [tradingagents_runner] heartbeat 1 - propagate still running
+2025-10-03 15:25:56 ERROR [tradingagents_runner] heartbeat 2 - propagate still running
+2025-10-03 15:25:58 ERROR [tradingagents_runner] heartbeat 3 - propagate still running
+2025-10-03 15:26:00 ERROR [tradingagents_runner] heartbeat 4 - propagate still running
+2025-10-03 15:26:02 ERROR [tradingagents_runner] heartbeat 5 - propagate still running
+2025-10-03 15:26:04 ERROR [tradingagents_runner] heartbeat 6 - propagate still running
+2025-10-03 15:26:06 ERROR [tradingagents_runner] heartbeat 7 - propagate still running
+2025-10-03 15:26:08 ERROR [tradingagents_runner] heartbeat 8 - propagate still running
+2025-10-03 15:26:10 ERROR [tradingagents_runner] heartbeat 9 - propagate still running
+2025-10-03 15:26:12 ERROR [tradingagents_runner] heartbeat 10 - propagate still running
+2025-10-03 15:26:14 ERROR [tradingagents_runner] heartbeat 11 - propagate still running
+2025-10-03 15:26:16 ERROR [tradingagents_runner] heartbeat 12 - propagate still running
+2025-10-03 15:26:18 ERROR [tradingagents_runner] heartbeat 13 - propagate still running
+2025-10-03 15:26:20 ERROR [tradingagents_runner] heartbeat 14 - propagate still running
+2025-10-03 15:26:22 ERROR [tradingagents_runner] heartbeat 15 - propagate still running
+2025-10-03 15:26:24 ERROR [tradingagents_runner] heartbeat 16 - propagate still running
+2025-10-03 15:26:26 ERROR [tradingagents_runner] heartbeat 17 - propagate still running
+2025-10-03 15:26:28 ERROR [tradingagents_runner] heartbeat 18 - propagate still running
+2025-10-03 15:26:30 ERROR [tradingagents_runner] heartbeat 19 - propagate still running
+2025-10-03 15:26:32 ERROR [tradingagents_runner] heartbeat 20 - propagate still running
+2025-10-03 15:26:34 ERROR [tradingagents_runner] heartbeat 21 - propagate still running
+2025-10-03 15:26:36 ERROR [tradingagents_runner] heartbeat 22 - propagate still running
+2025-10-03 15:26:38 ERROR [tradingagents_runner] heartbeat 23 - propagate still running
+2025-10-03 15:26:40 ERROR [tradingagents_runner] heartbeat 24 - propagate still running
+2025-10-03 15:26:42 ERROR [tradingagents_runner] heartbeat 25 - propagate still running
+2025-10-03 15:26:44 ERROR [tradingagents_runner] heartbeat 26 - propagate still running
+2025-10-03 15:26:46 ERROR [tradingagents_runner] heartbeat 27 - propagate still running
+2025-10-03 15:26:48 ERROR [tradingagents_runner] heartbeat 28 - propagate still running
+2025-10-03 15:26:50 ERROR [tradingagents_runner] heartbeat 29 - propagate still running
+2025-10-03 15:26:52 ERROR [tradingagents_runner] heartbeat 30 - propagate still running
+2025-10-03 15:26:54 ERROR [tradingagents_runner] heartbeat 31 - propagate still running
+2025-10-03 15:26:56 ERROR [tradingagents_runner] heartbeat 32 - propagate still running
+2025-10-03 15:26:58 ERROR [tradingagents_runner] heartbeat 33 - propagate still running
+2025-10-03 15:27:00 ERROR [tradingagents_runner] heartbeat 34 - propagate still running
+2025-10-03 15:27:02 ERROR [tradingagents_runner] heartbeat 35 - propagate still running
+2025-10-03 15:27:04 ERROR [tradingagents_runner] heartbeat 36 - propagate still running
+2025-10-03 15:27:06 ERROR [tradingagents_runner] heartbeat 37 - propagate still running
+2025-10-03 15:27:08 ERROR [tradingagents_runner] heartbeat 38 - propagate still running
+2025-10-03 15:27:10 ERROR [tradingagents_runner] heartbeat 39 - propagate still running
+2025-10-03 15:27:12 ERROR [tradingagents_runner] heartbeat 40 - propagate still running
+2025-10-03 15:27:14 ERROR [tradingagents_runner] heartbeat 41 - propagate still running
+2025-10-03 15:27:16 ERROR [tradingagents_runner] heartbeat 42 - propagate still running
+2025-10-03 15:27:18 ERROR [tradingagents_runner] heartbeat 43 - propagate still running
+2025-10-03 15:27:20 ERROR [tradingagents_runner] heartbeat 44 - propagate still running
+2025-10-03 15:27:22 ERROR [tradingagents_runner] heartbeat 45 - propagate still running
+2025-10-03 15:27:24 ERROR [tradingagents_runner] heartbeat 46 - propagate still running
+2025-10-03 15:27:26 ERROR [tradingagents_runner] heartbeat 47 - propagate still running
+2025-10-03 15:27:28 ERROR [tradingagents_runner] heartbeat 48 - propagate still running
+2025-10-03 15:27:30 ERROR [tradingagents_runner] heartbeat 49 - propagate still running
+2025-10-03 15:27:32 ERROR [tradingagents_runner] heartbeat 50 - propagate still running
+2025-10-03 15:27:34 ERROR [tradingagents_runner] heartbeat 51 - propagate still running
+2025-10-03 15:27:36 ERROR [tradingagents_runner] heartbeat 52 - propagate still running
+2025-10-03 15:27:38 ERROR [tradingagents_runner] heartbeat 53 - propagate still running
+2025-10-03 15:27:40 ERROR [tradingagents_runner] heartbeat 54 - propagate still running
+2025-10-03 15:27:42 ERROR [tradingagents_runner] heartbeat 55 - propagate still running
+2025-10-03 15:27:44 ERROR [tradingagents_runner] heartbeat 56 - propagate still running
+2025-10-03 15:27:46 ERROR [tradingagents_runner] heartbeat 57 - propagate still running
+2025-10-03 15:27:48 ERROR [tradingagents_runner] heartbeat 58 - propagate still running
+2025-10-03 15:27:50 ERROR [tradingagents_runner] heartbeat 59 - propagate still running
+2025-10-03 15:27:52 ERROR [tradingagents_runner] heartbeat 60 - propagate still running
+2025-10-03 15:27:54 ERROR [tradingagents_runner] heartbeat 61 - propagate still running
+2025-10-03 15:27:56 ERROR [tradingagents_runner] heartbeat 62 - propagate still running
+2025-10-03 15:27:58 ERROR [tradingagents_runner] heartbeat 63 - propagate still running
+2025-10-03 15:28:00 ERROR [tradingagents_runner] heartbeat 64 - propagate still running
+2025-10-03 15:28:02 ERROR [tradingagents_runner] heartbeat 65 - propagate still running
+2025-10-03 15:28:04 ERROR [tradingagents_runner] heartbeat 66 - propagate still running
+2025-10-03 15:28:06 ERROR [tradingagents_runner] heartbeat 67 - propagate still running
+2025-10-03 15:28:08 ERROR [tradingagents_runner] heartbeat 68 - propagate still running
+2025-10-03 15:28:10 ERROR [tradingagents_runner] heartbeat 69 - propagate still running
+2025-10-03 15:28:12 ERROR [tradingagents_runner] heartbeat 70 - propagate still running
+2025-10-03 15:28:14 ERROR [tradingagents_runner] heartbeat 71 - propagate still running
+2025-10-03 15:28:16 ERROR [tradingagents_runner] heartbeat 72 - propagate still running
+2025-10-03 15:28:18 ERROR [tradingagents_runner] heartbeat 73 - propagate still running
+2025-10-03 15:28:20 ERROR [tradingagents_runner] heartbeat 74 - propagate still running
+2025-10-03 15:28:22 ERROR [tradingagents_runner] heartbeat 75 - propagate still running
+2025-10-03 15:28:24 ERROR [tradingagents_runner] heartbeat 76 - propagate still running
+2025-10-03 15:28:26 ERROR [tradingagents_runner] heartbeat 77 - propagate still running
+2025-10-03 15:28:28 ERROR [tradingagents_runner] heartbeat 78 - propagate still running
+2025-10-03 15:28:30 ERROR [tradingagents_runner] heartbeat 79 - propagate still running
+2025-10-03 15:28:32 ERROR [tradingagents_runner] heartbeat 80 - propagate still running
+2025-10-03 15:28:34 ERROR [tradingagents_runner] heartbeat 81 - propagate still running
+2025-10-03 15:28:36 ERROR [tradingagents_runner] heartbeat 82 - propagate still running
+2025-10-03 15:28:38 ERROR [tradingagents_runner] heartbeat 83 - propagate still running
+2025-10-03 15:28:40 ERROR [tradingagents_runner] heartbeat 84 - propagate still running
+2025-10-03 15:28:43 ERROR [tradingagents_runner] heartbeat 85 - propagate still running
+2025-10-03 15:28:45 ERROR [tradingagents_runner] heartbeat 86 - propagate still running
+2025-10-03 15:28:47 ERROR [tradingagents_runner] heartbeat 87 - propagate still running
+2025-10-03 15:28:49 ERROR [tradingagents_runner] heartbeat 88 - propagate still running
+2025-10-03 15:28:51 ERROR [tradingagents_runner] heartbeat 89 - propagate still running
+2025-10-03 15:28:53 ERROR [tradingagents_runner] heartbeat 90 - propagate still running
+2025-10-03 15:28:55 ERROR [tradingagents_runner] heartbeat 91 - propagate still running
+2025-10-03 15:28:57 ERROR [tradingagents_runner] heartbeat 92 - propagate still running
+2025-10-03 15:28:59 ERROR [tradingagents_runner] heartbeat 93 - propagate still running
+2025-10-03 15:29:01 ERROR [tradingagents_runner] heartbeat 94 - propagate still running
+2025-10-03 15:29:03 ERROR [tradingagents_runner] heartbeat 95 - propagate still running
+2025-10-03 15:29:05 ERROR [tradingagents_runner] heartbeat 96 - propagate still running
+2025-10-03 15:29:07 ERROR [tradingagents_runner] heartbeat 97 - propagate still running
+2025-10-03 15:29:09 ERROR [tradingagents_runner] heartbeat 98 - propagate still running
+2025-10-03 15:29:11 ERROR [tradingagents_runner] heartbeat 99 - propagate still running
+2025-10-03 15:29:13 ERROR [tradingagents_runner] heartbeat 100 - propagate still running
+2025-10-03 15:29:15 ERROR [tradingagents_runner] heartbeat 101 - propagate still running
+2025-10-03 15:29:17 ERROR [tradingagents_runner] heartbeat 102 - propagate still running
+2025-10-03 15:29:19 ERROR [tradingagents_runner] heartbeat 103 - propagate still running
+2025-10-03 15:29:21 ERROR [tradingagents_runner] heartbeat 104 - propagate still running
+2025-10-03 15:29:23 ERROR [tradingagents_runner] heartbeat 105 - propagate still running
+2025-10-03 15:29:25 ERROR [tradingagents_runner] heartbeat 106 - propagate still running
+2025-10-03 15:29:27 ERROR [tradingagents_runner] heartbeat 107 - propagate still running
+2025-10-03 15:29:29 ERROR [tradingagents_runner] heartbeat 108 - propagate still running
+2025-10-03 15:29:31 ERROR [tradingagents_runner] heartbeat 109 - propagate still running
+2025-10-03 15:29:33 ERROR [tradingagents_runner] heartbeat 110 - propagate still running
+2025-10-03 15:29:35 ERROR [tradingagents_runner] heartbeat 111 - propagate still running
+2025-10-03 15:29:37 ERROR [tradingagents_runner] heartbeat 112 - propagate still running
+2025-10-03 15:29:39 ERROR [tradingagents_runner] heartbeat 113 - propagate still running
+2025-10-03 15:29:41 ERROR [tradingagents_runner] heartbeat 114 - propagate still running
+2025-10-03 15:29:43 ERROR [tradingagents_runner] heartbeat 115 - propagate still running
+2025-10-03 15:29:45 ERROR [tradingagents_runner] heartbeat 116 - propagate still running
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_YFin_data_online -> context['market_price_history']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_YFin_data -> context['market_price_history']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_YFin_data_window -> context['market_price_history']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_stock_stats_indicators_window -> context['market_technical_report']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_stockstats_indicator -> context['market_technical_report']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_stock_news_openai -> context['social_stock_news']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_reddit_company_news -> context['social_reddit_summary']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_reddit_global_news -> context['news_reddit']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_global_news_openai -> context['news_global']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_finnhub_news -> context['news_company']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_sentiment -> context['finnhub_insider_sentiment']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_finnhub_company_insider_transactions -> context['finnhub_insider_transactions']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_fundamentals_openai -> context['fundamentals_summary']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_simfin_balance_sheet -> context['fundamentals_balance_sheet']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_simfin_cashflow -> context['fundamentals_cashflow']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] patched interface.get_simfin_income_statements -> context['fundamentals_income_stmt']
+2025-10-03 15:42:00 ERROR [tradingagents_runner] effective config: {"project_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents", "results_dir": "./trading-results", "data_dir": "/Users/yluo/Documents/Code/ScAI/FR1-data", "data_cache_dir": "D:\\learinvscode\\learncodex\\TradingAgents-main\\tradingagents\\dataflows/data_cache", "llm_provider": "openai", "deep_think_llm": "o4-mini", "quick_think_llm": "gpt-4o-mini", "backend_url": "https://api.openai.com/v1", "max_debate_rounds": 1, "max_risk_discuss_rounds": 1, "max_recur_limit": 100, "online_tools": true}
+2025-10-03 15:42:00 ERROR [tradingagents_runner] creating TradingAgentsGraph
+2025-10-03 15:42:02 ERROR [tradingagents_runner] created TradingAgentsGraph
+2025-10-03 15:42:02 ERROR [tradingagents_runner] heartbeat 0 - propagate still running
+2025-10-03 15:42:02 ERROR [tradingagents_runner] starting propagate
+2025-10-03 15:42:04 ERROR [tradingagents_runner] heartbeat 1 - propagate still running
+2025-10-03 15:42:06 ERROR [tradingagents_runner] heartbeat 2 - propagate still running
+2025-10-03 15:42:08 ERROR [tradingagents_runner] heartbeat 3 - propagate still running
+2025-10-03 15:42:10 ERROR [tradingagents_runner] heartbeat 4 - propagate still running
+2025-10-03 15:42:12 ERROR [tradingagents_runner] heartbeat 5 - propagate still running
+2025-10-03 15:42:14 ERROR [tradingagents_runner] heartbeat 6 - propagate still running
+2025-10-03 15:42:16 ERROR [tradingagents_runner] heartbeat 7 - propagate still running
+2025-10-03 15:42:18 ERROR [tradingagents_runner] heartbeat 8 - propagate still running
+2025-10-03 15:42:20 ERROR [tradingagents_runner] heartbeat 9 - propagate still running
+2025-10-03 15:42:22 ERROR [tradingagents_runner] heartbeat 10 - propagate still running
+2025-10-03 15:42:24 ERROR [tradingagents_runner] heartbeat 11 - propagate still running
+2025-10-03 15:42:27 ERROR [tradingagents_runner] heartbeat 12 - propagate still running
+2025-10-03 15:42:29 ERROR [tradingagents_runner] heartbeat 13 - propagate still running
+2025-10-03 15:42:31 ERROR [tradingagents_runner] heartbeat 14 - propagate still running
+2025-10-03 15:42:33 ERROR [tradingagents_runner] heartbeat 15 - propagate still running
+2025-10-03 15:42:35 ERROR [tradingagents_runner] heartbeat 16 - propagate still running
+2025-10-03 15:42:37 ERROR [tradingagents_runner] heartbeat 17 - propagate still running
+2025-10-03 15:42:39 ERROR [tradingagents_runner] heartbeat 18 - propagate still running
+2025-10-03 15:42:41 ERROR [tradingagents_runner] heartbeat 19 - propagate still running
+2025-10-03 15:42:43 ERROR [tradingagents_runner] heartbeat 20 - propagate still running
+2025-10-03 15:42:45 ERROR [tradingagents_runner] heartbeat 21 - propagate still running
+2025-10-03 15:42:47 ERROR [tradingagents_runner] heartbeat 22 - propagate still running
+2025-10-03 15:42:49 ERROR [tradingagents_runner] heartbeat 23 - propagate still running
+2025-10-03 15:42:51 ERROR [tradingagents_runner] heartbeat 24 - propagate still running
+2025-10-03 15:42:53 ERROR [tradingagents_runner] heartbeat 25 - propagate still running
+2025-10-03 15:42:55 ERROR [tradingagents_runner] heartbeat 26 - propagate still running
+2025-10-03 15:42:57 ERROR [tradingagents_runner] heartbeat 27 - propagate still running
+2025-10-03 15:42:59 ERROR [tradingagents_runner] heartbeat 28 - propagate still running
+2025-10-03 15:43:01 ERROR [tradingagents_runner] heartbeat 29 - propagate still running
+2025-10-03 15:43:03 ERROR [tradingagents_runner] heartbeat 30 - propagate still running
+2025-10-03 15:43:05 ERROR [tradingagents_runner] heartbeat 31 - propagate still running
+2025-10-03 15:43:07 ERROR [tradingagents_runner] heartbeat 32 - propagate still running
+2025-10-03 15:43:09 ERROR [tradingagents_runner] heartbeat 33 - propagate still running
+2025-10-03 15:43:11 ERROR [tradingagents_runner] heartbeat 34 - propagate still running
+2025-10-03 15:43:13 ERROR [tradingagents_runner] heartbeat 35 - propagate still running
+2025-10-03 15:43:15 ERROR [tradingagents_runner] heartbeat 36 - propagate still running
+2025-10-03 15:43:17 ERROR [tradingagents_runner] heartbeat 37 - propagate still running
+2025-10-03 15:43:19 ERROR [tradingagents_runner] heartbeat 38 - propagate still running
+2025-10-03 15:43:21 ERROR [tradingagents_runner] heartbeat 39 - propagate still running
+2025-10-03 15:43:23 ERROR [tradingagents_runner] heartbeat 40 - propagate still running
+2025-10-03 15:43:25 ERROR [tradingagents_runner] heartbeat 41 - propagate still running
+2025-10-03 15:43:27 ERROR [tradingagents_runner] heartbeat 42 - propagate still running
+2025-10-03 15:43:29 ERROR [tradingagents_runner] heartbeat 43 - propagate still running
+2025-10-03 15:43:31 ERROR [tradingagents_runner] heartbeat 44 - propagate still running
+2025-10-03 15:43:33 ERROR [tradingagents_runner] heartbeat 45 - propagate still running
+2025-10-03 15:43:35 ERROR [tradingagents_runner] heartbeat 46 - propagate still running
+2025-10-03 15:43:37 ERROR [tradingagents_runner] heartbeat 47 - propagate still running
+2025-10-03 15:43:39 ERROR [tradingagents_runner] heartbeat 48 - propagate still running
+2025-10-03 15:43:41 ERROR [tradingagents_runner] heartbeat 49 - propagate still running
+2025-10-03 15:43:43 ERROR [tradingagents_runner] heartbeat 50 - propagate still running
+2025-10-03 15:43:45 ERROR [tradingagents_runner] heartbeat 51 - propagate still running
+2025-10-03 15:43:47 ERROR [tradingagents_runner] heartbeat 52 - propagate still running
+2025-10-03 15:43:49 ERROR [tradingagents_runner] heartbeat 53 - propagate still running
+2025-10-03 15:43:51 ERROR [tradingagents_runner] heartbeat 54 - propagate still running
+2025-10-03 15:43:53 ERROR [tradingagents_runner] heartbeat 55 - propagate still running
+2025-10-03 15:43:55 ERROR [tradingagents_runner] heartbeat 56 - propagate still running
+2025-10-03 15:43:57 ERROR [tradingagents_runner] heartbeat 57 - propagate still running
+2025-10-03 15:43:59 ERROR [tradingagents_runner] heartbeat 58 - propagate still running
+2025-10-03 15:44:01 ERROR [tradingagents_runner] heartbeat 59 - propagate still running
+2025-10-03 15:44:03 ERROR [tradingagents_runner] heartbeat 60 - propagate still running
+2025-10-03 15:44:05 ERROR [tradingagents_runner] heartbeat 61 - propagate still running
+2025-10-03 15:44:07 ERROR [tradingagents_runner] heartbeat 62 - propagate still running
+2025-10-03 15:44:09 ERROR [tradingagents_runner] heartbeat 63 - propagate still running
+2025-10-03 15:44:11 ERROR [tradingagents_runner] heartbeat 64 - propagate still running
+2025-10-03 15:44:13 ERROR [tradingagents_runner] heartbeat 65 - propagate still running
+2025-10-03 15:44:15 ERROR [tradingagents_runner] heartbeat 66 - propagate still running
+2025-10-03 15:44:17 ERROR [tradingagents_runner] heartbeat 67 - propagate still running
+2025-10-03 15:44:19 ERROR [tradingagents_runner] heartbeat 68 - propagate still running
+2025-10-03 15:44:21 ERROR [tradingagents_runner] heartbeat 69 - propagate still running
+2025-10-03 15:44:23 ERROR [tradingagents_runner] heartbeat 70 - propagate still running
+2025-10-03 15:44:25 ERROR [tradingagents_runner] heartbeat 71 - propagate still running
+2025-10-03 15:44:27 ERROR [tradingagents_runner] heartbeat 72 - propagate still running
+2025-10-03 15:44:29 ERROR [tradingagents_runner] heartbeat 73 - propagate still running
+2025-10-03 15:44:31 ERROR [tradingagents_runner] heartbeat 74 - propagate still running
+2025-10-03 15:44:33 ERROR [tradingagents_runner] heartbeat 75 - propagate still running
+2025-10-03 15:44:35 ERROR [tradingagents_runner] heartbeat 76 - propagate still running
+2025-10-03 15:44:37 ERROR [tradingagents_runner] heartbeat 77 - propagate still running
+2025-10-03 15:44:39 ERROR [tradingagents_runner] heartbeat 78 - propagate still running
+2025-10-03 15:44:41 ERROR [tradingagents_runner] heartbeat 79 - propagate still running
+2025-10-03 15:44:43 ERROR [tradingagents_runner] heartbeat 80 - propagate still running
+2025-10-03 15:44:45 ERROR [tradingagents_runner] heartbeat 81 - propagate still running
+2025-10-03 15:44:47 ERROR [tradingagents_runner] heartbeat 82 - propagate still running
+2025-10-03 15:44:49 ERROR [tradingagents_runner] heartbeat 83 - propagate still running
+2025-10-03 15:44:51 ERROR [tradingagents_runner] heartbeat 84 - propagate still running
+2025-10-03 15:44:53 ERROR [tradingagents_runner] heartbeat 85 - propagate still running
+2025-10-03 15:44:55 ERROR [tradingagents_runner] heartbeat 86 - propagate still running
+2025-10-03 15:44:57 ERROR [tradingagents_runner] heartbeat 87 - propagate still running
+2025-10-03 15:44:59 ERROR [tradingagents_runner] heartbeat 88 - propagate still running
+2025-10-03 15:45:01 ERROR [tradingagents_runner] heartbeat 89 - propagate still running
+2025-10-03 15:45:03 ERROR [tradingagents_runner] heartbeat 90 - propagate still running
+2025-10-03 15:45:05 ERROR [tradingagents_runner] heartbeat 91 - propagate still running
+2025-10-03 15:45:07 ERROR [tradingagents_runner] heartbeat 92 - propagate still running
+2025-10-03 15:45:09 ERROR [tradingagents_runner] heartbeat 93 - propagate still running
+2025-10-03 15:45:11 ERROR [tradingagents_runner] heartbeat 94 - propagate still running
+2025-10-03 15:45:13 ERROR [tradingagents_runner] heartbeat 95 - propagate still running
+2025-10-03 15:45:15 ERROR [tradingagents_runner] heartbeat 96 - propagate still running
+2025-10-03 15:45:17 ERROR [tradingagents_runner] heartbeat 97 - propagate still running
+2025-10-03 15:45:19 ERROR [tradingagents_runner] heartbeat 98 - propagate still running
+2025-10-03 15:45:21 ERROR [tradingagents_runner] heartbeat 99 - propagate still running
+2025-10-03 15:45:23 ERROR [tradingagents_runner] heartbeat 100 - propagate still running
+2025-10-03 15:45:25 ERROR [tradingagents_runner] heartbeat 101 - propagate still running
+2025-10-03 15:45:27 ERROR [tradingagents_runner] heartbeat 102 - propagate still running
+2025-10-03 15:45:29 ERROR [tradingagents_runner] heartbeat 103 - propagate still running
+2025-10-03 15:45:31 ERROR [tradingagents_runner] heartbeat 104 - propagate still running
+2025-10-03 15:45:33 ERROR [tradingagents_runner] heartbeat 105 - propagate still running
+2025-10-03 15:45:35 ERROR [tradingagents_runner] heartbeat 106 - propagate still running
+2025-10-03 15:45:37 ERROR [tradingagents_runner] heartbeat 107 - propagate still running
+2025-10-03 15:45:39 ERROR [tradingagents_runner] heartbeat 108 - propagate still running
+2025-10-03 15:45:41 ERROR [tradingagents_runner] heartbeat 109 - propagate still running
+2025-10-03 15:45:43 ERROR [tradingagents_runner] heartbeat 110 - propagate still running
+2025-10-03 15:45:45 ERROR [tradingagents_runner] heartbeat 111 - propagate still running
