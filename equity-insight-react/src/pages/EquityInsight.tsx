@@ -417,6 +417,9 @@ const EquityInsight = () => {
   const [socialError, setSocialError] = useState<string | null>(null)
   const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
   const [tradingError, setTradingError] = useState<string | null>(null)
+  // New: top-level tab (research vs trading) and manual trading run state
+  const [mainTab, setMainTab] = useState<'research' | 'trading'>('research')
+  const [isTradingLoading, setIsTradingLoading] = useState(false)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
 
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
@@ -555,53 +558,7 @@ const EquityInsight = () => {
       if (nextSteps.length) data.catalysts = nextSteps
       if (watchItems.length) data.risks = watchItems
 
-      const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
-
-      try {
-        const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbol: trimmed }),
-        })
-
-        if (tradingResponse.ok) {
-          const tradingData: TradingAgentsDecision = await tradingResponse.json()
-          setTradingDecision(tradingData)
-          setTradingError(null)
-        } else {
-          const rawBody = await tradingResponse.text()
-          let message = tradingFallbackMessage
-
-          if (rawBody) {
-            try {
-              const parsed = JSON.parse(rawBody) as { error?: unknown }
-              if (parsed && typeof parsed.error !== 'undefined') {
-                const extracted = String(parsed.error ?? '').trim()
-                if (extracted) {
-                  message = extracted
-                }
-              } else if (rawBody.trim()) {
-                message = rawBody.trim()
-              }
-            } catch {
-              if (rawBody.trim()) {
-                message = rawBody.trim()
-              }
-            }
-          }
-
-          setTradingDecision(null)
-          setTradingError(message)
-        }
-      } catch (error) {
-        console.error(error)
-        const message =
-          error instanceof Error
-            ? `Trading agents error: ${error.message}`
-            : tradingFallbackMessage
-        setTradingDecision(null)
-        setTradingError(message)
-      }
+      // Do not auto-invoke TradingAgents here anymore; user can run it manually from the Trading tab
 
 
       setReportData({ ticker: trimmed, data })
@@ -615,6 +572,53 @@ const EquityInsight = () => {
       console.error(error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Manual trigger for TradingAgents from the Trading tab
+  const runTradingAgents = async () => {
+    const symbol = (reportData?.ticker ?? tickerInput.trim().toUpperCase())
+    if (!symbol) {
+      setTradingError('Enter a ticker first, then open the Trading Agents tab to run the report.')
+      return
+    }
+    setIsTradingLoading(true)
+    setTradingDecision(null)
+    setTradingError(null)
+    const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
+    try {
+      const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol })
+      })
+      if (tradingResponse.ok) {
+        const tradingData: TradingAgentsDecision = await tradingResponse.json()
+        setTradingDecision(tradingData)
+        setTradingError(null)
+      } else {
+        const rawBody = await tradingResponse.text()
+        let message = tradingFallbackMessage
+        if (rawBody) {
+          try {
+            const parsed = JSON.parse(rawBody) as { error?: unknown }
+            const extracted = String(parsed.error ?? '').trim()
+            if (extracted) message = extracted
+            else if (rawBody.trim()) message = rawBody.trim()
+          } catch {
+            if (rawBody.trim()) message = rawBody.trim()
+          }
+        }
+        setTradingDecision(null)
+        setTradingError(message)
+      }
+    } catch (error) {
+      console.error(error)
+      const message = error instanceof Error ? `Trading agents error: ${error.message}` : tradingFallbackMessage
+      setTradingDecision(null)
+      setTradingError(message)
+    } finally {
+      setIsTradingLoading(false)
     }
   }
 
@@ -971,57 +975,7 @@ const EquityInsight = () => {
           )}
         </article>
 
-        <article
-          id="trading"
-          ref={(node) => {
-            scrollTargets.current.trading = node
-          }}
-          className="glass-panel space-y-5 p-6 sm:p-8"
-        >
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Trading Agents</p>
-            <h2 className="text-xl font-semibold text-white">Trading Signal</h2>
-          </div>
-          {tradingError ? (
-            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-              {tradingError}
-            </div>
-          ) : tradingDecision ? (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
-                <p className="mt-2 text-lg font-semibold text-white">
-                  {tradingDecision.decision ?? tradingDecision.finalTradeDecision ?? 'Decision unavailable'}
-                </p>
-                <p className="mt-2 text-xs text-slate-300">Trade date: {tradingDecision.tradeDate}</p>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Trader Plan</h3>
-                  <p className="text-sm text-slate-200">{tradingDecision.traderPlan ?? 'No trader plan returned.'}</p>
-                </div>
-                <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Plan</h3>
-                  <p className="text-sm text-slate-200">{tradingDecision.investmentPlan ?? 'No investment plan returned.'}</p>
-                </div>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Judge</h3>
-                  <p className="mt-2">{tradingDecision.investmentJudge ?? 'No judge commentary returned.'}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Risk Judge</h3>
-                  <p className="mt-2">{tradingDecision.riskJudge ?? 'No risk commentary returned.'}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              {tradingError ?? 'Trading agents decision will appear once a ticker has been analyzed.'}
-            </p>
-          )}
-        </article>
+        {/* Trading section removed from research content; moved to its own tab below */}
         <article
           id="analyst"
           ref={(node) => {
@@ -1172,9 +1126,106 @@ const EquityInsight = () => {
             </form>
           </section>
 
-          <section className="space-y-6" aria-live="polite" aria-busy={isLoading}>
-            {reportContent}
-          </section>
+          {/* Top-level tabs: Research vs Trading */}
+          <div className="glass-panel p-1 text-sm font-semibold">
+            <div className="flex rounded-full bg-white/10 p-1">
+              <button
+                type="button"
+                className={clsx(
+                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                  mainTab === 'research' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-white/10'
+                )}
+                onClick={() => setMainTab('research')}
+              >
+                Research
+              </button>
+              <button
+                type="button"
+                className={clsx(
+                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
+                  mainTab === 'trading' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-white/10'
+                )}
+                onClick={() => setMainTab('trading')}
+              >
+                Trading Agents
+              </button>
+            </div>
+          </div>
+
+          {mainTab === 'research' ? (
+            <section className="space-y-6" aria-live="polite" aria-busy={isLoading}>
+              {reportContent}
+            </section>
+          ) : (
+            <section className="space-y-6" aria-live="polite" aria-busy={isTradingLoading}>
+              <article className="glass-panel space-y-5 p-6 sm:p-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Trading Agents</p>
+                    <h2 className="text-xl font-semibold text-white">Manual Run</h2>
+                    <p className="mt-1 text-sm text-slate-300">Run the multi-agent trading assessment on demand.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-300">Ticker:</span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-white">
+                      {reportData?.ticker || tickerInput || '—'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={runTradingAgents}
+                      disabled={isTradingLoading || !(reportData?.ticker || tickerInput)}
+                      className={clsx(
+                        'pill-button px-4 py-2 text-xs uppercase tracking-[0.3em]',
+                        (isTradingLoading || !(reportData?.ticker || tickerInput)) && 'opacity-60'
+                      )}
+                    >
+                      {isTradingLoading ? 'Running…' : 'Run Trading Agents'}
+                    </button>
+                  </div>
+                </div>
+
+                {tradingError ? (
+                  <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                    {tradingError}
+                  </div>
+                ) : tradingDecision ? (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {tradingDecision.decision ?? tradingDecision.finalTradeDecision ?? 'Decision unavailable'}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-300">Trade date: {tradingDecision.tradeDate}</p>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Trader Plan</h3>
+                        <p className="text-sm text-slate-200">{tradingDecision.traderPlan ?? 'No trader plan returned.'}</p>
+                      </div>
+                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Plan</h3>
+                        <p className="text-sm text-slate-200">{tradingDecision.investmentPlan ?? 'No investment plan returned.'}</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Judge</h3>
+                        <p className="mt-2">{tradingDecision.investmentJudge ?? 'No judge commentary returned.'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Risk Judge</h3>
+                        <p className="mt-2">{tradingDecision.riskJudge ?? 'No risk commentary returned.'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    {isTradingLoading ? 'Running trading agents…' : 'Click "Run Trading Agents" to generate the decision.'}
+                  </p>
+                )}
+              </article>
+            </section>
+          )}
         </main>
       </div>
     </div>
