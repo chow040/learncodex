@@ -67,14 +67,14 @@ const buildSupplementalContext = (context) => {
         const metricLines = [
             `P/E ratio: ${formatNumber(metrics.pe)}`,
             `EPS (TTM): ${formatNumber(metrics.eps)}`,
-            `Revenue growth YoY: ${formatPercent(metrics.revenueGrowth)}`,
-            `Operating margin: ${formatPercent(metrics.operatingMargin)}`,
-            `Dividend yield: ${formatPercent(metrics.dividendYield)}`,
+            `Revenue growth YoY: ${formatPercent(metrics.revenueGrowth)} (percentage already scaled)`,
+            `Operating margin: ${formatPercent(metrics.operatingMargin)} (percentage already scaled)`,
+            `Dividend yield: ${formatPercent(metrics.dividendYield)} (percentage already scaled)`,
             `Price to free cash flow: ${formatNumber(metrics.priceToFreeCashFlow)}`,
             `Debt to equity: ${formatNumber(metrics.debtToEquity)}`,
-            `Earnings revision trend: ${formatPercent(metrics.earningsRevision)}`,
+            `Earnings revision trend: ${formatPercent(metrics.earningsRevision)} (percentage already scaled)`,
         ];
-        sections.push(`Key financial metrics (Finnhub Basic Financials):\n${metricLines.join('\n')}`);
+        sections.push(`Key financial metrics (Finnhub Basic Financials):\n${metricLines.join('\n')}\nAll percentages above are already calculated�do not multiply or rescale them.`);
     }
     if (context.profile) {
         const { profile } = context;
@@ -124,12 +124,7 @@ export const requestEquityAssessment = async (input, context) => {
         userContentLines.push('Incorporate the following verified data from Finnhub into your assessment:');
         userContentLines.push(supplementalContext);
     }
-    const response = await client.responses.create({
-        model: env.openAiModel,
-        input: [
-            {
-                role: 'system',
-                content: `You are an equity analyst who produces concise, actionable insights.
+    const systemPrompt = `You are an equity analyst who produces concise, actionable insights.
 Respond only in JSON with the schema:
 {
   "summary": string,
@@ -137,11 +132,18 @@ Respond only in JSON with the schema:
   "opportunities": string[],
   "watchItems": string[],
   "nextSteps": string[]
-}`,
+}`;
+    const prompt = userContentLines.join('\n').trim();
+    const response = await client.responses.create({
+        model: env.openAiModel,
+        input: [
+            {
+                role: 'system',
+                content: systemPrompt,
             },
             {
                 role: 'user',
-                content: userContentLines.join('\n').trim(),
+                content: prompt,
             },
         ],
     });
@@ -153,8 +155,12 @@ Respond only in JSON with the schema:
     try {
         const parsed = JSON.parse(jsonPayload);
         return {
-            ...parsed,
-            rawText: responseText,
+            assessment: {
+                ...parsed,
+                rawText: responseText,
+            },
+            prompt,
+            systemPrompt,
         };
     }
     catch (error) {

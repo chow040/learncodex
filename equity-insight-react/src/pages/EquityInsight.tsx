@@ -110,6 +110,23 @@ type HistoryEntry = {
   data: ReportPayload
 }
 
+type TradingAgentsDecision = {
+  symbol: string
+  tradeDate: string
+  decision: string | null
+  finalTradeDecision?: string | null
+  investmentPlan?: string | null
+  traderPlan?: string | null
+  investmentJudge?: string | null
+  riskJudge?: string | null
+  marketReport?: string | null
+  sentimentReport?: string | null
+  newsReport?: string | null
+  fundamentalsReport?: string | null
+}
+
+
+
 type RedditPostInsight = {
   id: string
   title: string
@@ -398,6 +415,8 @@ const EquityInsight = () => {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [socialInsights, setSocialInsights] = useState<RedditInsights | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
+  const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
+  const [tradingError, setTradingError] = useState<string | null>(null)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
 
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
@@ -410,6 +429,8 @@ const EquityInsight = () => {
     setIsLoading(true)
     setSocialInsights(null)
     setSocialError(null)
+    setTradingDecision(null)
+    setTradingError(null)
 
     try {
       const redditPromise: Promise<Response | null> = fetch(
@@ -533,6 +554,55 @@ const EquityInsight = () => {
       if (opportunities.length) data.keyDrivers = opportunities
       if (nextSteps.length) data.catalysts = nextSteps
       if (watchItems.length) data.risks = watchItems
+
+      const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
+
+      try {
+        const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: trimmed }),
+        })
+
+        if (tradingResponse.ok) {
+          const tradingData: TradingAgentsDecision = await tradingResponse.json()
+          setTradingDecision(tradingData)
+          setTradingError(null)
+        } else {
+          const rawBody = await tradingResponse.text()
+          let message = tradingFallbackMessage
+
+          if (rawBody) {
+            try {
+              const parsed = JSON.parse(rawBody) as { error?: unknown }
+              if (parsed && typeof parsed.error !== 'undefined') {
+                const extracted = String(parsed.error ?? '').trim()
+                if (extracted) {
+                  message = extracted
+                }
+              } else if (rawBody.trim()) {
+                message = rawBody.trim()
+              }
+            } catch {
+              if (rawBody.trim()) {
+                message = rawBody.trim()
+              }
+            }
+          }
+
+          setTradingDecision(null)
+          setTradingError(message)
+        }
+      } catch (error) {
+        console.error(error)
+        const message =
+          error instanceof Error
+            ? `Trading agents error: ${error.message}`
+            : tradingFallbackMessage
+        setTradingDecision(null)
+        setTradingError(message)
+      }
+
 
       setReportData({ ticker: trimmed, data })
       setHistory((prev) => {
@@ -902,6 +972,57 @@ const EquityInsight = () => {
         </article>
 
         <article
+          id="trading"
+          ref={(node) => {
+            scrollTargets.current.trading = node
+          }}
+          className="glass-panel space-y-5 p-6 sm:p-8"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Trading Agents</p>
+            <h2 className="text-xl font-semibold text-white">Trading Signal</h2>
+          </div>
+          {tradingError ? (
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+              {tradingError}
+            </div>
+          ) : tradingDecision ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
+                <p className="mt-2 text-lg font-semibold text-white">
+                  {tradingDecision.decision ?? tradingDecision.finalTradeDecision ?? 'Decision unavailable'}
+                </p>
+                <p className="mt-2 text-xs text-slate-300">Trade date: {tradingDecision.tradeDate}</p>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Trader Plan</h3>
+                  <p className="text-sm text-slate-200">{tradingDecision.traderPlan ?? 'No trader plan returned.'}</p>
+                </div>
+                <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Plan</h3>
+                  <p className="text-sm text-slate-200">{tradingDecision.investmentPlan ?? 'No investment plan returned.'}</p>
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Judge</h3>
+                  <p className="mt-2">{tradingDecision.investmentJudge ?? 'No judge commentary returned.'}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Risk Judge</h3>
+                  <p className="mt-2">{tradingDecision.riskJudge ?? 'No risk commentary returned.'}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              {tradingError ?? 'Trading agents decision will appear once a ticker has been analyzed.'}
+            </p>
+          )}
+        </article>
+        <article
           id="analyst"
           ref={(node) => {
             scrollTargets.current.analyst = node
@@ -920,7 +1041,7 @@ const EquityInsight = () => {
         </p>
       </div>
     )
-  }, [isLoading, reportData, snapshotView, socialError, socialInsights])
+  }, [isLoading, reportData, snapshotView, socialError, socialInsights, tradingDecision, tradingError])
 
   return (
     <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
@@ -1061,4 +1182,13 @@ const EquityInsight = () => {
 }
 
 export default EquityInsight
+
+
+
+
+
+
+
+
+
 
