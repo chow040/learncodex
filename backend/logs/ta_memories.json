@@ -1,0 +1,40 @@
+{
+  "memories": [
+    {
+      "symbol": "AAPL",
+      "date": "2025-10-03",
+      "role": "manager",
+      "summary": "Decision: BUY"
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2025-10-03",
+      "role": "trader",
+      "summary": "Decision context captured."
+    },
+    {
+      "symbol": "AAPL",
+      "date": "2025-10-03",
+      "role": "riskManager",
+      "summary": "Final: BUY"
+    },
+    {
+      "symbol": "GOOGL",
+      "date": "2025-10-03",
+      "role": "manager",
+      "summary": "Decision: HOLD"
+    },
+    {
+      "symbol": "GOOGL",
+      "date": "2025-10-03",
+      "role": "trader",
+      "summary": "Decision context captured."
+    },
+    {
+      "symbol": "GOOGL",
+      "date": "2025-10-03",
+      "role": "riskManager",
+      "summary": "Final: HOLD"
+    }
+  ]
+}
