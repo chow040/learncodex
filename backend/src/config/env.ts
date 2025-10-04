@@ -20,6 +20,7 @@ export const env = {
   openAiModel: process.env.OPENAI_MODEL ?? 'gpt-4.1-mini',
   finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',
   finnhubBaseUrl: process.env.FINNHUB_BASE_URL ?? 'https://finnhub.io/api/v1',
+  alphaVantageApiKey: process.env.ALPHAVANTAGE_API_KEY ?? '',
   redditClientId: process.env.REDDIT_CLIENT_ID ?? '',
   redditClientSecret: process.env.REDDIT_CLIENT_SECRET ?? '',
   redditUserAgent:
@@ -29,4 +30,8 @@ export const env = {
   tradingAgentsPath: process.env.TRADING_AGENTS_PATH,
   tradingAgentsResultsDir: process.env.TRADING_AGENTS_RESULTS_DIR ?? undefined,
   tradingAgentsTimeoutMs: Number.parseInt(process.env.TRADING_AGENTS_TIMEOUT ?? '600000', 10),
+  tradingAgentsEngineMode: (process.env.TA_ENGINE_MODE ?? 'single').toLowerCase() as 'single' | 'multi',
+  // Debate round configuration (defaults to 1)
+  investDebateRounds: Number.parseInt(process.env.INVEST_DEBATE_ROUNDS ?? '1', 10),
+  riskDebateRounds: Number.parseInt(process.env.RISK_DEBATE_ROUNDS ?? '1', 10),
 } as const;

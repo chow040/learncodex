@@ -35,6 +35,26 @@ export const getQuote = async (symbol) => {
         timestamp: data.t ?? 0,
     };
 };
+export const getInsiderTransactions = async (symbol, from, to) => {
+    ensureApiKey();
+    const fromStr = formatDateParam(from);
+    const toStr = formatDateParam(to);
+    const { data } = await http.get('/stock/insider-transactions', {
+        params: { symbol, from: fromStr, to: toStr, token: env.finnhubApiKey },
+    });
+    const d = data?.data;
+    if (!Array.isArray(d))
+        return [];
+    return d.map((it) => ({
+        symbol: String(it.symbol ?? symbol),
+        name: String(it.name ?? ''),
+        transactionDate: String(it.transactionDate ?? ''),
+        transactionPrice: toNumberOrNull(it.transactionPrice),
+        change: toNumberOrNull(it.change),
+        share: toNumberOrNull(it.share),
+        transactionCode: String(it.transactionCode ?? ''),
+    }));
+};
 export const getCompanyProfile = async (symbol) => {
     ensureApiKey();
     const { data } = await http.get('/stock/profile2', {
@@ -101,5 +121,43 @@ export const getCompanyNews = async (symbol, from, to) => {
         url: typeof item.url === 'string' ? item.url : '',
     }))
         .filter((article) => article.headline || article.summary || article.url);
+};
+export const getCandles = async (symbol, from, to, resolution = 'D') => {
+    ensureApiKey();
+    const fromEpoch = Math.floor(from.getTime() / 1000);
+    const toEpoch = Math.floor(to.getTime() / 1000);
+    const { data } = await http.get('/stock/candle', {
+        params: {
+            symbol,
+            resolution,
+            from: fromEpoch,
+            to: toEpoch,
+            token: env.finnhubApiKey,
+        },
+    });
+    const resp = data;
+    if (!resp || resp.s !== 'ok' || !Array.isArray(resp.c) || resp.c.length === 0) {
+        return null;
+    }
+    return {
+        close: resp.c,
+        high: resp.h,
+        low: resp.l,
+        open: resp.o,
+        volume: resp.v,
+        time: resp.t,
+    };
+};
+export const getFinancialsReported = async (symbol) => {
+    ensureApiKey();
+    const { data } = await http.get('/stock/financials-reported', {
+        params: {
+            symbol,
+            token: env.finnhubApiKey,
+        },
+    });
+    // Finnhub may return an object with a `data` array or an array directly
+    const items = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return items;
 };
 //# sourceMappingURL=finnhubService.js.map
