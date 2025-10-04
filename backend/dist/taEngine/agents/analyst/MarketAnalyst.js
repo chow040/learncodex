@@ -1,10 +1,7 @@
 export class MarketAnalyst {
     analyze(ctx, symbol, tradeDate) {
         const toolNames = [
-            'get_YFin_data_online',
-            'get_stockstats_indicators_report_online',
-            'get_YFin_data',
-            'get_stockstats_indicators_report',
+            'AlphaVantage',
         ].join(', ');
         const systemMessage = `You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
 

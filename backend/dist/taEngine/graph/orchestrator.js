@@ -13,15 +13,19 @@ import { RiskyAnalyst, SafeAnalyst, NeutralAnalyst } from '../agents/riskanalyst
 import { TraderAgent } from '../agents/trader/TraderAgent.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
 const systemPrompt = `You are an efficient assistant designed to analyze market, news, social, and fundamentals reports and output only one of: BUY, SELL, or HOLD. Reply with exactly one word: BUY, SELL, or HOLD.`;
+// Simplified decision extraction:
+// 1) Prefer a line like "Final Recommendation: BUY|SELL|HOLD" (case-insensitive, markdown-friendly)
+// 2) Fallback: last standalone BUY/SELL/HOLD token
+// 3) Default NO DECISION
 const normalizeDecision = (text) => {
-    const t = text.trim().toUpperCase();
-    if (t.includes('BUY'))
-        return 'BUY';
-    if (t.includes('SELL'))
-        return 'SELL';
-    if (t.includes('HOLD'))
-        return 'HOLD';
-    return 'HOLD';
+    const t = (text ?? '').toString();
+    const m = t.match(/^\s*(?:#+\s*)?(?:Final\s+(?:Recommendation|Decision|Verdict))\s*[:\-]\s*\**\s*(BUY|SELL|HOLD)\s*\**/im);
+    if (m)
+        return m[1].toUpperCase();
+    const matches = [...t.toUpperCase().matchAll(/\b(BUY|SELL|HOLD)\b/g)];
+    if (matches.length)
+        return matches[matches.length - 1][1];
+    return 'NO DECISION';
 };
 export class TradingOrchestrator {
     client;
