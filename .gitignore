@@ -1,2 +1,9 @@
 backend/eval_results/OSCR/TradingAgentsStrategy_logs/full_states_log_2025-10-03.json
 backend/trading-results/decisions/20251003T110042Z_OSCR.json
+backend/docs/diagrams/orchestrator-multi.mmd
+backend/docs/diagrams/orchestrator-multi.png
+backend/docs/diagrams/orchestrator-single.mmd
+backend/docs/diagrams/orchestrator-single.png
+backend/eval_results/GOOGL/TradingAgentsStrategy_logs/full_states_log_2025-10-04.json
+backend/logs/ta_prompts_2025-10-04T02-03-36-690Z_GOOGL_k69ei5.json
+backend/logs/ta_prompts_2025-10-04T02-08-00-472Z_GOOGL_nppf2h.json
