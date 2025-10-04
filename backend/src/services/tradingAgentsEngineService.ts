@@ -239,5 +239,5 @@ export const requestTradingAgentsDecisionInternal = async (symbol: string): Prom
     context: contextBase,
   };
 
-  return orchestrator.run(payload);
+    return orchestrator.run(payload) as Promise<TradingAgentsDecision>;
 };
