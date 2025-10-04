@@ -7,3 +7,6 @@ backend/docs/diagrams/orchestrator-single.png
 backend/eval_results/GOOGL/TradingAgentsStrategy_logs/full_states_log_2025-10-04.json
 backend/logs/ta_prompts_2025-10-04T02-03-36-690Z_GOOGL_k69ei5.json
 backend/logs/ta_prompts_2025-10-04T02-08-00-472Z_GOOGL_nppf2h.json
+backend/logs/ta_prompts_2025-10-04T13-55-35-575Z_OSCR_pddspl.json
+backend/logs/ta_prompts_2025-10-04T13-48-20-333Z_AAPL_v823mv.json
+backend/logs/ta_prompts_2025-10-04T13-51-17-948Z_AAPL_qk37vp.json

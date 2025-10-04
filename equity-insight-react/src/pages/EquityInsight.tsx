@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { FormEvent } from 'react'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
@@ -163,6 +164,76 @@ type FinnhubMetrics = {
   priceToFreeCashFlow: number | null
   debtToEquity: number | null
   earningsRevision: number | null
+}
+
+// Renders agent text in a reader-friendly way (paragraphs and bullet lists)
+const StyledText = ({ text }: { text: string }) => {
+  if (!text || typeof text !== 'string') {
+    return <p className="text-slate-300">No content.</p>
+  }
+
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+
+  const blocks: ReactNode[] = []
+  let i = 0
+
+  const isBullet = (line: string) => /^\s*[-*]\s+/.test(line)
+  const isNumbered = (line: string) => /^\s*\d+[.)]\s+/.test(line)
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Skip excess blank lines but preserve paragraph breaks
+    if (!line.trim()) {
+      i++
+      continue
+    }
+
+    if (isBullet(line) || isNumbered(line)) {
+      const items: string[] = []
+      const ordered = isNumbered(line)
+      while (i < lines.length && (isBullet(lines[i]) || isNumbered(lines[i]) || !lines[i].trim())) {
+        if (lines[i].trim()) {
+          const cleaned = lines[i]
+            .replace(/^\s*[-*]\s+/, '')
+            .replace(/^\s*\d+[.)]\s+/, '')
+            .trim()
+          if (cleaned) items.push(cleaned)
+        }
+        i++
+      }
+      blocks.push(
+        ordered ? (
+          <ol key={blocks.length} className="ml-5 list-decimal space-y-2 text-slate-100/90 marker:text-slate-400">
+            {items.map((it, idx) => (
+              <li key={idx} className="leading-7">{it}</li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={blocks.length} className="ml-5 list-disc space-y-2 text-slate-100/90 marker:text-slate-400">
+            {items.map((it, idx) => (
+              <li key={idx} className="leading-7">{it}</li>
+            ))}
+          </ul>
+        )
+      )
+      continue
+    }
+
+    // Paragraph: collect consecutive non-empty, non-list lines
+    const para: string[] = []
+    while (i < lines.length && lines[i].trim() && !isBullet(lines[i]) && !isNumbered(lines[i])) {
+      para.push(lines[i])
+      i++
+    }
+    blocks.push(
+      <p key={blocks.length} className="leading-7 text-slate-100/90 whitespace-pre-wrap break-words">
+        {para.join(' ')}
+      </p>
+    )
+  }
+
+  return <div className="space-y-3">{blocks}</div>
 }
 
 const companyOverrides: Record<string, CompanyOverride> = {
@@ -1191,7 +1262,7 @@ const EquityInsight = () => {
                     {tradingError}
                   </div>
                 ) : tradingDecision ? (
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
                       <p className="mt-2 text-lg font-semibold text-white">
@@ -1199,25 +1270,47 @@ const EquityInsight = () => {
                       </p>
                       <p className="mt-2 text-xs text-slate-300">Trade date: {tradingDecision.tradeDate}</p>
                     </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Trader Plan</h3>
-                        <p className="text-sm text-slate-200">{tradingDecision.traderPlan ?? 'No trader plan returned.'}</p>
-                      </div>
-                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Plan</h3>
-                        <p className="text-sm text-slate-200">{tradingDecision.investmentPlan ?? 'No investment plan returned.'}</p>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Investment Judge</h3>
-                        <p className="mt-2">{tradingDecision.investmentJudge ?? 'No judge commentary returned.'}</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                        <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Risk Judge</h3>
-                        <p className="mt-2">{tradingDecision.riskJudge ?? 'No risk commentary returned.'}</p>
-                      </div>
+                    {/* Stacked, single-column content cards for readability */}
+                    <div className="space-y-4">
+                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/80"></span>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Trader Plan</h3>
+                        </div>
+                        <div className="mt-3 text-[0.95rem]">
+                          <StyledText text={tradingDecision.traderPlan ?? 'No trader plan returned.'} />
+                        </div>
+                      </section>
+
+                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-sky-400/80"></span>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Investment Plan</h3>
+                        </div>
+                        <div className="mt-3 text-[0.95rem]">
+                          <StyledText text={tradingDecision.investmentPlan ?? 'No investment plan returned.'} />
+                        </div>
+                      </section>
+
+                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-indigo-400/80"></span>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Investment Judge</h3>
+                        </div>
+                        <div className="mt-3 text-[0.95rem]">
+                          <StyledText text={tradingDecision.investmentJudge ?? 'No judge commentary returned.'} />
+                        </div>
+                      </section>
+
+                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-2 w-2 rounded-full bg-rose-400/80"></span>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Risk Judge</h3>
+                        </div>
+                        <div className="mt-3 text-[0.95rem]">
+                          <StyledText text={tradingDecision.riskJudge ?? 'No risk commentary returned.'} />
+                        </div>
+                      </section>
                     </div>
                   </div>
                 ) : (
