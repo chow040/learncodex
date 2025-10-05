@@ -261,12 +261,14 @@ export const getCandles = async (
 
 export const getFinancialsReported = async (
   symbol: string,
+  freq: string = 'quarterly',
 ): Promise<any[]> => {
   ensureApiKey();
 
   const { data } = await http.get('/stock/financials-reported', {
     params: {
       symbol,
+      freq,
       token: env.finnhubApiKey,
     },
   });
