@@ -29,5 +29,8 @@ export const env = {
     // Debate round configuration (defaults to 1)
     investDebateRounds: Number.parseInt(process.env.INVEST_DEBATE_ROUNDS ?? '1', 10),
     riskDebateRounds: Number.parseInt(process.env.RISK_DEBATE_ROUNDS ?? '1', 10),
+    // LangGraph-style limits
+    maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '10', 10),
+    maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '100', 10),
 };
 //# sourceMappingURL=env.js.map

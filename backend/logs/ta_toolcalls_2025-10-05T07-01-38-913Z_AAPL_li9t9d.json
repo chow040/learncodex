@@ -1,0 +1,13 @@
+{
+  "createdAt": "2025-10-05T07:01:38.913Z",
+  "symbol": "AAPL",
+  "tradeDate": "2025-10-05",
+  "entries": [
+    {
+      "toolCallId": "call_tBXHBxVxKG6qZIeA0a65gzQ4",
+      "name": "get_finnhub_company_insider_transactions",
+      "args": {},
+      "output": "Recent insider transactions (90d):\n• 2025-10-02 O'BRIEN DEIRDRE (S) @ 258.08 | Change -1740 | Shares 136687\n• 2025-10-02 O'BRIEN DEIRDRE (S) @ 257.36 | Change -41273 | Shares 138427\n• 2025-10-02 Adams Katherine L. (S) @ 257.54 | Change -21551 | Shares 179158\n• 2025-10-02 Adams Katherine L. (S) @ 256.6 | Change -13974 | Shares 200709\n• 2025-10-02 Adams Katherine L. (S) @ 255.96 | Change -8100 | Shares 214683\n• 2025-10-02 Adams Katherine L. (S) @ 254.83 | Change -3500 | Shares 222783\n• 2025-10-02 COOK TIMOTHY D (S) @ 257.57 | Change -59751 | Shares 3280295\n• 2025-10-02 COOK TIMOTHY D (S) @ 256.62 | Change -39293 | Shares 3340046\n• 2025-10-02 COOK TIMOTHY D (S) @ 255.86 | Change -22524 | Shares 3379339\n• 2025-10-02 COOK TIMOTHY D (S) @ 254.83 | Change -8395 | Shares 3401863\n• 2025-10-01 Khan Sabih (M) @ 0 | Change -92403 | Shares 0\n• 2025-10-01 Khan Sabih (F) @ 255.45 | Change -49390 | Shares 1042772"
+    }
+  ]
+}

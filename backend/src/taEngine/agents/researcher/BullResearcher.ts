@@ -14,7 +14,7 @@ export class BullResearcher {
       `Market research report:\n${ctx.market_technical_report}`,
       `Social media sentiment report:\n${ctx.social_reddit_summary}`,
       `Latest world affairs/news:\n${ctx.news_global}`,
-      `Company fundamentals report:\n${ctx.fundamentals_summary}`,
+  // fundamentals removed per request
       `Conversation history:\n${history || '(none)'}`,
       `Last bear argument:\n${lastBearArg || '(none)'}\n`,
       'Deliver a compelling bull argument and directly refute the bear’s points.',

@@ -3,6 +3,7 @@ import { TradingOrchestrator } from '../taEngine/graph/orchestrator.js';
 import { getQuote, getStockMetrics, getCompanyProfile, getCompanyNews, getFinancialsReported, getInsiderTransactions, } from './finnhubService.js';
 import { getRedditInsights } from './redditService.js';
 import { getGoogleNews } from './googleNewsService.js';
+import { buildFinancialStatementExcerpts } from './financialsFormatter.js';
 import { getAlphaDailyCandles } from './alphaVantageService.js';
 import { buildIndicatorsSummary } from './indicatorsService.js';
 const formatNumber = (value, fractionDigits = 2) => {
@@ -84,33 +85,24 @@ const buildNewsSummary = (articles) => {
 export const requestTradingAgentsDecisionInternal = async (symbol) => {
     const orchestrator = new TradingOrchestrator();
     // Defaults
-    // Fetch reported financials (Finnhub "Financials As Reported") and extract last 3 annual filings
+    // Reset cached financial statement excerpts so we do not leak stale data between requests
+    globalThis._la_fin_bs = undefined;
+    globalThis._la_fin_cf = undefined;
+    globalThis._la_fin_is = undefined;
+    // Fetch reported financials (Finnhub "Financials As Reported") and extract concise snippets for context
     try {
         const finReports = await getFinancialsReported(symbol).catch(() => []);
         if (Array.isArray(finReports) && finReports.length > 0) {
-            // The structure varies; attempt to locate filings with 'report' or 'filing' data
-            // We'll attempt to pick the most recent annual reports by year
-            const annual = finReports
-                .filter((r) => r?.report && r.report.length)
-                .sort((a, b) => (b?.report?.[0]?.filingDate || '').localeCompare(a?.report?.[0]?.filingDate));
-            const chosen = annual.slice(0, 3);
-            // format simple excerpts
-            const bsArr = [];
-            const cfArr = [];
-            const isArr = [];
-            chosen.forEach((rep) => {
-                const year = rep.report?.[0]?.filingDate ? rep.report[0].filingDate.slice(0, 4) : 'n/a';
-                const balance = JSON.stringify(rep.report[0].balanceSheet || rep.report[0].balanceSheetTotal || rep, null, 2).slice(0, 2000);
-                const cash = JSON.stringify(rep.report[0].cashflow || rep.report[0].cashFlow || rep, null, 2).slice(0, 2000);
-                const inc = JSON.stringify(rep.report[0].incomeStatement || rep.report[0].income || rep, null, 2).slice(0, 2000);
-                bsArr.push(`### ${year} Balance (excerpt)\n${balance}`);
-                cfArr.push(`### ${year} Cashflow (excerpt)\n${cash}`);
-                isArr.push(`### ${year} Income Statement (excerpt)\n${inc}`);
+            const snippets = buildFinancialStatementExcerpts(finReports, {
+                limitPerStatement: 12,
+                includeToolHint: true,
             });
-            // temporary attach to context variables below
-            globalThis._la_fin_bs = bsArr.join('\n\n');
-            globalThis._la_fin_cf = cfArr.join('\n\n');
-            globalThis._la_fin_is = isArr.join('\n\n');
+            if (snippets.balanceSheet)
+                globalThis._la_fin_bs = snippets.balanceSheet;
+            if (snippets.cashflow)
+                globalThis._la_fin_cf = snippets.cashflow;
+            if (snippets.incomeStatement)
+                globalThis._la_fin_is = snippets.incomeStatement;
         }
     }
     catch (e) {
