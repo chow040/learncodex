@@ -12,6 +12,7 @@ import { ResearchManager } from '../agents/managers/ResearchManager.js';
 import { RiskyAnalyst, SafeAnalyst, NeutralAnalyst } from '../agents/riskanalyst/RiskDebators.js';
 import { TraderAgent } from '../agents/trader/TraderAgent.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
+import { StateFundamentalsAgent } from './stateFundamentalsAgent.js';
 const systemPrompt = `You are an efficient assistant designed to analyze market, news, social, and fundamentals reports and output only one of: BUY, SELL, or HOLD. Reply with exactly one word: BUY, SELL, or HOLD.`;
 // Simplified decision extraction:
 // 1) Prefer a line like "Final Recommendation: BUY|SELL|HOLD" (case-insensitive, markdown-friendly)
@@ -33,6 +34,7 @@ export class TradingOrchestrator {
     news = new NewsAnalyst();
     social = new SocialAnalyst();
     fundamentals = new FundamentalsAnalyst();
+    stateFundamentals;
     bull = new BullResearcher();
     bear = new BearResearcher();
     researchManager = new ResearchManager();
@@ -45,6 +47,7 @@ export class TradingOrchestrator {
             throw new Error('OPENAI_API_KEY is not configured.');
         }
         this.client = new OpenAI({ apiKey: env.openAiApiKey, baseURL: env.openAiBaseUrl });
+        this.stateFundamentals = new StateFundamentalsAgent(this.client);
     }
     async run(payload) {
         const { symbol, tradeDate, context } = payload;
@@ -92,7 +95,7 @@ export class TradingOrchestrator {
                 withTimeout(callAgent(mp)),
                 withTimeout(callAgent(np)),
                 withTimeout(callAgent(sp)),
-                withTimeout(callAgent(fp)),
+                withTimeout(this.stateFundamentals.executeWithState(fp.system, fp.user, context, symbol, tradeDate, payload)),
             ]);
             // 2) Investment debate: Bear then Bull (configurable rounds)
             const investRounds = Math.max(1, env.investDebateRounds ?? 1);

@@ -22,6 +22,16 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build-backend",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }

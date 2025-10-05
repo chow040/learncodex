@@ -26,7 +26,7 @@ export async function logAgentPrompts(payload, prompts, mode) {
             market_technical_report: payload.context?.market_technical_report ?? null,
             social_reddit_summary: payload.context?.social_reddit_summary ?? null,
             news_company: payload.context?.news_company ?? null,
-            fundamentals_summary: payload.context?.fundamentals_summary ?? null,
+            // fundamentals_summary intentionally omitted from logs
         },
         prompts: prompts.map((p) => ({ roleLabel: p.roleLabel, system: p.system, user: p.user })),
     };
@@ -73,5 +73,31 @@ export async function writeEvalSummary(payload, decision, details = {}) {
     };
     await fs.writeFile(fpath, JSON.stringify(out, null, 2), 'utf8');
     return fpath;
+}
+export async function logFundamentalsToolCalls(payload, entries) {
+    if (!entries.length)
+        return null;
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+    await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `ta_toolcalls_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.json`;
+    const filePath = path.join(logsDir, filename);
+    const serializableEntries = entries.map((entry) => ({
+        toolCallId: entry.toolCallId,
+        name: entry.name,
+        args: entry.args ?? null,
+        output: entry.output,
+    }));
+    const payloadSummary = {
+        createdAt: new Date().toISOString(),
+        symbol: payload.symbol,
+        tradeDate: payload.tradeDate,
+        entries: serializableEntries,
+    };
+    await fs.writeFile(filePath, JSON.stringify(payloadSummary, null, 2), 'utf8');
+    return filePath;
 }
 //# sourceMappingURL=logger.js.map

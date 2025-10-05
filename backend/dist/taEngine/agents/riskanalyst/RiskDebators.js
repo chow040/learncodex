@@ -6,7 +6,7 @@ export class RiskyAnalyst {
             `Market report:\n${ctx.market_technical_report}`,
             `Sentiment report:\n${ctx.social_reddit_summary}`,
             `News report:\n${ctx.news_global}`,
-            `Fundamentals report:\n${ctx.fundamentals_summary}`,
+            // fundamentals removed per request
             `Debate history:\n${history || '(none)'}`,
             `Last safe response:\n${lastSafe || '(none)'}`,
             `Last neutral response:\n${lastNeutral || '(none)'}`,
@@ -22,7 +22,7 @@ export class SafeAnalyst {
             `Market report:\n${ctx.market_technical_report}`,
             `Sentiment report:\n${ctx.social_reddit_summary}`,
             `News report:\n${ctx.news_global}`,
-            `Fundamentals report:\n${ctx.fundamentals_summary}`,
+            // fundamentals removed per request
             `Debate history:\n${history || '(none)'}`,
             `Last risky response:\n${lastRisky || '(none)'}`,
             `Last neutral response:\n${lastNeutral || '(none)'}`,
@@ -38,7 +38,7 @@ export class NeutralAnalyst {
             `Market report:\n${ctx.market_technical_report}`,
             `Sentiment report:\n${ctx.social_reddit_summary}`,
             `News report:\n${ctx.news_global}`,
-            `Fundamentals report:\n${ctx.fundamentals_summary}`,
+            // fundamentals removed per request
             `Debate history:\n${history || '(none)'}`,
             `Last risky response:\n${lastRisky || '(none)'}`,
             `Last safe response:\n${lastSafe || '(none)'}`,
