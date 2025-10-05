@@ -11,12 +11,10 @@ import {
   getStockMetrics,
   getCompanyProfile,
   getCompanyNews,
-  getFinancialsReported,
   getInsiderTransactions,
 } from './finnhubService.js';
 import { getRedditInsights, type RedditInsightsResponse } from './redditService.js';
 import { getGoogleNews } from './googleNewsService.js';
-import { buildFinancialStatementExcerpts } from './financialsFormatter.js';
 import { getAlphaDailyCandles } from './alphaVantageService.js';
 import { buildIndicatorsSummary } from './indicatorsService.js';
 
@@ -47,7 +45,7 @@ const buildMarketSummary = (
     `Price snapshot for ${profile.name || profile.symbol} (${profile.symbol})`,
     `Current: ${formatCurrency(quote.current, currency)} (High ${formatCurrency(quote.high, currency)} / Low ${formatCurrency(quote.low, currency)})`,
     `Previous close: ${formatCurrency(quote.previousClose, currency)} | Intraday change: ${formatCurrency(change, currency)} (${changePct}%)`,
-    `Market cap: ${formatCurrency(profile.marketCapitalization * 1_000_000, currency)} | Shares outstanding: ${formatNumber(profile.shareOutstanding)}`,
+    `Market cap: ${formatCurrency(profile.marketCapitalization, currency)} | Shares outstanding: ${formatNumber(profile.shareOutstanding)}`,
     `Valuation metrics -> P/E: ${formatNumber(metrics.pe)} | EPS: ${formatNumber(metrics.eps)} | Dividend yield: ${formatPercent(metrics.dividendYield, 2)}`,
     `Efficiency metrics -> Revenue growth: ${formatPercent(metrics.revenueGrowth, 2)} | Operating margin: ${formatPercent(metrics.operatingMargin, 2)}`,
     `Balance sheet metrics -> Debt/Equity: ${formatNumber(metrics.debtToEquity)} | Price/FCF: ${formatNumber(metrics.priceToFreeCashFlow)}`,
@@ -102,26 +100,8 @@ export const requestTradingAgentsDecisionInternal = async (symbol: string): Prom
   const orchestrator = new TradingOrchestrator();
 
   // Defaults
-      // Reset cached financial statement excerpts so we do not leak stale data between requests
-      (globalThis as any)._la_fin_bs = undefined;
-      (globalThis as any)._la_fin_cf = undefined;
-      (globalThis as any)._la_fin_is = undefined;
-
-      // Fetch reported financials (Finnhub "Financials As Reported") and extract concise snippets for context
-      try {
-        const finReports = await getFinancialsReported(symbol).catch(() => []);
-        if (Array.isArray(finReports) && finReports.length > 0) {
-          const snippets = buildFinancialStatementExcerpts(finReports, {
-            limitPerStatement: 12,
-            includeToolHint: true,
-          });
-          if (snippets.balanceSheet) (globalThis as any)._la_fin_bs = snippets.balanceSheet;
-          if (snippets.cashflow) (globalThis as any)._la_fin_cf = snippets.cashflow;
-          if (snippets.incomeStatement) (globalThis as any)._la_fin_is = snippets.incomeStatement;
-        }
-      } catch (e) {
-        // ignore financials failure
-      }
+      // No pre-fetching - let agents fetch financial data via tool calls
+      // This ensures consistent behavior with Python version and proper tool call testing
   const defaultQuote: QuoteResponse = { symbol, current: 0, high: 0, low: 0, open: 0, previousClose: 0, timestamp: 0 };
   const defaultProfile: CompanyProfile = { symbol, name: symbol, exchange: '', currency: 'USD', ipo: '', marketCapitalization: 0, shareOutstanding: 0, logo: '', weburl: '' };
   const defaultMetrics: StockMetrics = { symbol, pe: null, eps: null, revenueGrowth: null, operatingMargin: null, dividendYield: null, priceToFreeCashFlow: null, debtToEquity: null, earningsRevision: null };
@@ -214,9 +194,9 @@ export const requestTradingAgentsDecisionInternal = async (symbol: string): Prom
     news_reddit: news.reddit,
     news_global: news_global_final,
     fundamentals_summary: `See metrics: P/E ${formatNumber(metrics.pe)}, EPS ${formatNumber(metrics.eps)}, Rev Growth ${formatPercent(metrics.revenueGrowth, 2)}, Op Margin ${formatPercent(metrics.operatingMargin, 2)}`,
-    fundamentals_balance_sheet: (globalThis as any)._la_fin_bs ?? 'Not provided by internal engine at this time.',
-    fundamentals_cashflow: (globalThis as any)._la_fin_cf ?? 'Not provided by internal engine at this time.',
-    fundamentals_income_stmt: (globalThis as any)._la_fin_is ?? 'Not provided by internal engine at this time.',
+    fundamentals_balance_sheet: 'Detailed statement data not ingested via TradingAgents bridge.',
+    fundamentals_cashflow: 'Detailed statement data not ingested via TradingAgents bridge.',
+    fundamentals_income_stmt: 'Detailed statement data not ingested via TradingAgents bridge.',
   };
   if (insiderSummary) {
     contextBase.fundamentals_insider_transactions = insiderSummary;

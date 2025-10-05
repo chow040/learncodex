@@ -79,7 +79,7 @@ export class TradingOrchestrator {
                 });
                 return resp.output_text?.trim() ?? '';
             };
-            const withTimeout = (promise, ms = 45000) => new Promise((resolve, reject) => {
+            const withTimeout = (promise, ms = 90000) => new Promise((resolve, reject) => {
                 const t = setTimeout(() => reject(new Error('Agent call timed out')), ms);
                 promise
                     .then((v) => { clearTimeout(t); resolve(v); })
@@ -91,12 +91,26 @@ export class TradingOrchestrator {
             const np = newsPrompt ?? this.news.analyze(context, symbol, tradeDate);
             const sp = socialPrompt ?? this.social.analyze(context, symbol, tradeDate);
             const fp = fundamentalsPrompt ?? this.fundamentals.analyze(context, symbol, tradeDate);
+            console.log(`[Orchestrator] Starting parallel execution of 4 agents for ${symbol}...`);
             const [marketOut, newsOut, socialOut, fundamentalsOut] = await Promise.all([
-                withTimeout(callAgent(mp)),
-                withTimeout(callAgent(np)),
-                withTimeout(callAgent(sp)),
-                withTimeout(this.stateFundamentals.executeWithState(fp.system, fp.user, context, symbol, tradeDate, payload)),
+                withTimeout(callAgent(mp)).catch(err => {
+                    console.error(`[Orchestrator] Market agent failed for ${symbol}:`, err);
+                    return `Market analysis unavailable: ${err.message}`;
+                }),
+                withTimeout(callAgent(np)).catch(err => {
+                    console.error(`[Orchestrator] News agent failed for ${symbol}:`, err);
+                    return `News analysis unavailable: ${err.message}`;
+                }),
+                withTimeout(callAgent(sp)).catch(err => {
+                    console.error(`[Orchestrator] Social agent failed for ${symbol}:`, err);
+                    return `Social analysis unavailable: ${err.message}`;
+                }),
+                withTimeout(this.stateFundamentals.executeWithState(fp.system, fp.user, context, symbol, tradeDate, payload)).catch(err => {
+                    console.error(`[Orchestrator] StateFundamentals agent failed for ${symbol}:`, err);
+                    return `Fundamentals analysis unavailable: ${err.message}`;
+                }),
             ]);
+            console.log(`[Orchestrator] All 4 agents completed for ${symbol}`);
             // 2) Investment debate: Bear then Bull (configurable rounds)
             const investRounds = Math.max(1, env.investDebateRounds ?? 1);
             let investHistory = '';

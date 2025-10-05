@@ -34,7 +34,7 @@ const buildMarketSummary = (quote, metrics, profile) => {
         `Price snapshot for ${profile.name || profile.symbol} (${profile.symbol})`,
         `Current: ${formatCurrency(quote.current, currency)} (High ${formatCurrency(quote.high, currency)} / Low ${formatCurrency(quote.low, currency)})`,
         `Previous close: ${formatCurrency(quote.previousClose, currency)} | Intraday change: ${formatCurrency(change, currency)} (${changePct}%)`,
-        `Market cap: ${formatCurrency(profile.marketCapitalization * 1_000_000, currency)} | Shares outstanding: ${formatNumber(profile.shareOutstanding)}`,
+        `Market cap: ${formatCurrency(profile.marketCapitalization, currency)} | Shares outstanding: ${formatNumber(profile.shareOutstanding)}`,
         `Valuation metrics -> P/E: ${formatNumber(metrics.pe)} | EPS: ${formatNumber(metrics.eps)} | Dividend yield: ${formatPercent(metrics.dividendYield, 2)}`,
         `Efficiency metrics -> Revenue growth: ${formatPercent(metrics.revenueGrowth, 2)} | Operating margin: ${formatPercent(metrics.operatingMargin, 2)}`,
         `Balance sheet metrics -> Debt/Equity: ${formatNumber(metrics.debtToEquity)} | Price/FCF: ${formatNumber(metrics.priceToFreeCashFlow)}`,
