@@ -12,6 +12,7 @@ const getClient = () => {
     }
     return cachedClient;
 };
+export const getOpenAIClient = () => getClient();
 const coerceJson = (text) => {
     try {
         JSON.parse(text);

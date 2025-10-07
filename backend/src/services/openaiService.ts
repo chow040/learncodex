@@ -74,6 +74,8 @@ const getClient = (): OpenAI => {
   return cachedClient;
 };
 
+export const getOpenAIClient = (): OpenAI => getClient();
+
 const coerceJson = (text: string): string => {
   try {
     JSON.parse(text);
@@ -261,6 +263,8 @@ Respond only in JSON with the schema:
     throw new Error(`Unable to parse OpenAI response: ${responseText}`);
   }
 };
+
+
 
 
 

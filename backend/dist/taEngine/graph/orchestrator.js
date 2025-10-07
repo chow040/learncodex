@@ -79,7 +79,7 @@ export class TradingOrchestrator {
                 });
                 return resp.output_text?.trim() ?? '';
             };
-            const withTimeout = (promise, ms = 90000) => new Promise((resolve, reject) => {
+            const withTimeout = (promise, ms = 150000) => new Promise((resolve, reject) => {
                 const t = setTimeout(() => reject(new Error('Agent call timed out')), ms);
                 promise
                     .then((v) => { clearTimeout(t); resolve(v); })

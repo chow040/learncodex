@@ -1,9 +1,28 @@
 import { Router } from 'express';
+import multer from 'multer';
 
+import {
+  analyzeChartImage,
+  MAX_CHART_IMAGE_BYTES,
+  SUPPORTED_CHART_IMAGE_MIME_TYPES,
+  type ChartAnalysisInput,
+} from '../services/chartAnalysisService.js';
 import { requestTradingAgentsDecision } from '../services/tradingAgentsService.js';
 import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
 
 export const tradingRouter = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_CHART_IMAGE_BYTES },
+  fileFilter(_req, file, callback) {
+    if (SUPPORTED_CHART_IMAGE_MIME_TYPES.has(file.mimetype)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Unsupported image format. Please upload PNG, JPEG, or WEBP charts.'));
+    }
+  },
+});
 
 tradingRouter.post('/decision', async (req, res, next) => {
   const rawSymbol = req.body?.symbol ?? req.query?.symbol;
@@ -33,6 +52,50 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
   try {
     const decision = await requestTradingAgentsDecisionInternal(symbol);
     res.json(decision);
+  } catch (error) {
+    next(error);
+  }
+});
+
+tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-analysis', upload.single('image'), async (req, res, next) => {
+  const tradeIdeaId = req.params?.tradeIdeaId ?? null;
+  const tickerRaw = req.body?.ticker ?? req.query?.ticker;
+  const timeframeRaw = req.body?.timeframe ?? req.query?.timeframe;
+  const notesRaw = req.body?.notes ?? req.query?.notes;
+
+  const ticker = typeof tickerRaw === 'string' ? tickerRaw.trim().toUpperCase() : undefined;
+  const timeframe = typeof timeframeRaw === 'string' ? timeframeRaw.trim() : undefined;
+  const notes = typeof notesRaw === 'string' ? notesRaw : undefined;
+
+  const imageFile = req.file;
+  if (!imageFile || !imageFile.buffer) {
+    return res.status(400).json({ error: 'image is required (multipart field name "image")' });
+  }
+
+  try {
+    const chartInput: ChartAnalysisInput = {
+      buffer: imageFile.buffer,
+      mimeType: imageFile.mimetype,
+    };
+
+    if (ticker) {
+      chartInput.ticker = ticker;
+    }
+    if (timeframe) {
+      chartInput.timeframe = timeframe;
+    }
+    if (notes) {
+      chartInput.notes = notes;
+    }
+
+    const analysis = await analyzeChartImage(chartInput);
+
+    res.json({
+      tradeIdeaId,
+      ticker,
+      timeframe,
+      analysis,
+    });
   } catch (error) {
     next(error);
   }

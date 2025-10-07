@@ -639,37 +639,29 @@ Use specific dollar amounts from the data. Keep under 800 words and be direct ab
     }
 
     // Determine final output before logging to preserve conversation history
-    let result = state.final_output;
+    let result = state.final_output ?? '';
     const needsFallback = !result || result === 'No output generated' || (result.includes('Successfully retrieved') && result.includes('Further detailed analysis recommended'));
     if (needsFallback) {
       console.log(`[StateFundamentalsAgent] No AI assessment created for ${symbol}, returning data retrieval summary`);
       result = `Fundamental analysis for ${symbol}: Data retrieval completed (${state.tool_calls_made} financial data points gathered), but no AI assessment was generated. Raw financial data is available in tool call logs for manual analysis.`;
     }
 
-    if (!state.final_output || state.final_output !== result) {
-      state.final_output = result;
-    }
+    state.final_output = result;
 
+    const resolvedResult = result.trim();
     const lastMessage = state.messages[state.messages.length - 1];
     const lastContent = typeof lastMessage?.content === 'string' ? lastMessage.content.trim() : '';
     if (lastMessage?.role !== 'assistant' || !lastContent) {
-      state.messages.push({ role: 'assistant', content: result });
-    } else if (lastContent !== result.trim()) {
-      state.messages.push({ role: 'assistant', content: result });
+      state.messages.push({ role: 'assistant', content: resolvedResult });
+    } else if (lastContent !== resolvedResult) {
+      state.messages.push({ role: 'assistant', content: resolvedResult });
     }
 
-    // Log full conversation for debugging
-    try {
-      console.log(`[StateFundamentalsAgent] Logging conversation history for ${symbol}...`);
-      await logFundamentalsConversation(payload, state.messages, state.step_count, state.tool_calls_made);
-      console.log(`[StateFundamentalsAgent] Conversation logging successful for ${symbol}`);
-    } catch (logError) {
-      console.error(`[StateFundamentalsAgent] Failed to log conversation for ${symbol}:`, logError);
-    }
-
-    console.log(`[StateFundamentalsAgent] Execution completed for ${symbol}, result length: ${result.length}, tool calls: ${state.tool_calls_made}, steps: ${state.step_count}`);
-    return result;
+    console.log(`[StateFundamentalsAgent] Execution completed for ${symbol}, result length: ${resolvedResult.length}, tool calls: ${state.tool_calls_made}, steps: ${state.step_count}`);
+    return resolvedResult;
   }
+  
 
 
 }
+

@@ -36,7 +36,7 @@ export class StateFundamentalsAgent {
                     parameters: {
                         type: 'object',
                         properties: {
-                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly.' },
+                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly. Defaults to quarterly.' },
                             ticker: { type: 'string', description: 'Ticker symbol to fetch.' },
                             curr_date: { type: 'string', description: 'Reference date in yyyy-mm-dd format.' },
                             force_refresh: { type: 'boolean', description: 'If true, refetch even if cached data exists.' },
@@ -52,7 +52,7 @@ export class StateFundamentalsAgent {
                     parameters: {
                         type: 'object',
                         properties: {
-                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly.' },
+                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly. Defaults to quarterly.' },
                             ticker: { type: 'string', description: 'Ticker symbol to fetch.' },
                             curr_date: { type: 'string', description: 'Reference date in yyyy-mm-dd format.' },
                             force_refresh: { type: 'boolean', description: 'If true, refetch even if cached data exists.' },
@@ -68,7 +68,7 @@ export class StateFundamentalsAgent {
                     parameters: {
                         type: 'object',
                         properties: {
-                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly.' },
+                            freq: { type: 'string', description: 'Desired frequency, e.g. annual or quarterly. Defaults to quarterly.' },
                             ticker: { type: 'string', description: 'Ticker symbol to fetch.' },
                             curr_date: { type: 'string', description: 'Reference date in yyyy-mm-dd format.' },
                             force_refresh: { type: 'boolean', description: 'If true, refetch even if cached data exists.' },
@@ -85,6 +85,7 @@ export class StateFundamentalsAgent {
             'No balance sheet data preloaded. Call get_finnhub_balance_sheet to retrieve the latest figures.',
             'No cash flow data preloaded. Call get_finnhub_cashflow to retrieve the latest figures.',
             'No income statement data preloaded. Call get_finnhub_income_stmt to retrieve the latest figures.',
+            'Detailed statement data not ingested via TradingAgents bridge.',
         ]);
         const sanitizeFundamentalsValue = (value) => {
             if (value === undefined || value === null)
@@ -95,9 +96,15 @@ export class StateFundamentalsAgent {
             return str;
         };
         let financialReportsCache = null;
-        const ensureFinancialReports = async () => {
+        let cachedFrequency = null;
+        const ensureFinancialReports = async (freq = 'quarterly') => {
+            // Clear cache if frequency changes
+            if (cachedFrequency && cachedFrequency !== freq) {
+                financialReportsCache = null;
+            }
             if (!financialReportsCache) {
-                financialReportsCache = await getFinancialsReported(symbol).catch(() => []);
+                financialReportsCache = await getFinancialsReported(symbol, freq).catch(() => []);
+                cachedFrequency = freq;
             }
             return financialReportsCache;
         };
@@ -135,7 +142,9 @@ export class StateFundamentalsAgent {
                 financialReportsCache = null;
             }
             try {
-                const reports = await ensureFinancialReports();
+                // Use frequency from args, default to quarterly for consistency with Finnhub behavior
+                const frequency = argsInfo.freq || 'quarterly';
+                const reports = await ensureFinancialReports(frequency);
                 const detail = buildFinancialStatementDetail(reports, section, {
                     limitPerStatement: 60,
                 });
@@ -208,22 +217,33 @@ export class StateFundamentalsAgent {
             return 'max_steps_reached';
         }
         const lastMessage = state.messages[state.messages.length - 1];
-        // Check for tool calls in assistant message
+        // Check for tool calls in assistant message - must execute these first
         if (lastMessage?.role === 'assistant' && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
             return 'tools';
         }
-        // Reasonable completion detection after sufficient data gathering
-        if (state.tool_calls_made >= 3 && lastMessage?.role === 'assistant') {
+        // Only consider completion if we have enough data AND a substantial response
+        if (state.tool_calls_made >= 2 && lastMessage?.role === 'assistant') {
             const content = typeof lastMessage.content === 'string' ? lastMessage.content : '';
-            // Look for completion indicators in comprehensive analysis
-            if (content.includes('analysis') || content.includes('report') || content.includes('recommendation') ||
-                content.includes('conclusion') || content.includes('summary') || content.includes('financial') ||
-                content.includes('revenue') || content.includes('earnings') || content.includes('cash') ||
-                content.length > 500) {
-                return 'complete';
+            // Must have substantial content (comprehensive analysis)
+            if (content.length > 800) {
+                // Look for strong completion indicators in comprehensive analysis
+                const hasComprehensiveIndicators = ((content.includes('analysis') || content.includes('Assessment') || content.includes('evaluation')) &&
+                    (content.includes('recommendation') || content.includes('conclusion') || content.includes('summary')) &&
+                    (content.includes('financial') || content.includes('fundamental')) &&
+                    // Must have actual data analysis, not just placeholders
+                    (content.includes('revenue') || content.includes('balance sheet') || content.includes('cash flow') ||
+                        content.includes('insider') || content.includes('debt') || content.includes('earnings')));
+                if (hasComprehensiveIndicators) {
+                    return 'complete';
+                }
             }
         }
-        return 'complete';
+        // Avoid infinite loops - if we have sufficient tool calls and steps, force completion
+        if (state.tool_calls_made >= 3 && state.step_count >= 3) {
+            return 'complete';
+        }
+        // Continue if we haven't reached minimum data gathering
+        return 'tools';
     }
     // Execute a single step similar to LangGraph's step execution
     async executeStep(state, payload) {
@@ -247,7 +267,17 @@ export class StateFundamentalsAgent {
             state.completed = true;
             const lastMsg = state.messages[state.messages.length - 1];
             const content = typeof lastMsg?.content === 'string' ? lastMsg.content : 'No output generated';
-            state.final_output = content;
+            // Check for any meaningful content (more lenient threshold)
+            if (content && content.trim().length > 100 && content !== 'No output generated') {
+                state.final_output = content;
+                console.log(`[StateFundamentalsAgent] Final output set for ${state.symbol}, length: ${content.length}`);
+            }
+            else {
+                console.log(`[StateFundamentalsAgent] Warning: Insufficient content for completion (length: ${content?.length || 0}), will force fallback for ${state.symbol}`);
+                // Don't continue infinitely, let it complete with fallback
+                state.completed = true;
+                state.final_output = content || 'Analysis could not be completed due to processing constraints';
+            }
             return state;
         }
         return state;
@@ -255,8 +285,53 @@ export class StateFundamentalsAgent {
     // Execute tool calls similar to LangGraph's ToolNode
     async executeToolCalls(state, payload) {
         const lastMessage = state.messages[state.messages.length - 1];
+        // If no tool calls but we need the AI to generate analysis after gathering data
         if (!lastMessage?.tool_calls || lastMessage.tool_calls.length === 0) {
-            console.log(`[StateFundamentalsAgent] No tool calls found in last message for ${state.symbol}`);
+            console.log(`[StateFundamentalsAgent] No tool calls found for ${state.symbol}, checking if analysis needed...`);
+            // If we have gathered data but AI isn't providing analysis, prompt it explicitly
+            if (state.tool_calls_made >= 2) {
+                console.log(`[StateFundamentalsAgent] Prompting AI to generate comprehensive analysis for ${state.symbol}...`);
+                // Add a specific prompt for analysis generation
+                const analysisPrompt = `Based on the financial data for ${state.symbol}, provide a structured analysis:
+
+**Key Metrics Summary:**
+- Revenue trend (3-year comparison with specific numbers)
+- Profitability change (operating income, net income)
+- Cash position and debt levels
+- Major balance sheet changes
+
+**Investment Implications:**
+- Financial health assessment
+- Key risks and opportunities
+- Insider transaction patterns
+
+Use specific dollar amounts from the data. Keep under 800 words and be direct about investment conclusions.`;
+                state.messages.push({
+                    role: 'user',
+                    content: analysisPrompt,
+                });
+                // Make AI call to generate analysis
+                try {
+                    console.log(`[StateFundamentalsAgent] Making AI call for analysis generation for ${state.symbol}...`);
+                    const params = {
+                        model: env.openAiModel,
+                        messages: state.messages,
+                        max_completion_tokens: 10000,
+                    };
+                    const response = await Promise.race([
+                        this.client.chat.completions.create(params),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), 90000))
+                    ]);
+                    const assistantMessage = response.choices[0]?.message;
+                    if (assistantMessage) {
+                        console.log(`[StateFundamentalsAgent] Analysis generation successful for ${state.symbol}, content length: ${(assistantMessage.content || '').length}`);
+                        state.messages.push(assistantMessage);
+                    }
+                }
+                catch (error) {
+                    console.error(`[StateFundamentalsAgent] Analysis generation failed for ${state.symbol}:`, error);
+                }
+            }
             return state;
         }
         console.log(`[StateFundamentalsAgent] Processing ${lastMessage.tool_calls.length} tool calls for ${state.symbol}`);
@@ -327,24 +402,71 @@ export class StateFundamentalsAgent {
             const params = {
                 model: env.openAiModel,
                 messages: state.messages,
-                temperature: 0.1,
-                max_tokens: 1500,
+                max_completion_tokens: 10000,
             };
             if (this.fundamentalsTools) {
                 params.tools = this.fundamentalsTools;
             }
             const response = await Promise.race([
                 this.client.chat.completions.create(params),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), 20000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), 90000))
             ]);
             const assistantMessage = response.choices[0]?.message;
             if (assistantMessage) {
                 const newToolCalls = assistantMessage.tool_calls || [];
-                console.log(`[StateFundamentalsAgent] Follow-up AI call successful for ${state.symbol}, content length: ${(assistantMessage.content || '').length}, new tool calls: ${newToolCalls.length}`);
-                state.messages.push(assistantMessage);
+                const content = assistantMessage.content || '';
+                console.log(`[StateFundamentalsAgent] Follow-up AI call successful for ${state.symbol}, content length: ${content.length}, new tool calls: ${newToolCalls.length}`);
+                // Handle empty content response - give AI more time rather than aggressive retries
+                if (content.length === 0 && newToolCalls.length === 0) {
+                    console.warn(`[StateFundamentalsAgent] WARNING: AI returned empty content for ${state.symbol}, will wait longer for proper response`);
+                    console.log(`[StateFundamentalsAgent] Response usage:`, response.usage);
+                    // Simple prompt asking for analysis with longer timeout
+                    const analysisPrompt = `Based on the comprehensive financial data you retrieved for ${state.symbol}, please provide a detailed fundamental analysis covering the key financial metrics, trends, and investment considerations.`;
+                    state.messages.push({
+                        role: 'user',
+                        content: analysisPrompt
+                    });
+                    // Single retry with much longer timeout to allow proper processing
+                    try {
+                        console.log(`[StateFundamentalsAgent] Making retry AI call with extended timeout for ${state.symbol}...`);
+                        const retryParams = {
+                            model: env.openAiModel,
+                            messages: state.messages,
+                            max_completion_tokens: 10000,
+                        };
+                        const retryResponse = await Promise.race([
+                            this.client.chat.completions.create(retryParams),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Extended retry AI call timeout')), 120000) // 2 minutes
+                            )
+                        ]);
+                        const retryMessage = retryResponse.choices[0]?.message;
+                        if (retryMessage?.content && retryMessage.content.trim().length > 0) {
+                            console.log(`[StateFundamentalsAgent] Extended retry successful for ${state.symbol}, content length: ${retryMessage.content.length}`);
+                            state.messages.push(retryMessage);
+                        }
+                        else {
+                            console.error(`[StateFundamentalsAgent] Extended retry also produced insufficient content for ${state.symbol}`);
+                            state.messages.push({
+                                role: 'assistant',
+                                content: 'Unable to generate detailed analysis after multiple attempts. Please review the retrieved financial data manually.',
+                            });
+                        }
+                    }
+                    catch (retryError) {
+                        console.error(`[StateFundamentalsAgent] Extended retry AI call failed for ${state.symbol}:`, retryError);
+                        state.messages.push({
+                            role: 'assistant',
+                            content: 'Analysis request timed out after repeated retries. Financial data has been retrieved for manual follow-up.',
+                        });
+                    }
+                }
+                else {
+                    state.messages.push(assistantMessage);
+                }
             }
             else {
                 console.warn(`[StateFundamentalsAgent] No assistant message in follow-up AI response for ${state.symbol}`);
+                console.log(`[StateFundamentalsAgent] Full response:`, JSON.stringify(response, null, 2));
             }
         }
         catch (error) {
@@ -366,15 +488,14 @@ export class StateFundamentalsAgent {
             const params = {
                 model: env.openAiModel,
                 messages,
-                temperature: 0.1, // Lower temperature for more focused responses
-                max_tokens: 1500, // Limit response length
+                max_completion_tokens: 10000, // Increased completion headroom
             };
             if (tools) {
                 params.tools = tools;
             }
             return Promise.race([
                 this.client.chat.completions.create(params),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), 20000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), 90000))
             ]);
         };
         // Initial AI call with timeout
@@ -403,7 +524,7 @@ export class StateFundamentalsAgent {
         }
         // State execution loop with time limit
         const startTime = Date.now();
-        const maxExecutionTime = 60000; // 60 seconds total limit (increased for proper analysis)
+        const maxExecutionTime = 120000; // 120 seconds total limit (increased to allow for longer AI processing)
         console.log(`[StateFundamentalsAgent] Starting execution loop for ${symbol}, max steps: ${env.maxRecursionLimit}, max time: ${maxExecutionTime}ms`);
         while (!state.completed && state.step_count < env.maxRecursionLimit) {
             const elapsedTime = Date.now() - startTime;
@@ -419,15 +540,25 @@ export class StateFundamentalsAgent {
             console.log(`[StateFundamentalsAgent] Executing step ${state.step_count + 1} for ${symbol}, elapsed: ${elapsedTime}ms`);
             state = await this.executeStep(state, payload);
         }
-        // Enhanced fallback - ensure we always return meaningful analysis
-        const result = state.final_output || 'No output generated';
-        if (result === 'No output generated' && state.tool_calls_made > 0) {
-            const fallbackResult = `Fundamental analysis for ${state.symbol}: Successfully retrieved ${state.tool_calls_made} financial data points. Based on available information, investors should evaluate the company's financial health, recent performance trends, and market position. Further detailed analysis recommended for complete investment assessment.`;
-            console.log(`[StateFundamentalsAgent] Execution completed for ${symbol} with fallback result, tool calls: ${state.tool_calls_made}`);
-            return fallbackResult;
+        // Determine final output before logging to preserve conversation history
+        let result = state.final_output ?? '';
+        const needsFallback = !result || result === 'No output generated' || (result.includes('Successfully retrieved') && result.includes('Further detailed analysis recommended'));
+        if (needsFallback) {
+            console.log(`[StateFundamentalsAgent] No AI assessment created for ${symbol}, returning data retrieval summary`);
+            result = `Fundamental analysis for ${symbol}: Data retrieval completed (${state.tool_calls_made} financial data points gathered), but no AI assessment was generated. Raw financial data is available in tool call logs for manual analysis.`;
         }
-        console.log(`[StateFundamentalsAgent] Execution completed for ${symbol}, result length: ${result.length}, tool calls: ${state.tool_calls_made}, steps: ${state.step_count}`);
-        return result;
+        state.final_output = result;
+        const resolvedResult = result.trim();
+        const lastMessage = state.messages[state.messages.length - 1];
+        const lastContent = typeof lastMessage?.content === 'string' ? lastMessage.content.trim() : '';
+        if (lastMessage?.role !== 'assistant' || !lastContent) {
+            state.messages.push({ role: 'assistant', content: resolvedResult });
+        }
+        else if (lastContent !== resolvedResult) {
+            state.messages.push({ role: 'assistant', content: resolvedResult });
+        }
+        console.log(`[StateFundamentalsAgent] Execution completed for ${symbol}, result length: ${resolvedResult.length}, tool calls: ${state.tool_calls_made}, steps: ${state.step_count}`);
+        return resolvedResult;
     }
 }
 //# sourceMappingURL=stateFundamentalsAgent.js.map
