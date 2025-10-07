@@ -61,7 +61,7 @@ const TEMPERATURE = temperatureConfig !== undefined
 
 const technicalAnalystPersona = `Persona:
 You are a professional swing trader specializing in technical analysis and price action trading.
-Your goal is to analyze charts objectively and produce clear, concise, and executable trade assessments � like a professional trading desk note.
+Your goal is to analyze charts objectively and produce clear, concise, and executable trade assessments � like a professional trading desk note.
 
 You focus on:
 - Candlestick and chart pattern recognition
@@ -74,7 +74,11 @@ Use short, clear sentences. Avoid uncertainty unless warranted.
 Emphasize what matters for trade execution (entry, stop, target).
 
 Always prioritize capital preservation and risk control over prediction.
-If there is no clear setup, write: No trade � setup unclear.`;
+If there is no clear setup, write: No trade � setup unclear.
+
+Also assess Signal Strength for the proposed trade based on confluence (pattern quality, trend alignment, key levels, volume/indicator confirmation, risk-reward, and clarity of invalidation).
+Score it 0–100 and classify as Weak (0–39) / Moderate (40–69) / Strong (70–100).
+Include a short bullet list of reasons_for_strength.`;
 
 const analysisInstructions = `Follow these directives:
 
@@ -104,14 +108,33 @@ Stop Loss: price
 Take Profit: price or zone
 Risk/Reward: ratio (e.g., 1:2)
 
+Signal Strength: score 0–100 + class (Weak/Moderate/Strong)
+
+Top Reasons (3–5 bullets)
+
 ### Bias Summary
-Deliver a one-line bias such as, "Bias: Bullish continuation � buy breakout above 18.20 with stops below 17.60."
+Deliver a one-line bias such as, "Bias: Bullish continuation � buy breakout above 18.20 with stops below 17.60."
 
-Finish with "### System JSON" on its own line followed by a valid JSON object for system use. The object must include keys for ticker, timeframe, trend, patterns (array), support_levels (array), resistance_levels (array), trade_plan (with direction, entry, stop_loss, take_profit, risk_reward_ratio), and bias_summary. Values must reflect the analysis and use numbers where appropriate. Do not wrap the JSON in prose.`;
+Finish with "### System JSON" on its own line followed by a valid JSON object for system use. The object must include keys for ticker, timeframe, trend, patterns (object with candlestick and chart arrays), support_levels (array), resistance_levels (array), trade_plan (with direction, entry, stop_loss, take_profit, risk_reward_ratio, and signal_strength object containing score, class, and reasons_for_strength array), and bias_summary. Values must reflect the analysis and use numbers where appropriate. Do not wrap the JSON in prose.`;
 
-const buildUserPrompt = (ticker?: string, timeframe?: string, notes?: string): string => {
+const buildUserPrompt = (ticker?: string, timeframe?: string, notes?: string, minRR: number = 2.0): string => {
   const promptLines = [
     `Analyze the attached candlestick chart for ticker ${ticker ?? 'N/A'} on the ${timeframe ?? 'unspecified'} timeframe.`,
+    '',
+    'Signal Strength Scoring Rubric (each factor 0–20 pts, cap total at 100):',
+    '',
+    'Pattern quality (0–20): completeness, symmetry, clean pivots, context.',
+    'Trend alignment (0–20): setup with/against prevailing trend; higher if with-trend.',
+    'Level quality (0–20): proximity to well-tested S/R, break/retest behavior.',
+    'Confirmation (0–20): volume expansion on break, RSI/MACD confluence or divergence.',
+    'Risk/Reward & invalidation (0–20): R:R ≥ 1:2, tight/obvious stop, low noise.',
+    '',
+    'Classification:',
+    'Weak (0–39): choppy context, missing confirmation, poor R:R.',
+    'Moderate (40–69): some confluence, acceptable R:R, minor caveats.',
+    'Strong (70–100): clear pattern + with-trend + level + confirmation + ≥1:2 R:R.',
+    '',
+    `Assume min acceptable R:R = ${minRR}. If unmet, set direction = 'Wait' and signal_strength.class = 'Weak' even if other factors are positive.`,
     '',
     analysisInstructions,
   ];
@@ -206,7 +229,7 @@ export const analyzeChartImage = async (
 
   const client = getOpenAIClient();
   const dataUrl = toDataUrl(input.buffer, input.mimeType);
-  const userPrompt = buildUserPrompt(input.ticker, input.timeframe, input.notes);
+  const userPrompt = buildUserPrompt(input.ticker, input.timeframe, input.notes, 2.0);
 
   const request: ResponseCreateParams = {
     model: env.openAiModel,
