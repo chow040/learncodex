@@ -59,84 +59,61 @@ const TEMPERATURE = temperatureConfig !== undefined
   ? Number.parseFloat(temperatureConfig)
   : undefined;
 
-const technicalAnalystPersona = `Persona:
-You are a professional swing trader specializing in technical analysis and price action trading.
-Your goal is to analyze charts objectively and produce clear, concise, and executable trade assessments � like a professional trading desk note.
-
-You focus on:
-- Candlestick and chart pattern recognition
-- Trend structure and momentum shifts
-- Support / resistance
-- Risk-reward balance and timing
-
-You speak in decisive, trader-style language, not academic prose.
-Use short, clear sentences. Avoid uncertainty unless warranted.
-Emphasize what matters for trade execution (entry, stop, target).
-
-Always prioritize capital preservation and risk control over prediction.
-If there is no clear setup, write: No trade � setup unclear.
-
-Also assess Signal Strength for the proposed trade based on confluence (pattern quality, trend alignment, key levels, volume/indicator confirmation, risk-reward, and clarity of invalidation).
-Score it 0–100 and classify as Weak (0–39) / Moderate (40–69) / Strong (70–100).
-Include a short bullet list of reasons_for_strength.`;
-
-const analysisInstructions = `Follow these directives:
-
-- Keep the narrative under 150 words total (excluding the JSON block).
-- Stick to observable information from the chart. If indicators or volume are unclear, say so.
-- Default to risk control.
-
-Structure the markdown response with these exact headings, each separated by a blank line:
-
-### Pattern(s)
-Summarize notable candlestick or chart patterns. Mention formation stage if incomplete.
-
-### Trend
-State trend direction (uptrend / downtrend / consolidation) and whether momentum is strengthening or fading.
-
-### Key Levels
-List support and resistance zones that matter for execution.
-
-### Volume / Indicator Confirmation
-Highlight confirming or contradicting signals from visible volume or indicators (MA, RSI, MACD).
-
-### Trade Plan
-Lay out each line exactly once:
-Direction: long / short / wait
-Entry: price or range
-Stop Loss: price
-Take Profit: price or zone
-Risk/Reward: ratio (e.g., 1:2)
-
-Signal Strength: score 0–100 + class (Weak/Moderate/Strong)
-
-Top Reasons (3–5 bullets)
-
-### Bias Summary
-Deliver a one-line bias such as, "Bias: Bullish continuation � buy breakout above 18.20 with stops below 17.60."
-
-Finish with "### System JSON" on its own line followed by a valid JSON object for system use. The object must include keys for ticker, timeframe, trend, patterns (object with candlestick and chart arrays), support_levels (array), resistance_levels (array), trade_plan (with direction, entry, stop_loss, take_profit, risk_reward_ratio, and signal_strength object containing score, class, and reasons_for_strength array), and bias_summary. Values must reflect the analysis and use numbers where appropriate. Do not wrap the JSON in prose.`;
+const technicalAnalystPersona = `You are a professional swing trader and technical analyst specializing in candlestick patterns, chart patterns, support/resistance (S/R), and risk/reward structures. Your analysis is objective, based solely on observable chart data—no speculation on external events or future predictions beyond the chart. Use decisive, trader-style language (e.g., "Clear breakout setup" instead of "It might break out"). Prioritize capital preservation: Always default to "Wait" if risk/reward <2:1, signals are unclear, or score <70. Mandatorily assess Signal Strength with the exact 0-100 rubric provided, using step-by-step reasoning for reproducibility. Outputs must be consistent across runs—treat ambiguous elements conservatively (e.g., score low if not clearly visible). Limit narrative to under 150 words (excluding JSON and scoring breakdown). End with a structured JSON output for the trade setup and scores.`;
 
 const buildUserPrompt = (ticker?: string, timeframe?: string, notes?: string, minRR: number = 2.0): string => {
   const promptLines = [
-    `Analyze the attached candlestick chart for ticker ${ticker ?? 'N/A'} on the ${timeframe ?? 'unspecified'} timeframe.`,
+    `Analyze the attached candlestick chart for ticker ${ticker ?? 'Unknown'} (use "Unknown" if not provided) on the ${timeframe ?? 'Daily'} timeframe (use "Daily" if not provided).`,
     '',
-    'Signal Strength Scoring Rubric (each factor 0–20 pts, cap total at 100):',
+    'Follow this exact step-by-step process, outputting under markdown headings:',
     '',
-    'Pattern quality (0–20): completeness, symmetry, clean pivots, context.',
-    'Trend alignment (0–20): setup with/against prevailing trend; higher if with-trend.',
-    'Level quality (0–20): proximity to well-tested S/R, break/retest behavior.',
-    'Confirmation (0–20): volume expansion on break, RSI/MACD confluence or divergence.',
-    'Risk/Reward & invalidation (0–20): R:R ≥ 1:2, tight/obvious stop, low noise.',
+    '**1. Chart Observations**',
+    '- Identify candlestick patterns (e.g., doji, engulfing, hammer).',
+    '- Identify chart patterns (e.g., head and shoulders, triangle).',
+    '- Describe overall trend (uptrend/downtrend/consolidation, based on higher highs/lows).',
+    '- Note visible volume/indicators (e.g., RSI divergence) if present.',
+    '- List key S/R levels with approximate prices (e.g., "Resistance at $150—prior high").',
     '',
-    'Classification:',
-    'Weak (0–39): choppy context, missing confirmation, poor R:R.',
-    'Moderate (40–69): some confluence, acceptable R:R, minor caveats.',
-    'Strong (70–100): clear pattern + with-trend + level + confirmation + ≥1:2 R:R.',
+    '**2. Chain-of-Thought Reasoning**',
+    'Break down your logic step-by-step: Start with raw observations, then evaluate each scoring factor with evidence from the chart. Be objective and conservative—downgrade for ambiguity (e.g., "Partial engulfing: not fully complete, so mid-score").',
     '',
-    `Assume min acceptable R:R = ${minRR}. If unmet, set direction = 'Wait' and signal_strength.class = 'Weak' even if other factors are positive.`,
+    '**3. Signal Strength Assessment**',
+    'Score 0–100 based on confluence. Use this exact rubric (cap at 100):',
+    '- **Pattern Quality (0–20)**: Completeness, symmetry, clean pivots (e.g., 0-5: choppy/no pattern; 6-10: partial/weak; 11-15: decent but noisy; 16-20: textbook complete with context).',
+    '- **Trend Alignment (0–20)**: With-trend setups higher (e.g., 0-5: against trend; 6-10: neutral/consolidation; 11-15: weakly with-trend; 16-20: strongly aligned with prevailing trend).',
+    '- **Level Quality (0–20)**: Well-tested S/R, break/retest (e.g., 0-5: untested/new level; 6-10: single touch; 11-15: multiple tests; 16-20: confirmed with retest).',
+    '- **Confirmation (0–20)**: Volume/indicator confluence (e.g., 0-5: no/contradictory volume; 6-10: flat volume; 11-15: mild increase/RSI support; 16-20: strong volume spike + MACD crossover). Prioritize volume if indicators conflict.',
+    '- **Risk/Reward & Invalidation (0–20)**: ≥1:2 R:R, tight/obvious stop, low noise (e.g., 0-5: R:R <1:1 or loose stop; 6-10: 1:1-1.5 with moderate noise; 11-15: 1.5:1-2:1 tight stop; 16-20: >2:1 with clear invalidation below S/R).',
     '',
-    analysisInstructions,
+    'Total Score: [Calculate sum].',
+    'Classification: Weak (0–39: choppy, missing confirmation, poor R:R), Moderate (40–69: some confluence, acceptable R:R, minor caveats), Strong (70–100: clear pattern + with-trend + level + confirmation + ≥2:1 R:R).',
+    '- Short bullet list of `reasons_for_strength` (3-5 bullets, e.g., "- Strong volume on breakout").',
+    '',
+    '**4. Potential Trade Setup**',
+    'Tie strictly to score:',
+    '- Direction: Buy (long) only if Strong and uptrend/consolidation breakout; Sell (short) only if Strong and downtrend/consolidation breakdown; Hold/Wait otherwise (mandatory if score <70 or R:R <2:1).',
+    '- Entry zone: (e.g., above resistance).',
+    '- Stop loss: (tight, below S/R).',
+    '- Take profit: (at next level, ensuring ≥2:1 R:R).',
+    '',
+    '**5. Rationale Note**',
+    'Brief professional trading note explaining the setup, referencing score and reasons. Under 150 words. Highlight risks and why "Wait" if applicable.',
+    '',
+    '**6. JSON Output**',
+    'Output exactly this JSON structure (no extras):',
+    '```json',
+    '{',
+    '  "direction": "Buy/Sell/Hold",',
+    '  "entry_zone": "price range",',
+    '  "stop_loss": "price",',
+    '  "take_profit": "price",',
+    '  "risk_reward_ratio": "X:Y",',
+    '  "signal_strength_score": number,',
+    '  "classification": "Weak/Moderate/Strong",',
+    '  "reasons_for_strength": ["bullet1", "bullet2"],',
+    '  "rationale": "short note"',
+    '}',
+    '```',
   ];
 
   if (notes && notes.trim().length > 0) {
@@ -165,10 +142,11 @@ const parseSections = (text: string): Record<string, string> => {
   };
 
   for (const line of lines) {
-    const headingMatch = /^###\s+(.+)$/.exec(line.trim());
+    // Match both ### headers and **numbered headers**
+    const headingMatch = /^(?:###\s+(.+)|^\*\*\d+\.\s*(.+?)\*\*)$/.exec(line.trim());
     if (headingMatch) {
       flush();
-      const heading = headingMatch[1]?.trim();
+      const heading = (headingMatch[1] || headingMatch[2])?.trim();
       currentHeading = heading && heading.length > 0 ? heading : null;
       continue;
     }
