@@ -29,6 +29,9 @@ export const env = {
     // Debate round configuration (defaults to 1)
     investDebateRounds: Number.parseInt(process.env.INVEST_DEBATE_ROUNDS ?? '1', 10),
     riskDebateRounds: Number.parseInt(process.env.RISK_DEBATE_ROUNDS ?? '1', 10),
+    // Chart Analyst (image debate) round defaults (separate from TradingAgents)
+    chartDebateARounds: Number.parseInt(process.env.CHART_DEBATE_A_ROUNDS ?? '1', 10),
+    chartDebateBRounds: Number.parseInt(process.env.CHART_DEBATE_B_ROUNDS ?? '1', 10),
     // LangGraph-style limits (restored reasonable limits with longer timeouts)
     maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
     maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),

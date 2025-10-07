@@ -71,6 +71,7 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-analysis', upload.single('im
   const ticker = typeof tickerRaw === 'string' ? tickerRaw.trim().toUpperCase() : undefined;
   const timeframe = typeof timeframeRaw === 'string' ? timeframeRaw.trim() : undefined;
   const notes = typeof notesRaw === 'string' ? notesRaw : undefined;
+  // debate round params are not used in simple chart-analysis route
 
   const imageFile = req.file;
   if (!imageFile || !imageFile.buffer) {
@@ -112,10 +113,14 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-debate', upload.single('imag
   const tickerRaw = req.body?.ticker ?? req.query?.ticker;
   const timeframeRaw = req.body?.timeframe ?? req.query?.timeframe;
   const notesRaw = req.body?.notes ?? req.query?.notes;
+  const aRoundsRaw = req.body?.aRounds ?? req.query?.aRounds;
+  const bRoundsRaw = req.body?.bRounds ?? req.query?.bRounds;
 
   const ticker = typeof tickerRaw === 'string' ? tickerRaw.trim().toUpperCase() : undefined;
   const timeframe = typeof timeframeRaw === 'string' ? timeframeRaw.trim() : undefined;
   const notes = typeof notesRaw === 'string' ? notesRaw : undefined;
+  const agentARounds = typeof aRoundsRaw === 'string' ? Number.parseInt(aRoundsRaw, 10) : (typeof aRoundsRaw === 'number' ? aRoundsRaw : undefined);
+  const agentBRounds = typeof bRoundsRaw === 'string' ? Number.parseInt(bRoundsRaw, 10) : (typeof bRoundsRaw === 'number' ? bRoundsRaw : undefined);
 
   const imageFile = req.file;
   if (!imageFile || !imageFile.buffer) {
@@ -126,9 +131,11 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-debate', upload.single('imag
     const debateInput: ChartDebateInput = {
       buffer: imageFile.buffer,
       mimeType: imageFile.mimetype,
-      ticker,
-      timeframe,
-      notes,
+      ...(ticker ? { ticker } : {}),
+      ...(timeframe ? { timeframe } : {}),
+      ...(notes ? { notes } : {}),
+      ...(typeof agentARounds === 'number' && !Number.isNaN(agentARounds) ? { agentARounds } : {}),
+      ...(typeof agentBRounds === 'number' && !Number.isNaN(agentBRounds) ? { agentBRounds } : {}),
     };
 
     const debate = await analyzeChartDebate(debateInput);

@@ -18,6 +18,9 @@ export interface ChartDebateInput {
   ticker?: string;
   timeframe?: string;
   notes?: string;
+  // Optional: override default rounds (env-driven)
+  agentARounds?: number; // total Agent A turns (>=1)
+  agentBRounds?: number; // total Agent B turns (>=0)
 }
 
 export interface DebateTurn {
@@ -26,6 +29,7 @@ export interface DebateTurn {
   user: string | Array<{ type: 'input_text' } | { type: 'input_image'; image_url: string; detail?: 'low' | 'high' }>;
   output: string;
   usage?: ResponseUsage;
+  round?: number; // for A/B iterative rounds
 }
 
 export interface ChartDebateResult {
@@ -146,6 +150,12 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   const timeframe = input.timeframe ?? 'Daily';
   const notes = input.notes?.trim();
 
+  // Round configuration (defaults from env, overrides from input)
+  const defaultARounds = Math.max(1, Number.isFinite(env.chartDebateARounds) ? env.chartDebateARounds : 1);
+  const defaultBRounds = Math.max(0, Number.isFinite(env.chartDebateBRounds) ? env.chartDebateBRounds : 1);
+  const aRounds = Math.max(1, input.agentARounds ?? defaultARounds);
+  const bRounds = Math.max(0, input.agentBRounds ?? defaultBRounds);
+
   const baseUserPrompt = [
     `Analyze the attached candlestick chart for ${ticker} on the ${timeframe} timeframe.`,
     notes ? `Trader notes: ${notes}` : null,
@@ -155,7 +165,7 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
 
   const debateTurns: DebateTurn[] = [];
 
-  // Agent A
+  // Agent A (initial)
   const agentARequest: ResponseCreateParams = {
     model: env.openAiModel,
     max_output_tokens: MAX_OUTPUT_TOKENS,
@@ -174,63 +184,122 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
     agentARequest.temperature = TEMPERATURE;
   }
   const agentAResp = await client.responses.create(agentARequest);
-  const agentAText = agentAResp.output_text?.trim() || '';
-  const agentASections = parseSections(agentAText);
+  let agentAText = agentAResp.output_text?.trim() || '';
+  let agentASections = parseSections(agentAText);
   debateTurns.push({
     role: 'agentA',
     system: agentAPersona,
     user: [{ type: 'input_text' }, { type: 'input_image', image_url: dataUrl, detail: 'low' }],
     output: agentAText,
     usage: agentAResp.usage as ResponseUsage,
+    round: 1,
   });
+  
+  // Iterative debate between B (critique) and A (revision)
+  let lastBText = '';
+  let lastBSections: Record<string, string> | null = null;
+  let remainingA = Math.max(0, aRounds - 1); // we've already done A round 1
+  let remainingB = bRounds;
+  let aRoundIndex = 1;
+  let bRoundIndex = 0;
 
-  // Agent B (Risk Manager)
-  const agentBUser = [
-    `You will critique a swing trading plan produced from the same chart.`,
-    '',
-    '=== Agent A Proposal (verbatim) ===',
-    agentAText,
-    '',
-    baseUserPrompt,
-  ].join('\n');
+  while (remainingB > 0 || remainingA > 0) {
+    // B critiques latest A
+    if (remainingB > 0) {
+      const agentBUser = [
+        `You will critique a swing trading plan produced from the same chart.`,
+        '',
+        '=== Latest Agent A Plan (verbatim) ===',
+        agentAText,
+        '',
+        baseUserPrompt,
+      ].join('\n');
 
-  const agentBRequest: ResponseCreateParams = {
-    model: env.openAiModel,
-    max_output_tokens: MAX_OUTPUT_TOKENS,
-    input: [
-      { role: 'system', content: agentBPersona },
-      {
-        role: 'user',
-        content: [
-          { type: 'input_text', text: agentBUser },
-          { type: 'input_image', image_url: dataUrl, detail: 'low' },
+      const agentBRequest: ResponseCreateParams = {
+        model: env.openAiModel,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        input: [
+          { role: 'system', content: agentBPersona },
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: agentBUser },
+              { type: 'input_image', image_url: dataUrl, detail: 'low' },
+            ],
+          },
         ],
-      },
-    ],
-  };
-  if (typeof TEMPERATURE === 'number' && !Number.isNaN(TEMPERATURE)) {
-    agentBRequest.temperature = TEMPERATURE;
+      };
+      if (typeof TEMPERATURE === 'number' && !Number.isNaN(TEMPERATURE)) {
+        agentBRequest.temperature = TEMPERATURE;
+      }
+      const agentBResp = await client.responses.create(agentBRequest);
+      lastBText = agentBResp.output_text?.trim() || '';
+      lastBSections = parseSections(lastBText);
+      bRoundIndex += 1;
+      debateTurns.push({
+        role: 'agentB',
+        system: agentBPersona,
+        user: [{ type: 'input_text' }, { type: 'input_image', image_url: dataUrl, detail: 'low' }],
+        output: lastBText,
+        usage: agentBResp.usage as ResponseUsage,
+        round: bRoundIndex,
+      });
+      remainingB -= 1;
+    }
+
+    // A revises addressing B's critique
+    if (remainingA > 0) {
+      const agentAUser = [
+        `Revise your swing trade plan based strictly on the chart and address the Risk Manager's critique below. Maintain objective, conservative tone. Ensure R:R ≥ 2:1, clear invalidation, and end with a System JSON block as before.`,
+        '',
+        '=== Risk Manager Critique (verbatim) ===',
+        lastBText || 'None',
+        '',
+        baseUserPrompt,
+      ].join('\n');
+
+      const agentARebuttalRequest: ResponseCreateParams = {
+        model: env.openAiModel,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+        input: [
+          { role: 'system', content: agentAPersona },
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: agentAUser },
+              { type: 'input_image', image_url: dataUrl, detail: 'low' },
+            ],
+          },
+        ],
+      };
+      if (typeof TEMPERATURE === 'number' && !Number.isNaN(TEMPERATURE)) {
+        agentARebuttalRequest.temperature = TEMPERATURE;
+      }
+      const agentARebuttalResp = await client.responses.create(agentARebuttalRequest);
+      agentAText = agentARebuttalResp.output_text?.trim() || '';
+      agentASections = parseSections(agentAText);
+      aRoundIndex += 1;
+      debateTurns.push({
+        role: 'agentA',
+        system: agentAPersona,
+        user: [{ type: 'input_text' }, { type: 'input_image', image_url: dataUrl, detail: 'low' }],
+        output: agentAText,
+        usage: agentARebuttalResp.usage as ResponseUsage,
+        round: aRoundIndex,
+      });
+      remainingA -= 1;
+    }
   }
-  const agentBResp = await client.responses.create(agentBRequest);
-  const agentBText = agentBResp.output_text?.trim() || '';
-  const agentBSections = parseSections(agentBText);
-  debateTurns.push({
-    role: 'agentB',
-    system: agentBPersona,
-    user: [{ type: 'input_text' }, { type: 'input_image', image_url: dataUrl, detail: 'low' }],
-    output: agentBText,
-    usage: agentBResp.usage as ResponseUsage,
-  });
 
   // Referee
   const refereeUser = [
     `Synthesize the two agents into a consensus plan for ${ticker} (${timeframe}).`,
     '',
-    '=== Agent A (Swing Trader) ===',
+    '=== Final Agent A (Swing Trader) ===',
     agentAText,
     '',
-    '=== Agent B (Risk Manager) ===',
-    agentBText,
+    '=== Final Agent B (Risk Manager) ===',
+    lastBText || 'No separate critique provided.',
   ].join('\n');
 
   const refereeRequest: ResponseCreateParams = {
@@ -259,7 +328,7 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   // Write log
   let logFile: string | undefined;
   try {
-    const logsDir = path.resolve(process.cwd(), 'backend', 'logs');
+    const logsDir = path.resolve('D:', 'learinvscode', 'learncodex', 'backend', 'chartlogs');
     await fs.mkdir(logsDir, { recursive: true });
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const safeTicker = (ticker || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -290,23 +359,28 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   }
 
   return {
-    agentA: {
-      rawText: agentAText,
-      sections: agentASections,
-      usage: (agentAResp.usage as ResponseUsage) ?? undefined,
-    },
-    agentB: {
-      rawText: agentBText,
-      sections: agentBSections,
-      usage: (agentBResp.usage as ResponseUsage) ?? undefined,
-    },
+    agentA: (() => {
+      const lastAUsage = debateTurns.filter(t => t.role === 'agentA').slice(-1)[0]?.usage;
+      return {
+        rawText: agentAText,
+        sections: agentASections,
+        ...(lastAUsage ? { usage: lastAUsage } as { usage?: ResponseUsage } : {}),
+      };
+    })(),
+    agentB: (() => {
+      const lastBUsage = debateTurns.filter(t => t.role === 'agentB').slice(-1)[0]?.usage;
+      return {
+        rawText: lastBText,
+        sections: lastBSections ?? {},
+        ...(lastBUsage ? { usage: lastBUsage } as { usage?: ResponseUsage } : {}),
+      };
+    })(),
     referee: {
       rawText: refereeText,
       sections: refereeSections,
       consensusJson,
-      usage: (refereeResp.usage as ResponseUsage) ?? undefined,
+      ...(refereeResp.usage ? { usage: refereeResp.usage as ResponseUsage } : {}),
     },
-    logFile,
+    ...(logFile ? { logFile } as { logFile?: string } : {}),
   };
 };
-
