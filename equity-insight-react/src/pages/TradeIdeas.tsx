@@ -73,12 +73,35 @@ interface ChartAnalysisResponse {
   analysis: ChartAnalysisPayload
 }
 
+interface ChartDebateUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  reasoning_tokens?: number
+  total_tokens?: number
+}
+
+interface ChartDebatePayload {
+  agentA: { rawText: string; sections: Record<string, string>; usage?: ChartDebateUsage }
+  agentB: { rawText: string; sections: Record<string, string>; usage?: ChartDebateUsage }
+  referee: { rawText: string; sections: Record<string, string>; consensusJson?: Record<string, unknown> | null; usage?: ChartDebateUsage }
+  logFile?: string
+}
+
+interface ChartDebateResponse {
+  tradeIdeaId: string | null
+  ticker?: string
+  timeframe?: string
+  debate: ChartDebatePayload
+}
+
 const TradeIdeas = () => {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<ChartAnalysisPayload | null>(null)
+  const [debate, setDebate] = useState<ChartDebatePayload | null>(null)
+  const [useDebate, setUseDebate] = useState<boolean>(true)
   const [timeframe, setTimeframe] = useState('')
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -90,6 +113,7 @@ const TradeIdeas = () => {
     setError(null)
     setIsAnalyzing(false)
     setAnalysis(null)
+    setDebate(null)
   }
 
   const handleScreenshot = useCallback(async () => {
@@ -165,13 +189,10 @@ const TradeIdeas = () => {
       const tradeIdeaId = DEFAULT_TRADE_ID
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-analysis`,
-          {
-            method: 'POST',
-            body: formData,
-          }
-        )
+        const endpoint = useDebate
+          ? `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-debate`
+          : `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-analysis`
+        const response = await fetch(endpoint, { method: 'POST', body: formData })
 
         if (!response.ok) {
           let message = 'Failed to analyze chart.'
@@ -186,12 +207,24 @@ const TradeIdeas = () => {
           throw new Error(message)
         }
 
-        const payload = (await response.json()) as ChartAnalysisResponse
-        if (!payload?.analysis) {
-          throw new Error('Analysis payload missing from response.')
+        if (useDebate) {
+          const payload = (await response.json()) as ChartDebateResponse
+          if (!payload?.debate) throw new Error('Debate payload missing from response.')
+          setDebate(payload.debate)
+          // For display, prioritize Referee consensus as the main analysis card
+          const consensus: ChartAnalysisPayload = {
+            rawText: payload.debate.referee.rawText,
+            sections: payload.debate.referee.sections,
+            annotations: null,
+            usage: payload.debate.referee.usage,
+          }
+          setAnalysis(consensus)
+        } else {
+          const payload = (await response.json()) as ChartAnalysisResponse
+          if (!payload?.analysis) throw new Error('Analysis payload missing from response.')
+          setAnalysis(payload.analysis)
+          setDebate(null)
         }
-
-        setAnalysis(payload.analysis)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to analyze chart.'
         setError(message)
@@ -199,7 +232,7 @@ const TradeIdeas = () => {
         setIsAnalyzing(false)
       }
     },
-    [timeframe]
+    [timeframe, useDebate]
   )
 
   const handleFiles = useCallback(
@@ -502,6 +535,17 @@ const TradeIdeas = () => {
                 className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none text-center"
               />
             </label>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <input
+                id="debate-toggle"
+                type="checkbox"
+                checked={useDebate}
+                onChange={(e) => setUseDebate(e.target.checked)}
+              />
+              <label htmlFor="debate-toggle" className="text-xs uppercase tracking-[0.3em] text-slate-300">
+                Debate Mode (A/B + Referee)
+              </label>
+            </div>
           </div>
 
           <div
@@ -578,6 +622,28 @@ const TradeIdeas = () => {
                 </div>
               ) : analysis ? (
                 <div className="space-y-5">
+                  {debate && (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-300">
+                      <p className="text-xs uppercase tracking-[0.3em] text-sky-300">Dual-Agent Debate</p>
+                      <div className="mt-3 grid gap-4 md:grid-cols-3">
+                        <details className="rounded-xl border border-white/10 bg-white/5 p-3" open>
+                          <summary className="cursor-pointer text-xs uppercase tracking-[0.3em] text-slate-300">Agent A • Swing Trader</summary>
+                          <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap text-xs text-slate-200">{debate.agentA.rawText}</pre>
+                        </details>
+                        <details className="rounded-xl border border-white/10 bg-white/5 p-3" open>
+                          <summary className="cursor-pointer text-xs uppercase tracking-[0.3em] text-slate-300">Agent B • Risk Manager</summary>
+                          <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap text-xs text-slate-200">{debate.agentB.rawText}</pre>
+                        </details>
+                        <details className="rounded-xl border border-white/10 bg-white/5 p-3" open>
+                          <summary className="cursor-pointer text-xs uppercase tracking-[0.3em] text-slate-300">Referee • Consensus</summary>
+                          <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap text-xs text-slate-200">{debate.referee.rawText}</pre>
+                        </details>
+                      </div>
+                      {debate.logFile && (
+                        <p className="mt-3 text-[10px] text-slate-500">Log saved: {debate.logFile}</p>
+                      )}
+                    </div>
+                  )}
                   <article
                     className={`rounded-3xl border ${directionStyling.borderClass} ${directionStyling.backgroundClass} p-6 sm:p-7 shadow-lg shadow-slate-900/25 backdrop-blur`}
                   >
@@ -766,5 +832,4 @@ const TradeIdeas = () => {
 }
 
 export default TradeIdeas
-
 
