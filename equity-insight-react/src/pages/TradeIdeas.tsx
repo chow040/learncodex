@@ -290,7 +290,7 @@ const TradeIdeas = () => {
   const narrativeSections = useMemo(() => {
     if (!analysis?.sections) return [] as Array<{ id: string; title: string; points: string[]; raw: string }>
 
-    const orderedTitles = ['Pattern(s)', 'Trend', 'Key Levels', 'Volume / Indicator Confirmation']
+    const orderedTitles = ['Chart Observations', 'Pattern(s)', 'Trend', 'Key Levels', 'Volume / Indicator Confirmation', 'Chain-of-Thought Reasoning', 'Signal Strength Assessment', 'Potential Trade Setup', 'Rationale Note']
 
     return orderedTitles
       .map((title) => {
@@ -316,38 +316,23 @@ const TradeIdeas = () => {
     const baseData = systemJsonInfo?.data
     if (!baseData) return null
 
-    const tradePlan = baseData.trade_plan as Record<string, unknown> | undefined
-    if (!tradePlan) return null
-
-    const signalStrength = tradePlan.signal_strength as Record<string, unknown> | undefined
-    if (!signalStrength) return null
-
     return {
-      score: typeof signalStrength.score === 'number' ? signalStrength.score : null,
-      class: typeof signalStrength.class === 'string' ? signalStrength.class : null,
-      reasons: Array.isArray(signalStrength.reasons_for_strength) ? signalStrength.reasons_for_strength as string[] : []
+      score: typeof baseData.signal_strength_score === 'number' ? baseData.signal_strength_score : null,
+      class: typeof baseData.classification === 'string' ? baseData.classification : null,
+      reasons: Array.isArray(baseData.reasons_for_strength) ? baseData.reasons_for_strength as string[] : []
     }
   }, [systemJsonInfo])
 
   const tradePlanSummary = useMemo(() => {
-    const sectionContent = analysis?.sections?.['Trade Plan'] ?? ''
+    const sectionContent = analysis?.sections?.['Potential Trade Setup'] ?? analysis?.sections?.['Trade Plan'] ?? ''
     const { lines, map } = parseKeyValueLines(sectionContent)
 
     const baseData = systemJsonInfo?.data
-    const tradePlanCandidate =
-      baseData && typeof baseData === 'object' && baseData !== null
-        ? (baseData as Record<string, unknown>).trade_plan
-        : null
-
-    const tradePlan =
-      tradePlanCandidate && typeof tradePlanCandidate === 'object' && tradePlanCandidate !== null
-        ? (tradePlanCandidate as Record<string, unknown>)
-        : null
 
     const pickValue = (...keys: string[]): string | null => {
-      if (tradePlan) {
+      if (baseData) {
         for (const key of keys) {
-          const rawValue = tradePlan[key]
+          const rawValue = baseData[key]
           if (rawValue !== undefined && rawValue !== null) {
             const asString = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue)
             if (asString.length > 0) {
@@ -369,7 +354,7 @@ const TradeIdeas = () => {
 
     return {
       direction: pickValue('direction'),
-      entry: pickValue('entry'),
+      entry: pickValue('entry_zone', 'entry'),
       stopLoss: pickValue('stop_loss', 'stop loss'),
       takeProfit: pickValue('take_profit', 'take profit'),
       riskReward: pickValue('risk_reward_ratio', 'risk/reward', 'risk reward'),
