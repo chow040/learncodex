@@ -100,4 +100,39 @@ export async function logFundamentalsToolCalls(payload, entries) {
     await fs.writeFile(filePath, JSON.stringify(payloadSummary, null, 2), 'utf8');
     return filePath;
 }
+export async function logFundamentalsConversation(payload, messages, stepCount, toolCallsMade) {
+    if (!messages.length)
+        return null;
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+    await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `ta_conversation_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.json`;
+    const filePath = path.join(logsDir, filename);
+    // Sanitize messages for logging
+    const sanitizedMessages = messages.map((msg, index) => {
+        const content = typeof msg.content === 'string' ? msg.content :
+            Array.isArray(msg.content) ? JSON.stringify(msg.content) :
+                msg.content ? String(msg.content) : null;
+        return {
+            step: index + 1,
+            role: msg.role,
+            content: content,
+            tool_calls: msg.tool_calls ? msg.tool_calls.length : 0,
+            tool_calls_details: msg.tool_calls || null,
+        };
+    });
+    const conversationLog = {
+        createdAt: new Date().toISOString(),
+        symbol: payload.symbol,
+        tradeDate: payload.tradeDate,
+        stepCount,
+        toolCallsMade,
+        messages: sanitizedMessages,
+    };
+    await fs.writeFile(filePath, JSON.stringify(conversationLog, null, 2), 'utf8');
+    return filePath;
+}
 //# sourceMappingURL=logger.js.map

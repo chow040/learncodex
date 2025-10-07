@@ -1,9 +1,8 @@
 import { env } from '../config/env.js';
 import { TradingOrchestrator } from '../taEngine/graph/orchestrator.js';
-import { getQuote, getStockMetrics, getCompanyProfile, getCompanyNews, getFinancialsReported, getInsiderTransactions, } from './finnhubService.js';
+import { getQuote, getStockMetrics, getCompanyProfile, getCompanyNews, getInsiderTransactions, } from './finnhubService.js';
 import { getRedditInsights } from './redditService.js';
 import { getGoogleNews } from './googleNewsService.js';
-import { buildFinancialStatementExcerpts } from './financialsFormatter.js';
 import { getAlphaDailyCandles } from './alphaVantageService.js';
 import { buildIndicatorsSummary } from './indicatorsService.js';
 const formatNumber = (value, fractionDigits = 2) => {
@@ -85,29 +84,8 @@ const buildNewsSummary = (articles) => {
 export const requestTradingAgentsDecisionInternal = async (symbol) => {
     const orchestrator = new TradingOrchestrator();
     // Defaults
-    // Reset cached financial statement excerpts so we do not leak stale data between requests
-    globalThis._la_fin_bs = undefined;
-    globalThis._la_fin_cf = undefined;
-    globalThis._la_fin_is = undefined;
-    // Fetch reported financials (Finnhub "Financials As Reported") and extract concise snippets for context
-    try {
-        const finReports = await getFinancialsReported(symbol).catch(() => []);
-        if (Array.isArray(finReports) && finReports.length > 0) {
-            const snippets = buildFinancialStatementExcerpts(finReports, {
-                limitPerStatement: 12,
-                includeToolHint: true,
-            });
-            if (snippets.balanceSheet)
-                globalThis._la_fin_bs = snippets.balanceSheet;
-            if (snippets.cashflow)
-                globalThis._la_fin_cf = snippets.cashflow;
-            if (snippets.incomeStatement)
-                globalThis._la_fin_is = snippets.incomeStatement;
-        }
-    }
-    catch (e) {
-        // ignore financials failure
-    }
+    // No pre-fetching - let agents fetch financial data via tool calls
+    // This ensures consistent behavior with Python version and proper tool call testing
     const defaultQuote = { symbol, current: 0, high: 0, low: 0, open: 0, previousClose: 0, timestamp: 0 };
     const defaultProfile = { symbol, name: symbol, exchange: '', currency: 'USD', ipo: '', marketCapitalization: 0, shareOutstanding: 0, logo: '', weburl: '' };
     const defaultMetrics = { symbol, pe: null, eps: null, revenueGrowth: null, operatingMargin: null, dividendYield: null, priceToFreeCashFlow: null, debtToEquity: null, earningsRevision: null };
@@ -205,9 +183,9 @@ export const requestTradingAgentsDecisionInternal = async (symbol) => {
         news_reddit: news.reddit,
         news_global: news_global_final,
         fundamentals_summary: `See metrics: P/E ${formatNumber(metrics.pe)}, EPS ${formatNumber(metrics.eps)}, Rev Growth ${formatPercent(metrics.revenueGrowth, 2)}, Op Margin ${formatPercent(metrics.operatingMargin, 2)}`,
-        fundamentals_balance_sheet: globalThis._la_fin_bs ?? 'Not provided by internal engine at this time.',
-        fundamentals_cashflow: globalThis._la_fin_cf ?? 'Not provided by internal engine at this time.',
-        fundamentals_income_stmt: globalThis._la_fin_is ?? 'Not provided by internal engine at this time.',
+        fundamentals_balance_sheet: 'Detailed statement data not ingested via TradingAgents bridge.',
+        fundamentals_cashflow: 'Detailed statement data not ingested via TradingAgents bridge.',
+        fundamentals_income_stmt: 'Detailed statement data not ingested via TradingAgents bridge.',
     };
     if (insiderSummary) {
         contextBase.fundamentals_insider_transactions = insiderSummary;
