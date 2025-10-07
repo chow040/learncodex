@@ -102,6 +102,8 @@ const TradeIdeas = () => {
   const [analysis, setAnalysis] = useState<ChartAnalysisPayload | null>(null)
   const [debate, setDebate] = useState<ChartDebatePayload | null>(null)
   const [useDebate, setUseDebate] = useState<boolean>(true)
+  const [aRounds, setARounds] = useState<number>(1)
+  const [bRounds, setBRounds] = useState<number>(1)
   const [timeframe, setTimeframe] = useState('')
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -192,6 +194,10 @@ const TradeIdeas = () => {
         const endpoint = useDebate
           ? `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-debate`
           : `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-analysis`
+        if (useDebate) {
+          formData.append('aRounds', String(Math.max(1, aRounds || 1)))
+          formData.append('bRounds', String(Math.max(0, bRounds || 0)))
+        }
         const response = await fetch(endpoint, { method: 'POST', body: formData })
 
         if (!response.ok) {
@@ -232,7 +238,7 @@ const TradeIdeas = () => {
         setIsAnalyzing(false)
       }
     },
-    [timeframe, useDebate]
+    [timeframe, useDebate, aRounds, bRounds]
   )
 
   const handleFiles = useCallback(
@@ -349,12 +355,28 @@ const TradeIdeas = () => {
     const baseData = systemJsonInfo?.data
     if (!baseData) return null
 
+    // Check for both signal_strength and signal_strength_score for flexibility
+    const score = typeof baseData.signal_strength === 'number' ? baseData.signal_strength : 
+                  typeof baseData.signal_strength_score === 'number' ? baseData.signal_strength_score : null
+
     return {
-      score: typeof baseData.signal_strength_score === 'number' ? baseData.signal_strength_score : null,
+      score: score,
       class: typeof baseData.classification === 'string' ? baseData.classification : null,
       reasons: Array.isArray(baseData.reasons_for_strength) ? baseData.reasons_for_strength as string[] : []
     }
   }, [systemJsonInfo])
+
+  const consensusSummary = useMemo(() => {
+    if (!debate?.referee.consensusJson) return null
+    
+    const consensus = debate.referee.consensusJson
+    return {
+      summary: typeof consensus.summary === 'string' ? consensus.summary : null,
+      recommendation: typeof consensus.recommendation === 'string' ? consensus.recommendation : null,
+      confidence: typeof consensus.confidence === 'number' ? consensus.confidence : null,
+      keyPoints: Array.isArray(consensus.key_points) ? consensus.key_points as string[] : []
+    }
+  }, [debate])
 
   const tradePlanSummary = useMemo(() => {
     const sectionContent = analysis?.sections?.['Potential Trade Setup'] ?? analysis?.sections?.['Trade Plan'] ?? ''
@@ -546,6 +568,30 @@ const TradeIdeas = () => {
                 Debate Mode (A/B + Referee)
               </label>
             </div>
+            {useDebate && (
+              <div className="mt-3 grid grid-cols-2 gap-3 text-left">
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                  <span className="block mb-1">A Rounds</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={aRounds}
+                    onChange={(e) => setARounds(parseInt(e.target.value || '1', 10))}
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                  <span className="block mb-1">B Rounds</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={bRounds}
+                    onChange={(e) => setBRounds(parseInt(e.target.value || '0', 10))}
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
           <div
@@ -691,47 +737,118 @@ const TradeIdeas = () => {
                     )}
                   </article>
 
+                  {consensusSummary && (
+                    <article className="rounded-3xl border border-sky-400/30 bg-gradient-to-br from-sky-500/15 via-sky-500/5 to-transparent p-6 sm:p-7 shadow-lg shadow-slate-900/25 backdrop-blur">
+                      <div className="space-y-4">
+                        <p className="text-xs uppercase tracking-[0.35em] text-sky-200">Consensus Summary</p>
+                        
+                        {consensusSummary.summary && (
+                          <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+                            <p className="text-sm text-sky-100 leading-relaxed">{consensusSummary.summary}</p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          {consensusSummary.recommendation && (
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.3em] text-sky-300 mb-1">Recommendation</p>
+                              <span className="text-lg font-semibold text-sky-100">{consensusSummary.recommendation}</span>
+                            </div>
+                          )}
+                          
+                          {consensusSummary.confidence !== null && (
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.3em] text-sky-300 mb-1">Confidence</p>
+                              <span className="text-lg font-semibold text-sky-100">{consensusSummary.confidence}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {consensusSummary.keyPoints.length > 0 && (
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-sky-300 mb-3">Key Points</p>
+                            <div className="grid gap-2 text-sm text-sky-100">
+                              {consensusSummary.keyPoints.map((point, index) => (
+                                <div
+                                  key={`${point}-${index}`}
+                                  className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 flex items-start gap-2"
+                                >
+                                  <span className="text-sky-300 mt-0.5">•</span>
+                                  <span>{point}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  )}
+
                   {signalStrengthInfo && (
                     <article className="rounded-3xl border border-indigo-400/30 bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent p-6 sm:p-7 shadow-lg shadow-slate-900/25 backdrop-blur">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-3">
-                          <p className="text-xs uppercase tracking-[0.35em] text-slate-300">Signal Strength</p>
-                          <div className="flex flex-wrap items-center gap-3">
+                      <div className="space-y-6">
+                        <div className="text-center">
+                          <p className="text-xs uppercase tracking-[0.35em] text-indigo-300 mb-4">Signal Strength Assessment</p>
+                          
+                          <div className="flex items-center justify-center gap-6">
                             {signalStrengthInfo.score !== null && (
-                              <span className="text-3xl font-semibold text-indigo-200">
-                                {signalStrengthInfo.score}/100
-                              </span>
-                            )}
-                            {signalStrengthInfo.class && (
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] ${
-                                signalStrengthInfo.class === 'Strong' 
-                                  ? 'bg-emerald-500/20 text-emerald-100'
-                                  : signalStrengthInfo.class === 'Moderate'
-                                  ? 'bg-amber-500/20 text-amber-100' 
-                                  : 'bg-red-500/20 text-red-100'
-                              }`}>
-                                {signalStrengthInfo.class}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {signalStrengthInfo.reasons.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-xs uppercase tracking-[0.35em] text-slate-300 mb-3">Strength Factors</p>
-                          <div className="grid gap-2 text-sm text-slate-200">
-                            {signalStrengthInfo.reasons.map((reason, index) => (
-                              <div
-                                key={`${reason}-${index}`}
-                                className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 flex items-start gap-2"
-                              >
-                                <span className="text-indigo-300 mt-0.5">•</span>
-                                <span>{reason}</span>
+                              <div className="text-center">
+                                <div className="relative inline-flex items-center justify-center">
+                                  <div className="text-5xl font-bold text-indigo-200 tabular-nums">
+                                    {signalStrengthInfo.score}
+                                  </div>
+                                  <div className="text-2xl font-medium text-indigo-400 ml-1">/100</div>
+                                </div>
+                                <div className="mt-2">
+                                  <div className="w-32 h-2 bg-slate-700 rounded-full mx-auto overflow-hidden">
+                                    <div 
+                                      className={`h-full transition-all duration-500 ${
+                                        signalStrengthInfo.score >= 75 ? 'bg-emerald-500' :
+                                        signalStrengthInfo.score >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                                      }`}
+                                      style={{ width: `${Math.max(0, Math.min(100, signalStrengthInfo.score))}%` }}
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            ))}
+                            )}
+                            
+                            {signalStrengthInfo.class && (
+                              <div className="text-center">
+                                <div className="text-xs uppercase tracking-[0.3em] text-indigo-400 mb-2">Classification</div>
+                                <span className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-[0.2em] ${
+                                  signalStrengthInfo.class === 'Strong' 
+                                    ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-500/30'
+                                    : signalStrengthInfo.class === 'Moderate'
+                                    ? 'bg-amber-500/20 text-amber-100 border border-amber-500/30' 
+                                    : 'bg-red-500/20 text-red-100 border border-red-500/30'
+                                }`}>
+                                  {signalStrengthInfo.class}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
+
+                        {signalStrengthInfo.reasons.length > 0 && (
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.35em] text-indigo-300 mb-4 text-center">Supporting Factors</p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {signalStrengthInfo.reasons.map((reason, index) => (
+                                <div
+                                  key={`${reason}-${index}`}
+                                  className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-3 flex items-start gap-3"
+                                >
+                                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center mt-0.5">
+                                    <span className="text-indigo-300 text-xs font-bold">{index + 1}</span>
+                                  </div>
+                                  <span className="text-sm text-indigo-100 leading-relaxed">{reason}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </article>
                   )}
 
@@ -832,4 +949,3 @@ const TradeIdeas = () => {
 }
 
 export default TradeIdeas
-

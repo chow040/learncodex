@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { analyzeChartImage, MAX_CHART_IMAGE_BYTES, SUPPORTED_CHART_IMAGE_MIME_TYPES, } from '../services/chartAnalysisService.js';
+import { analyzeChartDebate, MAX_CHART_DEBATE_IMAGE_BYTES, } from '../services/chartDebateService.js';
 import { requestTradingAgentsDecision } from '../services/tradingAgentsService.js';
 import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
 export const tradingRouter = Router();
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: MAX_CHART_IMAGE_BYTES },
+    limits: { fileSize: Math.max(MAX_CHART_IMAGE_BYTES, MAX_CHART_DEBATE_IMAGE_BYTES) },
     fileFilter(_req, file, callback) {
         if (SUPPORTED_CHART_IMAGE_MIME_TYPES.has(file.mimetype)) {
             callback(null, true);
@@ -53,6 +54,7 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-analysis', upload.single('im
     const ticker = typeof tickerRaw === 'string' ? tickerRaw.trim().toUpperCase() : undefined;
     const timeframe = typeof timeframeRaw === 'string' ? timeframeRaw.trim() : undefined;
     const notes = typeof notesRaw === 'string' ? notesRaw : undefined;
+    // debate round params are not used in simple chart-analysis route
     const imageFile = req.file;
     if (!imageFile || !imageFile.buffer) {
         return res.status(400).json({ error: 'image is required (multipart field name "image")' });
@@ -77,6 +79,45 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-analysis', upload.single('im
             ticker,
             timeframe,
             analysis,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// New: Dual-agent debate pipeline (Agent A, Agent B, Referee)
+tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-debate', upload.single('image'), async (req, res, next) => {
+    const tradeIdeaId = req.params?.tradeIdeaId ?? null;
+    const tickerRaw = req.body?.ticker ?? req.query?.ticker;
+    const timeframeRaw = req.body?.timeframe ?? req.query?.timeframe;
+    const notesRaw = req.body?.notes ?? req.query?.notes;
+    const aRoundsRaw = req.body?.aRounds ?? req.query?.aRounds;
+    const bRoundsRaw = req.body?.bRounds ?? req.query?.bRounds;
+    const ticker = typeof tickerRaw === 'string' ? tickerRaw.trim().toUpperCase() : undefined;
+    const timeframe = typeof timeframeRaw === 'string' ? timeframeRaw.trim() : undefined;
+    const notes = typeof notesRaw === 'string' ? notesRaw : undefined;
+    const agentARounds = typeof aRoundsRaw === 'string' ? Number.parseInt(aRoundsRaw, 10) : (typeof aRoundsRaw === 'number' ? aRoundsRaw : undefined);
+    const agentBRounds = typeof bRoundsRaw === 'string' ? Number.parseInt(bRoundsRaw, 10) : (typeof bRoundsRaw === 'number' ? bRoundsRaw : undefined);
+    const imageFile = req.file;
+    if (!imageFile || !imageFile.buffer) {
+        return res.status(400).json({ error: 'image is required (multipart field name "image")' });
+    }
+    try {
+        const debateInput = {
+            buffer: imageFile.buffer,
+            mimeType: imageFile.mimetype,
+            ...(ticker ? { ticker } : {}),
+            ...(timeframe ? { timeframe } : {}),
+            ...(notes ? { notes } : {}),
+            ...(typeof agentARounds === 'number' && !Number.isNaN(agentARounds) ? { agentARounds } : {}),
+            ...(typeof agentBRounds === 'number' && !Number.isNaN(agentBRounds) ? { agentBRounds } : {}),
+        };
+        const debate = await analyzeChartDebate(debateInput);
+        res.json({
+            tradeIdeaId,
+            ticker,
+            timeframe,
+            debate,
         });
     }
     catch (error) {
