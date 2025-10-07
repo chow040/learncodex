@@ -79,9 +79,7 @@ const TradeIdeas = () => {
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<ChartAnalysisPayload | null>(null)
-  const [ticker, setTicker] = useState('')
   const [timeframe, setTimeframe] = useState('')
-  const [notes, setNotes] = useState('')
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const screenshotRef = useRef<HTMLDivElement | null>(null)
@@ -104,7 +102,7 @@ const TradeIdeas = () => {
       setIsCapturingScreenshot(true)
       setError(null)
       
-      const filename = `trade-idea-${ticker || 'analysis'}-${new Date().toISOString().split('T')[0]}.png`
+      const filename = `trade-idea-analysis-${new Date().toISOString().split('T')[0]}.png`
       
       await captureScreenshot(screenshotRef.current, {
         filename,
@@ -118,7 +116,7 @@ const TradeIdeas = () => {
     } finally {
       setIsCapturingScreenshot(false)
     }
-  }, [ticker])
+  }, [])
 
   const handleShare = useCallback(async () => {
     if (!screenshotRef.current) {
@@ -126,7 +124,7 @@ const TradeIdeas = () => {
       return
     }
 
-    if (!navigator.share) {
+    if (!('share' in navigator)) {
       setError('Sharing not supported on this device')
       return
     }
@@ -135,7 +133,7 @@ const TradeIdeas = () => {
       setIsCapturingScreenshot(true)
       setError(null)
       
-      const filename = `trade-idea-${ticker || 'analysis'}-${new Date().toISOString().split('T')[0]}.png`
+      const filename = `trade-idea-analysis-${new Date().toISOString().split('T')[0]}.png`
       
       await shareScreenshot(screenshotRef.current, {
         filename,
@@ -149,7 +147,7 @@ const TradeIdeas = () => {
     } finally {
       setIsCapturingScreenshot(false)
     }
-  }, [ticker])
+  }, [])
 
   const analyzeFile = useCallback(
     async (selectedFile: File) => {
@@ -160,15 +158,11 @@ const TradeIdeas = () => {
       const formData = new FormData()
       formData.append('image', selectedFile)
 
-      const trimmedTicker = ticker.trim().toUpperCase()
       const trimmedTimeframe = timeframe.trim()
-      const trimmedNotes = notes.trim()
 
-      if (trimmedTicker) formData.append('ticker', trimmedTicker)
       if (trimmedTimeframe) formData.append('timeframe', trimmedTimeframe)
-      if (trimmedNotes) formData.append('notes', trimmedNotes)
 
-      const tradeIdeaId = trimmedTicker || DEFAULT_TRADE_ID
+      const tradeIdeaId = DEFAULT_TRADE_ID
 
       try {
         const response = await fetch(
@@ -198,11 +192,6 @@ const TradeIdeas = () => {
         }
 
         setAnalysis(payload.analysis)
-
-        const entries = Object.entries(payload.analysis.sections ?? {})
-        if (entries.length) {
-          const initialId = normalizeSectionId(entries[0][0])
-        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to analyze chart.'
         setError(message)
@@ -210,7 +199,7 @@ const TradeIdeas = () => {
         setIsAnalyzing(false)
       }
     },
-    [notes, ticker, timeframe]
+    [timeframe]
   )
 
   const handleFiles = useCallback(
@@ -322,6 +311,23 @@ const TradeIdeas = () => {
     const content = analysis?.sections?.['Bias Summary']?.trim()
     return content && content.length > 0 ? content : null
   }, [analysis])
+
+  const signalStrengthInfo = useMemo(() => {
+    const baseData = systemJsonInfo?.data
+    if (!baseData) return null
+
+    const tradePlan = baseData.trade_plan as Record<string, unknown> | undefined
+    if (!tradePlan) return null
+
+    const signalStrength = tradePlan.signal_strength as Record<string, unknown> | undefined
+    if (!signalStrength) return null
+
+    return {
+      score: typeof signalStrength.score === 'number' ? signalStrength.score : null,
+      class: typeof signalStrength.class === 'string' ? signalStrength.class : null,
+      reasons: Array.isArray(signalStrength.reasons_for_strength) ? signalStrength.reasons_for_strength as string[] : []
+    }
+  }, [systemJsonInfo])
 
   const tradePlanSummary = useMemo(() => {
     const sectionContent = analysis?.sections?.['Trade Plan'] ?? ''
@@ -459,7 +465,7 @@ const TradeIdeas = () => {
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Pattern Lab</p>
             <h1 className="text-3xl font-semibold text-white sm:text-4xl">Trade Ideas Analyzer</h1>
             <p className="max-w-2xl text-sm leading-relaxed text-slate-300">
-              Drop in your latest chart and let the desk AI highlight actionable structure, indicator context, and risk.
+              Upload any chart image for instant AI analysis with Signal Strength assessment, trade plans, and risk evaluation.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -501,33 +507,14 @@ const TradeIdeas = () => {
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
         >
-          <div className="grid gap-4 sm:grid-cols-[repeat(auto-fit,minmax(0,1fr))]">
-            <label className="space-y-1 text-left">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Ticker</span>
-              <input
-                value={ticker}
-                onChange={(event) => setTicker(event.target.value.toUpperCase())}
-                placeholder="e.g. AAPL"
-                className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-              />
-            </label>
-            <label className="space-y-1 text-left">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Timeframe</span>
+          <div className="max-w-sm mx-auto">
+            <label className="block space-y-1 text-center">
+              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Timeframe (optional)</span>
               <input
                 value={timeframe}
                 onChange={(event) => setTimeframe(event.target.value)}
-                placeholder="e.g. 1h, Daily"
-                className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-              />
-            </label>
-            <label className="space-y-1 text-left sm:col-span-2">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Notes (optional)</span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Context, setups, or specific questions for the analyst"
-                rows={2}
-                className="w-full resize-y rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
+                placeholder="e.g. 1h, Daily, 4H"
+                className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none text-center"
               />
             </label>
           </div>
@@ -591,7 +578,7 @@ const TradeIdeas = () => {
                 )}
               </div>
               <small className="block text-xs uppercase tracking-[0.3em] text-slate-400">
-                Prep your levels before the open. Add field notes to guide the AI focus.
+                Instant AI analysis with Signal Strength assessment and trade plans.
               </small>
             </div>
 
@@ -652,6 +639,50 @@ const TradeIdeas = () => {
                       </div>
                     )}
                   </article>
+
+                  {signalStrengthInfo && (
+                    <article className="rounded-3xl border border-indigo-400/30 bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent p-6 sm:p-7 shadow-lg shadow-slate-900/25 backdrop-blur">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-3">
+                          <p className="text-xs uppercase tracking-[0.35em] text-slate-300">Signal Strength</p>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {signalStrengthInfo.score !== null && (
+                              <span className="text-3xl font-semibold text-indigo-200">
+                                {signalStrengthInfo.score}/100
+                              </span>
+                            )}
+                            {signalStrengthInfo.class && (
+                              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] ${
+                                signalStrengthInfo.class === 'Strong' 
+                                  ? 'bg-emerald-500/20 text-emerald-100'
+                                  : signalStrengthInfo.class === 'Moderate'
+                                  ? 'bg-amber-500/20 text-amber-100' 
+                                  : 'bg-red-500/20 text-red-100'
+                              }`}>
+                                {signalStrengthInfo.class}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {signalStrengthInfo.reasons.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs uppercase tracking-[0.35em] text-slate-300 mb-3">Strength Factors</p>
+                          <div className="grid gap-2 text-sm text-slate-200">
+                            {signalStrengthInfo.reasons.map((reason, index) => (
+                              <div
+                                key={`${reason}-${index}`}
+                                className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 flex items-start gap-2"
+                              >
+                                <span className="text-indigo-300 mt-0.5">•</span>
+                                <span>{reason}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  )}
 
                   {narrativeSections.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2">
@@ -738,7 +769,7 @@ const TradeIdeas = () => {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-5 text-sm text-slate-200">
-                  Upload a chart to receive AI-generated trade structure, key levels, and risk framing.
+                  Upload a chart to receive AI-generated analysis with Signal Strength scoring, trade plans, and risk assessment.
                 </div>
               )}
             </aside>
