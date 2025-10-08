@@ -75,7 +75,7 @@ const extractSystemJson = (sections) => {
 const agentAPersona = `You are Agent A: a professional swing trader and technical analyst specializing in candlestick patterns, chart patterns, S/R, and risk/reward. Be objective and decisive, using only information visible in the chart. Default to Wait if R:R < 2:1 or signals are unclear. Keep narrative under 150 words. End with a "System JSON" block as defined previously.`;
 const agentBPersona = `You are Agent B: a seasoned risk manager. Your job is to challenge Agent A's chart-based proposal. Identify risks, unclear invalidation, poor R:R, alternative chart interpretations, missing confirmations, and execution pitfalls. Ask targeted questions only if needed; otherwise be concise. Conclude with a structured "Decision" (Proceed / Reduce Size / Wait) and explicit risk controls. Use markdown headings: \n\n### Risk Critique\n- Bulleted, concrete critique points\n\n### Questions\n- Only if essential to proceed; otherwise say None\n\n### Risk Controls\n- Stop placement, size guidance, invalidation criteria\n\n### Decision\n- One line: Proceed / Reduce Size / Wait and why.`;
 const refereePersona = `You are the Referee: a pragmatic trading desk lead. Synthesize Agent A and Agent B into a consensus plan. If risk concerns invalidate the edge, choose Wait. If proceeding, refine entry, stop, targets to meet or exceed 2:1 R:R with clear invalidation. Output two parts:\n\n### Consensus Summary\nShort, decisive narrative (<=80 words).\n\n### System JSON\nA single JSON object consistent with the chart analysis schema (direction, entry, stop_loss, take_profit, risk_reward_ratio, signal_strength with score/class/reasons_for_strength, and bias_summary). Use conservative, realistic numbers.`;
-export const analyzeChartDebate = async (input) => {
+export const analyzeChartDebate = async (input, progress) => {
     if (!SUPPORTED_IMAGE_MIME_TYPES.has(input.mimeType)) {
         throw new Error('Unsupported image format. Please upload PNG, JPEG, or WEBP charts.');
     }
@@ -103,6 +103,15 @@ export const analyzeChartDebate = async (input) => {
         .filter(Boolean)
         .join('\n');
     const debateTurns = [];
+    const emittedSteps = new Set();
+    const emitProgress = (step, message) => {
+        if (!progress || emittedSteps.has(step)) {
+            return;
+        }
+        emittedSteps.add(step);
+        progress({ step, message });
+    };
+    emitProgress('trader_analyzing', 'Trader analyzing chart');
     // Agent A (initial)
     const agentARequest = {
         model: env.openAiModel,
@@ -132,6 +141,7 @@ export const analyzeChartDebate = async (input) => {
         usage: agentAResp.usage,
         round: 1,
     });
+    emitProgress('trader_to_risk_manager', 'Trader sent assessment to risk manager');
     // Iterative debate between B (critique) and A (revision)
     let lastBText = '';
     let lastBSections = null;
@@ -142,6 +152,7 @@ export const analyzeChartDebate = async (input) => {
     while (remainingB > 0 || remainingA > 0) {
         // B critiques latest A
         if (remainingB > 0) {
+            emitProgress('risk_manager_reviewing', 'Risk manager reviewing trader assessment');
             const agentBUser = [
                 `You will critique a swing trading plan produced from the same chart.`,
                 '',
@@ -180,9 +191,11 @@ export const analyzeChartDebate = async (input) => {
                 round: bRoundIndex,
             });
             remainingB -= 1;
+            emitProgress('risk_manager_feedback', 'Risk manager provided feedback to trader');
         }
         // A revises addressing B's critique
         if (remainingA > 0) {
+            emitProgress('trader_reassessing', 'Trader reassessing chart with feedback');
             const agentAUser = [
                 `Revise your swing trade plan based strictly on the chart and address the Risk Manager's critique below. Maintain objective, conservative tone. Ensure R:R ≥ 2:1, clear invalidation, and end with a System JSON block as before.`,
                 '',
@@ -224,6 +237,7 @@ export const analyzeChartDebate = async (input) => {
         }
     }
     // Referee
+    emitProgress('referee_merging', 'Referee merging final plan');
     const refereeUser = [
         `Synthesize the two agents into a consensus plan for ${ticker} (${timeframe}).`,
         '',

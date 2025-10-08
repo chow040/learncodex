@@ -12,6 +12,14 @@ import {
   MAX_CHART_DEBATE_IMAGE_BYTES,
   type ChartDebateInput,
 } from '../services/chartDebateService.js';
+import {
+  appendJobStep,
+  completeJob,
+  createDebateJob,
+  failJob,
+  getJobSnapshot,
+  markJobRunning,
+} from '../services/chartDebateJobService.js';
 import { requestTradingAgentsDecision } from '../services/tradingAgentsService.js';
 import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
 
@@ -138,17 +146,38 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-debate', upload.single('imag
       ...(typeof agentBRounds === 'number' && !Number.isNaN(agentBRounds) ? { agentBRounds } : {}),
     };
 
-    const debate = await analyzeChartDebate(debateInput);
+    const job = createDebateJob({ tradeIdeaId, ticker, timeframe });
+    res.status(202).json({ jobId: job.jobId });
 
-    res.json({
-      tradeIdeaId,
-      ticker,
-      timeframe,
-      debate,
-    });
+    void (async () => {
+      try {
+        markJobRunning(job.jobId);
+        const debate = await analyzeChartDebate(debateInput, (event) => appendJobStep(job.jobId, event));
+        appendJobStep(job.jobId, { step: 'completed', message: 'Debate completed' });
+        completeJob(job.jobId, debate);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Debate failed';
+        appendJobStep(job.jobId, { step: 'failed', message: message });
+        failJob(job.jobId, message);
+      }
+    })();
   } catch (error) {
     next(error);
   }
+});
+
+tradingRouter.get('/trade-ideas/chart-debate/jobs/:jobId', (req, res) => {
+  const jobId = req.params.jobId;
+  if (!jobId) {
+    return res.status(400).json({ error: 'jobId is required' });
+  }
+
+  const job = getJobSnapshot(jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  res.json(job);
 });
 
 // Optional: GET handler for simple browser testing or curl without a JSON body
