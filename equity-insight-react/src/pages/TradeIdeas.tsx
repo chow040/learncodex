@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react"
 import { captureScreenshot, shareScreenshot } from "../utils/screenshot"
 
 const API_BASE_URL = (() => {
@@ -87,12 +87,30 @@ interface ChartDebatePayload {
   logFile?: string
 }
 
-interface ChartDebateResponse {
-  tradeIdeaId: string | null
-  ticker?: string
-  timeframe?: string
-  debate: ChartDebatePayload
+interface DebateJobStep {
+  step: string
+  message: string
+  detail?: string
+  timestamp: string
 }
+
+interface DebateJobStatusResponse {
+  jobId: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  currentStep: string | null
+  steps: DebateJobStep[]
+  error?: string
+  result?: ChartDebatePayload
+}
+
+const DEBATE_PROGRESS_FLOW: Array<{ step: string; label: string }> = [
+  { step: 'trader_analyzing', label: 'Trader analyzing chart' },
+  { step: 'trader_to_risk_manager', label: 'Trader → Risk Manager' },
+  { step: 'risk_manager_reviewing', label: 'Risk manager reviewing' },
+  { step: 'risk_manager_feedback', label: 'Risk manager feedback' },
+  { step: 'trader_reassessing', label: 'Trader revises' },
+  { step: 'referee_merging', label: 'Referee merges plan' },
+]
 
 const TradeIdeas = () => {
   const [file, setFile] = useState<File | null>(null)
@@ -105,11 +123,22 @@ const TradeIdeas = () => {
   const [aRounds, setARounds] = useState<number>(1)
   const [bRounds, setBRounds] = useState<number>(1)
   const [timeframe, setTimeframe] = useState('')
+  const [debateJobId, setDebateJobId] = useState<string | null>(null)
+  const [debateJobStatus, setDebateJobStatus] = useState<'idle' | 'pending' | 'running' | 'completed' | 'failed'>('idle')
+  const [debateJobSteps, setDebateJobSteps] = useState<DebateJobStep[]>([])
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const screenshotRef = useRef<HTMLDivElement | null>(null)
+  const debatePollingRef = useRef<number | null>(null)
 
   const resetState = () => {
+    if (debatePollingRef.current) {
+      clearInterval(debatePollingRef.current)
+      debatePollingRef.current = null
+    }
+    setDebateJobId(null)
+    setDebateJobStatus('idle')
+    setDebateJobSteps([])
     setFile(null)
     setPreview(null)
     setError(null)
@@ -177,68 +206,209 @@ const TradeIdeas = () => {
 
   const analyzeFile = useCallback(
     async (selectedFile: File) => {
+      if (debatePollingRef.current) {
+        clearInterval(debatePollingRef.current)
+        debatePollingRef.current = null
+      }
+
       setIsAnalyzing(true)
       setError(null)
       setAnalysis(null)
+      setDebate(null)
+      setDebateJobId(null)
+      setDebateJobSteps([])
+      setDebateJobStatus(useDebate ? 'pending' : 'idle')
 
       const formData = new FormData()
-      formData.append('image', selectedFile)
+      formData.append('image', selectedFile, selectedFile.name)
 
       const trimmedTimeframe = timeframe.trim()
-
-      if (trimmedTimeframe) formData.append('timeframe', trimmedTimeframe)
+      if (trimmedTimeframe) {
+        formData.append('timeframe', trimmedTimeframe)
+      }
 
       const tradeIdeaId = DEFAULT_TRADE_ID
+      let shouldStopAnalyzing = !useDebate
 
       try {
         const endpoint = useDebate
           ? `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-debate`
           : `${API_BASE_URL}/api/trading/trade-ideas/${encodeURIComponent(tradeIdeaId)}/chart-analysis`
+
         if (useDebate) {
           formData.append('aRounds', String(Math.max(1, aRounds || 1)))
           formData.append('bRounds', String(Math.max(0, bRounds || 0)))
         }
+
         const response = await fetch(endpoint, { method: 'POST', body: formData })
+
+        const rawPayload = await response.text()
+        let payload: any = {}
+        if (rawPayload) {
+          try {
+            payload = JSON.parse(rawPayload)
+          } catch (parseErr) {
+            console.error('Unexpected debate response payload:', parseErr, rawPayload)
+            throw new Error('Unexpected response from debate service.')
+          }
+        }
 
         if (!response.ok) {
           let message = 'Failed to analyze chart.'
-          try {
-            const payload = await response.json()
-            if (typeof payload?.error === 'string') {
-              message = payload.error
-            }
-          } catch {
-            // ignore JSON parse errors
+          if (payload?.error && typeof payload.error === 'string') {
+            message = payload.error
+          } else if (rawPayload) {
+            message = rawPayload
           }
           throw new Error(message)
         }
 
         if (useDebate) {
-          const payload = (await response.json()) as ChartDebateResponse
-          if (!payload?.debate) throw new Error('Debate payload missing from response.')
-          setDebate(payload.debate)
-          // For display, prioritize Referee consensus as the main analysis card
-          const consensus: ChartAnalysisPayload = {
-            rawText: payload.debate.referee.rawText,
-            sections: payload.debate.referee.sections,
-            annotations: null,
-            usage: payload.debate.referee.usage,
+          const jobPayload = payload as { jobId?: string; error?: string }
+          if (typeof jobPayload?.error === 'string') {
+            throw new Error(jobPayload.error)
           }
-          setAnalysis(consensus)
+          if (!jobPayload?.jobId) {
+            throw new Error('Missing debate job identifier from response.')
+          }
+          setDebateJobStatus('running')
+          setDebateJobId(jobPayload.jobId)
+          shouldStopAnalyzing = false
         } else {
-          const payload = (await response.json()) as ChartAnalysisResponse
-          if (!payload?.analysis) throw new Error('Analysis payload missing from response.')
-          setAnalysis(payload.analysis)
+          const analysisPayload = payload as ChartAnalysisResponse
+          if (!analysisPayload?.analysis) {
+            throw new Error('Analysis payload missing from response.')
+          }
+          setAnalysis(analysisPayload.analysis)
           setDebate(null)
+          shouldStopAnalyzing = true
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to analyze chart.'
         setError(message)
+        if (useDebate) {
+          setDebateJobStatus('failed')
+          setDebateJobId(null)
+        }
+        shouldStopAnalyzing = true
       } finally {
-        setIsAnalyzing(false)
+        if (shouldStopAnalyzing) {
+          setIsAnalyzing(false)
+        }
       }
     },
     [timeframe, useDebate, aRounds, bRounds]
+  )
+
+  useEffect(() => {
+    if (!debateJobId) {
+      return undefined
+    }
+
+    let cancelled = false
+
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/trading/trade-ideas/chart-debate/jobs/${encodeURIComponent(debateJobId)}`
+        )
+
+        const rawPayload = await response.text()
+        let payload: DebateJobStatusResponse | null = null
+        if (rawPayload) {
+          try {
+            payload = JSON.parse(rawPayload) as DebateJobStatusResponse
+          } catch (parseErr) {
+            console.error('Unexpected debate status payload:', parseErr, rawPayload)
+            // leave payload null; we'll handle below
+          }
+        }
+
+        if (!response.ok) {
+          let message = 'Failed to fetch debate status.'
+          if (payload?.error && typeof payload.error === 'string') {
+            message = payload.error
+          } else if (rawPayload) {
+            message = rawPayload
+          }
+          throw new Error(message)
+        }
+
+        if (!payload) {
+          throw new Error('Debate status response was empty or malformed.')
+        }
+        if (cancelled) return
+
+        setDebateJobStatus(payload.status)
+        setDebateJobSteps(payload.steps ?? [])
+
+        if (payload.status === 'completed' && payload.result) {
+          const result = payload.result
+          setDebate(result)
+
+          const consensus: ChartAnalysisPayload = {
+            rawText: result.referee.rawText,
+            sections: result.referee.sections,
+            annotations: null,
+            usage: result.referee.usage,
+          }
+          setAnalysis(consensus)
+          setIsAnalyzing(false)
+          setDebateJobId(null)
+          if (debatePollingRef.current) {
+            clearInterval(debatePollingRef.current)
+            debatePollingRef.current = null
+          }
+        } else if (payload.status === 'failed') {
+          setError(payload.error ?? 'Chart debate failed.')
+          setIsAnalyzing(false)
+          setDebateJobId(null)
+          if (debatePollingRef.current) {
+            clearInterval(debatePollingRef.current)
+            debatePollingRef.current = null
+          }
+        }
+      } catch (err) {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'Failed to fetch debate status.'
+        setError(message)
+        setDebateJobStatus('failed')
+        setIsAnalyzing(false)
+        setDebateJobId(null)
+        if (debatePollingRef.current) {
+          clearInterval(debatePollingRef.current)
+          debatePollingRef.current = null
+        }
+      }
+    }
+
+    void fetchStatus()
+    debatePollingRef.current = window.setInterval(fetchStatus, 2000)
+
+    return () => {
+      cancelled = true
+      if (debatePollingRef.current) {
+        clearInterval(debatePollingRef.current)
+        debatePollingRef.current = null
+      }
+    }
+  }, [debateJobId])
+
+  const debateProgressState = useMemo(
+    () =>
+      DEBATE_PROGRESS_FLOW.map((item) => {
+        const completedSteps = new Set(debateJobSteps.map((step) => step.step))
+        const currentStep = debateJobSteps.length ? debateJobSteps[debateJobSteps.length - 1].step : null
+        const status: 'done' | 'active' | 'upcoming' =
+          completedSteps.has(item.step) ? 'done' : currentStep === item.step ? 'active' : 'upcoming'
+        return { ...item, status }
+      }),
+    [debateJobSteps]
+  )
+
+  const isDebateInProgress = useMemo(
+    () => useDebate && (debateJobStatus === 'pending' || debateJobStatus === 'running'),
+    [useDebate, debateJobStatus]
   )
 
   const handleFiles = useCallback(
@@ -673,12 +843,51 @@ const TradeIdeas = () => {
 
             <aside className="glass-panel space-y-4 p-6 sm:p-8" aria-live={isAnalyzing ? 'polite' : 'off'}>
               {isAnalyzing ? (
-                <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-200">
-                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-sky-300" aria-hidden="true" />
-                  <p className="font-semibold text-white">Analyzing chart...</p>
-                  <small className="text-xs text-slate-400">
-                    Identifying candlestick behaviour, chart structure, and risk/reward alignment.
-                  </small>
+                <div className="space-y-4 text-sm text-slate-200">
+                  <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center sm:text-left">
+                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-sky-300" aria-hidden="true" />
+                    <div className="space-y-1">
+                      <p className="font-semibold text-white">
+                        {isDebateInProgress ? 'Coordinating debate...' : 'Analyzing chart...'}
+                      </p>
+                      <small className="text-xs text-slate-400">
+                        {isDebateInProgress
+                          ? 'Tracking trader and risk manager steps in real time.'
+                          : 'Identifying candlestick behaviour, chart structure, and risk/reward alignment.'}
+                      </small>
+                    </div>
+                  </div>
+                  {useDebate ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Debate Progress</p>
+                      <ul className="mt-3 space-y-2">
+                        {debateProgressState.map(({ step, label, status }) => {
+                          const isDone = status === 'done'
+                          const isActive = status === 'active'
+                          return (
+                            <li
+                              key={step}
+                              className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.25em] ${
+                                isDone
+                                  ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+                                  : isActive
+                                    ? 'border-sky-400/40 bg-sky-500/10 text-sky-100'
+                                    : 'border-white/10 bg-white/5 text-slate-400'
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  isDone ? 'bg-emerald-300' : isActive ? 'bg-sky-300' : 'bg-slate-500'
+                                }`}
+                                aria-hidden="true"
+                              />
+                              <span>{label}</span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ) : analysis ? (
                 <div className="space-y-5">

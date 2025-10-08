@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 
 import { env } from '../config/env.js';
 import { getOpenAIClient } from './openaiService.js';
+import type { DebateProgressEvent, DebateProgressStep } from './chartDebateProgress.js';
 
 type ResponseUsage = {
   total_tokens?: number;
@@ -132,7 +133,10 @@ const agentBPersona = `You are Agent B: a seasoned risk manager. Your job is to 
 
 const refereePersona = `You are the Referee: a pragmatic trading desk lead. Synthesize Agent A and Agent B into a consensus plan. If risk concerns invalidate the edge, choose Wait. If proceeding, refine entry, stop, targets to meet or exceed 2:1 R:R with clear invalidation. Output two parts:\n\n### Consensus Summary\nShort, decisive narrative (<=80 words).\n\n### System JSON\nA single JSON object consistent with the chart analysis schema (direction, entry, stop_loss, take_profit, risk_reward_ratio, signal_strength with score/class/reasons_for_strength, and bias_summary). Use conservative, realistic numbers.`;
 
-export const analyzeChartDebate = async (input: ChartDebateInput): Promise<ChartDebateResult> => {
+export const analyzeChartDebate = async (
+  input: ChartDebateInput,
+  progress?: (event: DebateProgressEvent) => void,
+): Promise<ChartDebateResult> => {
   if (!SUPPORTED_IMAGE_MIME_TYPES.has(input.mimeType)) {
     throw new Error('Unsupported image format. Please upload PNG, JPEG, or WEBP charts.');
   }
@@ -164,6 +168,16 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
     .join('\n');
 
   const debateTurns: DebateTurn[] = [];
+  const emittedSteps = new Set<DebateProgressStep>();
+  const emitProgress = (step: DebateProgressStep, message: string): void => {
+    if (!progress || emittedSteps.has(step)) {
+      return;
+    }
+    emittedSteps.add(step);
+    progress({ step, message });
+  };
+
+  emitProgress('trader_analyzing', 'Trader analyzing chart');
 
   // Agent A (initial)
   const agentARequest: ResponseCreateParams = {
@@ -194,6 +208,7 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
     usage: agentAResp.usage as ResponseUsage,
     round: 1,
   });
+  emitProgress('trader_to_risk_manager', 'Trader sent assessment to risk manager');
   
   // Iterative debate between B (critique) and A (revision)
   let lastBText = '';
@@ -206,6 +221,7 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   while (remainingB > 0 || remainingA > 0) {
     // B critiques latest A
     if (remainingB > 0) {
+      emitProgress('risk_manager_reviewing', 'Risk manager reviewing trader assessment');
       const agentBUser = [
         `You will critique a swing trading plan produced from the same chart.`,
         '',
@@ -245,10 +261,12 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
         round: bRoundIndex,
       });
       remainingB -= 1;
+      emitProgress('risk_manager_feedback', 'Risk manager provided feedback to trader');
     }
 
     // A revises addressing B's critique
     if (remainingA > 0) {
+      emitProgress('trader_reassessing', 'Trader reassessing chart with feedback');
       const agentAUser = [
         `Revise your swing trade plan based strictly on the chart and address the Risk Manager's critique below. Maintain objective, conservative tone. Ensure R:R ≥ 2:1, clear invalidation, and end with a System JSON block as before.`,
         '',
@@ -292,6 +310,7 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   }
 
   // Referee
+  emitProgress('referee_merging', 'Referee merging final plan');
   const refereeUser = [
     `Synthesize the two agents into a consensus plan for ${ticker} (${timeframe}).`,
     '',

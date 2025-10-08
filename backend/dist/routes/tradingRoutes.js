@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { analyzeChartImage, MAX_CHART_IMAGE_BYTES, SUPPORTED_CHART_IMAGE_MIME_TYPES, } from '../services/chartAnalysisService.js';
 import { analyzeChartDebate, MAX_CHART_DEBATE_IMAGE_BYTES, } from '../services/chartDebateService.js';
+import { appendJobStep, completeJob, createDebateJob, failJob, getJobSnapshot, markJobRunning, } from '../services/chartDebateJobService.js';
 import { requestTradingAgentsDecision } from '../services/tradingAgentsService.js';
 import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
 export const tradingRouter = Router();
@@ -112,17 +113,36 @@ tradingRouter.post('/trade-ideas/:tradeIdeaId/chart-debate', upload.single('imag
             ...(typeof agentARounds === 'number' && !Number.isNaN(agentARounds) ? { agentARounds } : {}),
             ...(typeof agentBRounds === 'number' && !Number.isNaN(agentBRounds) ? { agentBRounds } : {}),
         };
-        const debate = await analyzeChartDebate(debateInput);
-        res.json({
-            tradeIdeaId,
-            ticker,
-            timeframe,
-            debate,
-        });
+        const job = createDebateJob({ tradeIdeaId, ticker, timeframe });
+        res.status(202).json({ jobId: job.jobId });
+        void (async () => {
+            try {
+                markJobRunning(job.jobId);
+                const debate = await analyzeChartDebate(debateInput, (event) => appendJobStep(job.jobId, event));
+                appendJobStep(job.jobId, { step: 'completed', message: 'Debate completed' });
+                completeJob(job.jobId, debate);
+            }
+            catch (err) {
+                const message = err instanceof Error ? err.message : 'Debate failed';
+                appendJobStep(job.jobId, { step: 'failed', message: message });
+                failJob(job.jobId, message);
+            }
+        })();
     }
     catch (error) {
         next(error);
     }
+});
+tradingRouter.get('/trade-ideas/chart-debate/jobs/:jobId', (req, res) => {
+    const jobId = req.params.jobId;
+    if (!jobId) {
+        return res.status(400).json({ error: 'jobId is required' });
+    }
+    const job = getJobSnapshot(jobId);
+    if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json(job);
 });
 // Optional: GET handler for simple browser testing or curl without a JSON body
 tradingRouter.get('/decision/internal', async (req, res, next) => {
