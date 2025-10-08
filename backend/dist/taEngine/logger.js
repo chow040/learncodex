@@ -1,12 +1,17 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { env } from '../config/env.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const defaultTaLogsDir = path.resolve(__dirname, '..', '..', 'logs');
+const resolveTaLogsDir = () => {
+    const configured = env.taLogDir?.trim();
+    return configured && configured.length > 0 ? path.resolve(configured) : defaultTaLogsDir;
+};
 // Write agent prompts to backend/logs as a JSON file for later debugging.
 export async function logAgentPrompts(payload, prompts, mode) {
-    // Resolve logs directory relative to this source file so output lands at backend/logs
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+    const logsDir = resolveTaLogsDir();
     try {
         await fs.mkdir(logsDir, { recursive: true });
     }
@@ -77,9 +82,7 @@ export async function writeEvalSummary(payload, decision, details = {}) {
 export async function logFundamentalsToolCalls(payload, entries) {
     if (!entries.length)
         return null;
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+    const logsDir = resolveTaLogsDir();
     await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -103,9 +106,7 @@ export async function logFundamentalsToolCalls(payload, entries) {
 export async function logFundamentalsConversation(payload, messages, stepCount, toolCallsMade) {
     if (!messages.length)
         return null;
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+    const logsDir = resolveTaLogsDir();
     await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -32,6 +32,9 @@ export const env = {
     // Chart Analyst (image debate) round defaults (separate from TradingAgents)
     chartDebateARounds: Number.parseInt(process.env.CHART_DEBATE_A_ROUNDS ?? '1', 10),
     chartDebateBRounds: Number.parseInt(process.env.CHART_DEBATE_B_ROUNDS ?? '1', 10),
+    // Logging directories
+    taLogDir: process.env.TA_LOG_DIR ?? undefined,
+    chartDebateLogDir: process.env.CHART_DEBATE_LOG_DIR ?? undefined,
     // LangGraph-style limits (restored reasonable limits with longer timeouts)
     maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
     maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),

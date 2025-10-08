@@ -547,16 +547,30 @@ const TradeIdeas = () => {
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
         >
-          <div className="max-w-sm mx-auto">
-            <label className="block space-y-1 text-center">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Timeframe (optional)</span>
-              <input
-                value={timeframe}
-                onChange={(event) => setTimeframe(event.target.value)}
-                placeholder="e.g. 1h, Daily, 4H"
-                className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none text-center"
-              />
-            </label>
+          <div className="max-w-sm mx-auto text-center">
+            <span className="text-xs uppercase tracking-[0.3em] text-slate-400 block">Timeframe</span>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {['1 Hours', '4 Hours', '1 Day'].map((option) => {
+                const isSelected = timeframe === option
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setTimeframe(isSelected ? '' : option)}
+                    className={`rounded-full border px-4 py-1.5 text-xs uppercase tracking-[0.3em] transition ${
+                      isSelected
+                        ? 'border-sky-400 bg-sky-500/20 text-sky-100'
+                        : 'border-white/15 bg-white/5 text-slate-200 hover:border-white/30 hover:bg-white/10'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-slate-500">
+              Tap again to clear selection
+            </p>
             <div className="mt-4 flex items-center justify-center gap-2">
               <input
                 id="debate-toggle"

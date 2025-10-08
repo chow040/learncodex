@@ -1,8 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { env } from '../config/env.js';
 import type { TradingAgentsPayload, AgentPrompt } from './types.js';
 import type { TradingAgentsDecision } from './types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const defaultTaLogsDir = path.resolve(__dirname, '..', '..', 'logs');
+
+const resolveTaLogsDir = (): string => {
+  const configured = env.taLogDir?.trim();
+  return configured && configured.length > 0 ? path.resolve(configured) : defaultTaLogsDir;
+};
 
 // Write agent prompts to backend/logs as a JSON file for later debugging.
 export async function logAgentPrompts(
@@ -10,10 +20,7 @@ export async function logAgentPrompts(
   prompts: AgentPrompt[],
   mode: string
 ): Promise<string> {
-  // Resolve logs directory relative to this source file so output lands at backend/logs
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+  const logsDir = resolveTaLogsDir();
 
   try {
     await fs.mkdir(logsDir, { recursive: true });
@@ -109,9 +116,7 @@ export async function logFundamentalsToolCalls(
 ): Promise<string | null> {
   if (!entries.length) return null;
 
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+  const logsDir = resolveTaLogsDir();
 
   await fs.mkdir(logsDir, { recursive: true }).catch(() => {});
 
@@ -146,9 +151,7 @@ export async function logFundamentalsConversation(
 ): Promise<string | null> {
   if (!messages.length) return null;
 
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const logsDir = path.resolve(__dirname, '..', '..', 'logs');
+  const logsDir = resolveTaLogsDir();
 
   await fs.mkdir(logsDir, { recursive: true }).catch(() => {});
 

@@ -328,7 +328,10 @@ export const analyzeChartDebate = async (input: ChartDebateInput): Promise<Chart
   // Write log
   let logFile: string | undefined;
   try {
-    const logsDir = path.resolve('D:', 'learinvscode', 'learncodex', 'backend', 'chartlogs');
+    const configuredDir = env.chartDebateLogDir?.trim();
+    const logsDir = configuredDir && configuredDir.length > 0
+      ? path.resolve(configuredDir)
+      : path.resolve(process.cwd(), 'backend', 'chartlogs');
     await fs.mkdir(logsDir, { recursive: true });
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const safeTicker = (ticker || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
