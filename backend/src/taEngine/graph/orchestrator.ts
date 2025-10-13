@@ -13,6 +13,7 @@ import { RiskyAnalyst, SafeAnalyst, NeutralAnalyst } from '../agents/riskanalyst
 import { TraderAgent } from '../agents/trader/TraderAgent.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { StateFundamentalsAgent } from './stateFundamentalsAgent.js';
+import { StateNewsAgent } from './stateNewsAgent.js';
 const systemPrompt = `You are an efficient assistant designed to analyze market, news, social, and fundamentals reports and output only one of: BUY, SELL, or HOLD. Reply with exactly one word: BUY, SELL, or HOLD.`;
 
 // Simplified decision extraction:
@@ -34,6 +35,7 @@ export class TradingOrchestrator {
     social = new SocialAnalyst();
     fundamentals = new FundamentalsAnalyst();
     stateFundamentals;
+    stateNews;
     bull = new BullResearcher();
     bear = new BearResearcher();
     researchManager = new ResearchManager();
@@ -47,6 +49,7 @@ export class TradingOrchestrator {
         }
         this.client = new OpenAI({ apiKey: env.openAiApiKey, baseURL: env.openAiBaseUrl });
         this.stateFundamentals = new StateFundamentalsAgent(this.client);
+        this.stateNews = new StateNewsAgent(this.client);
     }
     async run(payload) {
         const { symbol, tradeDate, context } = payload;
@@ -96,8 +99,8 @@ export class TradingOrchestrator {
                     console.error(`[Orchestrator] Market agent failed for ${symbol}:`, err); 
                     return `Market analysis unavailable: ${err.message}`; 
                 }),
-                withTimeout(callAgent(np)).catch(err => { 
-                    console.error(`[Orchestrator] News agent failed for ${symbol}:`, err); 
+                withTimeout(this.stateNews.executeWithState(np.system, np.user, context, symbol, tradeDate, payload)).catch(err => { 
+                    console.error(`[Orchestrator] StateNews agent failed for ${symbol}:`, err); 
                     return `News analysis unavailable: ${err.message}`; 
                 }),
                 withTimeout(callAgent(sp)).catch(err => { 
