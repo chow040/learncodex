@@ -79,14 +79,17 @@ export async function writeEvalSummary(payload, decision, details = {}) {
     await fs.writeFile(fpath, JSON.stringify(out, null, 2), 'utf8');
     return fpath;
 }
+const formatFilename = (prefix, payload, extension = 'json') => {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `${prefix}_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
+};
 export async function logFundamentalsToolCalls(payload, entries) {
     if (!entries.length)
         return null;
     const logsDir = resolveTaLogsDir();
     await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `ta_toolcalls_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.json`;
+    const filename = formatFilename('ta_toolcalls', payload);
     const filePath = path.join(logsDir, filename);
     const serializableEntries = entries.map((entry) => ({
         toolCallId: entry.toolCallId,
@@ -108,9 +111,7 @@ export async function logFundamentalsConversation(payload, messages, stepCount, 
         return null;
     const logsDir = resolveTaLogsDir();
     await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `ta_conversation_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.json`;
+    const filename = formatFilename('ta_conversation', payload);
     const filePath = path.join(logsDir, filename);
     // Sanitize messages for logging
     const sanitizedMessages = messages.map((msg, index) => {
@@ -121,6 +122,62 @@ export async function logFundamentalsConversation(payload, messages, stepCount, 
             step: index + 1,
             role: msg.role,
             content: content,
+            tool_calls: msg.tool_calls ? msg.tool_calls.length : 0,
+            tool_calls_details: msg.tool_calls || null,
+        };
+    });
+    const conversationLog = {
+        createdAt: new Date().toISOString(),
+        symbol: payload.symbol,
+        tradeDate: payload.tradeDate,
+        stepCount,
+        toolCallsMade,
+        messages: sanitizedMessages,
+    };
+    await fs.writeFile(filePath, JSON.stringify(conversationLog, null, 2), 'utf8');
+    return filePath;
+}
+export async function logNewsToolCalls(payload, entries) {
+    if (!entries.length)
+        return null;
+    const logsDir = resolveTaLogsDir();
+    await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
+    const filename = formatFilename('ta_news_toolcalls', payload);
+    const filePath = path.join(logsDir, filename);
+    const serializableEntries = entries.map((entry) => ({
+        toolCallId: entry.toolCallId,
+        name: entry.name,
+        args: entry.args ?? null,
+        output: entry.output,
+    }));
+    const payloadSummary = {
+        createdAt: new Date().toISOString(),
+        symbol: payload.symbol,
+        tradeDate: payload.tradeDate,
+        entries: serializableEntries,
+    };
+    await fs.writeFile(filePath, JSON.stringify(payloadSummary, null, 2), 'utf8');
+    return filePath;
+}
+export async function logNewsConversation(payload, messages, stepCount, toolCallsMade) {
+    if (!messages.length)
+        return null;
+    const logsDir = resolveTaLogsDir();
+    await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
+    const filename = formatFilename('ta_news_conversation', payload);
+    const filePath = path.join(logsDir, filename);
+    const sanitizedMessages = messages.map((msg, index) => {
+        const content = typeof msg.content === 'string'
+            ? msg.content
+            : Array.isArray(msg.content)
+                ? JSON.stringify(msg.content)
+                : msg.content
+                    ? String(msg.content)
+                    : null;
+        return {
+            step: index + 1,
+            role: msg.role,
+            content,
             tool_calls: msg.tool_calls ? msg.tool_calls.length : 0,
             tool_calls_details: msg.tool_calls || null,
         };

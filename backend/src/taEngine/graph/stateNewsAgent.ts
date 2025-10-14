@@ -1,4 +1,12 @@
 import type OpenAI from 'openai';
+import type {
+  ChatCompletion,
+  ChatCompletionCreateParams,
+  ChatCompletionMessageParam,
+  ChatCompletionMessageToolCall,
+  ChatCompletionTool,
+  ChatCompletionToolMessageParam,
+} from 'openai/resources/chat/completions';
 
 import { env } from '../../config/env.js';
 import { logNewsToolCalls, logNewsConversation } from '../logger.js';
@@ -45,7 +53,7 @@ const KNOWN_PLACEHOLDERS_LOWER = new Set(KNOWN_PLACEHOLDERS.map((value) => value
 type ToolHandler = (args: any) => Promise<string>;
 
 interface NewsAgentState {
-  messages: OpenAI.ChatCompletionMessageParam[];
+  messages: ChatCompletionMessageParam[];
   step_count: number;
   tool_calls_made: number;
   completed: boolean;
@@ -198,7 +206,7 @@ const formatRedditInsights = (insights: RedditInsightsResponse | null, limit: nu
 
 export class StateNewsAgent {
   private client: OpenAI;
-  private newsTools: OpenAI.ChatCompletionTool[];
+  private newsTools: ChatCompletionTool[];
   private toolHandlers: Record<string, ToolHandler>;
   private googleCache: Map<string, string>;
   private finnhubCache: Map<string, string>;
@@ -395,11 +403,11 @@ export class StateNewsAgent {
   }
 
   private async callModel(
-    messages: OpenAI.ChatCompletionMessageParam[],
+    messages: ChatCompletionMessageParam[],
     includeTools = false,
     timeoutMs = FOLLOWUP_AI_TIMEOUT_MS,
-  ): Promise<OpenAI.ChatCompletion> {
-    const params: Record<string, unknown> = {
+  ): Promise<ChatCompletion> {
+    const params: ChatCompletionCreateParams = {
       model: env.openAiModel,
       messages,
       max_completion_tokens: MAX_COMPLETION_TOKENS,
@@ -412,12 +420,12 @@ export class StateNewsAgent {
     return Promise.race([
       this.client.chat.completions.create(params),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('AI call timeout')), timeoutMs)),
-    ]);
+    ]) as Promise<ChatCompletion>;
   }
 
   private async executeToolCalls(state: NewsAgentState, payload: TradingAgentsPayload): Promise<NewsAgentState> {
-    const lastMessage = state.messages[state.messages.length - 1] as OpenAI.ChatCompletionMessageParam & {
-      tool_calls?: OpenAI.ChatCompletionMessageToolCall[];
+    const lastMessage = state.messages[state.messages.length - 1] as ChatCompletionMessageParam & {
+      tool_calls?: ChatCompletionMessageToolCall[];
     };
 
     const toolCalls = lastMessage?.tool_calls ?? [];
@@ -425,17 +433,23 @@ export class StateNewsAgent {
       return state;
     }
 
-    const toolOutputs: OpenAI.ChatCompletionToolMessageParam[] = [];
+    const toolOutputs: ChatCompletionToolMessageParam[] = [];
     const logEntries: Array<{ toolCallId: string; name: string | null; args: unknown; output: string }> = [];
 
     for (const toolCall of toolCalls) {
-      const name = toolCall.function?.name ?? null;
+      if (toolCall.type !== 'function') {
+        console.warn(`[StateNewsAgent] Unsupported tool call type "${toolCall.type}" encountered; skipping.`);
+        continue;
+      }
+
+      const fnCall = toolCall.function;
+      const name = fnCall?.name ?? null;
       const handler = name ? this.toolHandlers[name] : undefined;
 
       let parsedArgs: any = {};
-      if (toolCall.function?.arguments) {
+      if (fnCall?.arguments) {
         try {
-          parsedArgs = JSON.parse(toolCall.function.arguments);
+          parsedArgs = JSON.parse(fnCall.arguments);
         } catch (error) {
           parsedArgs = {};
         }
@@ -517,8 +531,8 @@ export class StateNewsAgent {
       return state;
     }
 
-    const lastMessage = state.messages[state.messages.length - 1] as OpenAI.ChatCompletionMessageParam & {
-      tool_calls?: OpenAI.ChatCompletionMessageToolCall[];
+    const lastMessage = state.messages[state.messages.length - 1] as ChatCompletionMessageParam & {
+      tool_calls?: ChatCompletionMessageToolCall[];
     };
 
     if (lastMessage?.role === 'assistant' && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length > 0) {
