@@ -1,4 +1,6 @@
 import axios from 'axios';
+
+import { withServiceError } from './utils/serviceHelpers.js';
 // Dynamic import for cheerio to work in ESM environments
 let _cheerio: any | null = null;
 async function loadCheerio() {
@@ -20,6 +22,7 @@ function sleep(ms: number) {
  * Returns an array of items: { title, snippet, source, link, date }
  */
 export async function getGoogleNews(tickerOrQuery: string, startDate: string, endDate: string): Promise<Array<Record<string, string>>> {
+  return withServiceError('googleNews', 'getGoogleNews', async () => {
   // Accept a raw ticker or query string; we'll encode it for the URL
   const query = encodeURIComponent(tickerOrQuery.replace(/\s+/g, '+'));
   const results: Array<Record<string, string>> = [];
@@ -58,10 +61,10 @@ export async function getGoogleNews(tickerOrQuery: string, startDate: string, en
         }
       });
     } catch (err) {
-      // If Google blocks or any network error occurs, stop scraping further pages
-      break;
+      throw err;
     }
   }
 
   return results;
+  });
 }

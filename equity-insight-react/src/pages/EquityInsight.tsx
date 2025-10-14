@@ -52,6 +52,13 @@ const pickItems = <T,>(source: T[], count: number, rng: () => number) => {
 
 const pickItem = <T,>(source: T[], rng: () => number) => source[Math.floor(rng() * source.length)]
 
+const coerceStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((item) => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+        .filter((item) => item.length > 0)
+    : []
+
 type CompanyOverride = {
   summary: string
   catalysts: string[]
@@ -164,6 +171,14 @@ type FinnhubMetrics = {
   priceToFreeCashFlow: number | null
   debtToEquity: number | null
   earningsRevision: number | null
+}
+
+type AssessmentApiResponse = {
+  summary?: string
+  riskRating?: string
+  opportunities?: unknown
+  watchItems?: unknown
+  nextSteps?: unknown
 }
 
 // Renders agent text in a reader-friendly way (paragraphs and bullet lists)
@@ -484,6 +499,7 @@ const EquityInsight = () => {
   const [tickerInput, setTickerInput] = useState('')
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [socialInsights, setSocialInsights] = useState<RedditInsights | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
@@ -493,6 +509,7 @@ const EquityInsight = () => {
   const [mainTab, setMainTab] = useState<'research' | 'trading'>('research')
   const [isTradingLoading, setIsTradingLoading] = useState(false)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
+  const [assessmentError, setAssessmentError] = useState<string | null>(null)
 
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
 
@@ -502,10 +519,12 @@ const EquityInsight = () => {
 
     setTickerInput(trimmed)
     setIsLoading(true)
+    setLoadError(null)
     setSocialInsights(null)
     setSocialError(null)
     setTradingDecision(null)
     setTradingError(null)
+    setAssessmentError(null)
 
     try {
       const redditPromise: Promise<Response | null> = fetch(
@@ -543,17 +562,28 @@ const EquityInsight = () => {
         setSocialError('Unable to load Reddit activity right now.')
       }
 
-      const assessmentResponse = await fetch(`${API_BASE_URL}/api/assessment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: trimmed })
-      })
+      let assessment: AssessmentApiResponse | null = null
+      try {
+        const assessmentResponse = await fetch(`${API_BASE_URL}/api/assessment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: trimmed })
+        })
 
-      if (!assessmentResponse.ok) {
-        throw new Error('Failed to fetch assessment data.')
+        if (!assessmentResponse.ok) {
+          throw new Error(`Assessment request failed with status ${assessmentResponse.status}.`)
+        }
+
+        const rawAssessment = (await assessmentResponse.json()) as AssessmentApiResponse
+        if (rawAssessment && typeof rawAssessment === 'object') {
+          assessment = rawAssessment
+        } else {
+          throw new Error('Assessment response was not valid JSON.')
+        }
+      } catch (error) {
+        console.error('Assessment request failed', error)
+        setAssessmentError('AI assessment is unavailable right now. Showing baseline metrics instead.')
       }
-
-      const assessment = await assessmentResponse.json()
 
       const safeCurrency =
         typeof profile.currency === 'string' && profile.currency.trim().length === 3
@@ -604,14 +634,15 @@ const EquityInsight = () => {
           ? (fcfPerShare * sharesOutstandingMillions) / 1000
           : null
 
+      const riskRating = typeof assessment?.riskRating === 'string' ? assessment.riskRating.trim() : ''
       const riskLabel =
-        typeof assessment.riskRating === 'string' && assessment.riskRating.length > 0
-          ? assessment.riskRating.charAt(0).toUpperCase() + assessment.riskRating.slice(1)
+        riskRating.length > 0
+          ? riskRating.charAt(0).toUpperCase() + riskRating.slice(1)
           : 'N/A'
 
-      const opportunities = Array.isArray(assessment.opportunities) ? assessment.opportunities : []
-      const watchItems = Array.isArray(assessment.watchItems) ? assessment.watchItems : []
-      const nextSteps = Array.isArray(assessment.nextSteps) ? assessment.nextSteps : []
+      const opportunities = coerceStringArray(assessment?.opportunities)
+      const watchItems = coerceStringArray(assessment?.watchItems)
+      const nextSteps = coerceStringArray(assessment?.nextSteps)
 
       const data = generateMockReport(trimmed)
       data.price = formattedPrice
@@ -625,7 +656,10 @@ const EquityInsight = () => {
       data.debtToEquity = formatMultiple(metrics.debtToEquity, 2)
       data.earningsRevision = formatPercentWithSign(metrics.earningsRevision, 1)
       data.rating = riskLabel
-      data.summary = typeof assessment.summary === 'string' ? assessment.summary : data.summary
+      data.summary =
+        typeof assessment?.summary === 'string' && assessment.summary.trim().length > 0
+          ? assessment.summary
+          : data.summary
       if (opportunities.length) data.keyDrivers = opportunities
       if (nextSteps.length) data.catalysts = nextSteps
       if (watchItems.length) data.risks = watchItems
@@ -642,6 +676,11 @@ const EquityInsight = () => {
       scrollTargets.current.snapshot?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } catch (error) {
       console.error(error)
+      const fallbackMessage =
+        error instanceof Error
+          ? `Unable to generate report: ${error.message}`
+          : 'Unable to generate report right now.'
+      setLoadError(fallbackMessage)
     } finally {
       setIsLoading(false)
     }
@@ -709,6 +748,10 @@ const EquityInsight = () => {
       return <Placeholder text="Analyzing fundamentals..." />
     }
 
+    if (loadError && !reportData) {
+      return <Placeholder text={loadError} />
+    }
+
     if (!reportData) {
       return (
         <Placeholder text="Provide a ticker symbol to see valuation metrics, trends, and qualitative insights." />
@@ -762,6 +805,16 @@ const EquityInsight = () => {
 
     return (
       <div className="flex flex-col gap-6">
+        {loadError && reportData ? (
+          <div className="rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
+            {loadError}
+          </div>
+        ) : null}
+        {assessmentError ? (
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+            {assessmentError}
+          </div>
+        ) : null}
         <article
           id="snapshot"
           ref={(node) => {
@@ -1068,7 +1121,7 @@ const EquityInsight = () => {
         </p>
       </div>
     )
-  }, [isLoading, reportData, snapshotView, socialError, socialInsights, tradingDecision, tradingError])
+  }, [assessmentError, isLoading, loadError, reportData, snapshotView, socialError, socialInsights, tradingDecision, tradingError])
 
   return (
     <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">

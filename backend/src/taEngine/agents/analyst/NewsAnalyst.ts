@@ -8,10 +8,11 @@ const TOOL_LABELS = [
 
 const formatToolReminder = (tools: string | string[]): string => {
   const normalized = Array.isArray(tools) ? tools : [tools];
-  if (normalized.length === 1) return normalized[0];
-  if (normalized.length === 2) return `${normalized[0]} or ${normalized[1]}`;
+  if (normalized.length === 0) return '';
+  if (normalized.length === 1) return normalized[0]!;
+  if (normalized.length === 2) return `${normalized[0]!} or ${normalized[1]!}`;
   const [last, ...rest] = normalized.slice().reverse();
-  return `${rest.reverse().join(', ')}, or ${last}`;
+  return `${rest.reverse().join(', ')}, or ${last!}`;
 };
 
 export class NewsAnalyst {
@@ -25,10 +26,10 @@ export class NewsAnalyst {
 
     const addSection = (
       label: string,
-      value: string | undefined,
+      value: string | null | undefined,
       tools: string | string[],
     ) => {
-      const trimmed = value?.toString().trim();
+      const trimmed = value != null ? value.toString().trim() : undefined;
       if (trimmed && trimmed !== missingPlaceholder) {
         userLines.push(`${label}:\n${trimmed}`);
         return;

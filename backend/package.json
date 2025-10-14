@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "clean": "node -e \"import('fs').then(fs=>fs.rmSync('dist',{recursive:true,force:true}))\"",
-    "build": "npm run clean && tsc -p .",
+    "build": "npm run clean && node ./node_modules/typescript/bin/tsc -p .",
+    "prestart": "npm run build",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit"
   },
@@ -15,6 +16,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@langchain/core": "^0.3.78",
+    "@langchain/langgraph": "^0.4.9",
+    "@langchain/openai": "^0.6.16",
     "@types/multer": "^2.0.0",
     "@types/pg": "^8.15.5",
     "axios": "^1.12.2",
@@ -23,9 +27,11 @@
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.44.5",
     "express": "^5.1.0",
+    "langchain": "^0.3.36",
     "multer": "^2.0.2",
     "openai": "^5.23.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
@@ -33,6 +39,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^24.5.2",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^1.6.0"
   }
 }

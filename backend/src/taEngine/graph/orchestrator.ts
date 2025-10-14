@@ -14,6 +14,8 @@ import { TraderAgent } from '../agents/trader/TraderAgent.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { StateFundamentalsAgent } from './stateFundamentalsAgent.js';
 import { StateNewsAgent } from './stateNewsAgent.js';
+import { runAnalystStage } from '../langgraph/analystsWorkflow.js';
+import { runDecisionGraph } from '../langgraph/decisionWorkflow.js';
 const systemPrompt = `You are an efficient assistant designed to analyze market, news, social, and fundamentals reports and output only one of: BUY, SELL, or HOLD. Reply with exactly one word: BUY, SELL, or HOLD.`;
 
 // Simplified decision extraction:
@@ -51,23 +53,37 @@ export class TradingOrchestrator {
         this.stateFundamentals = new StateFundamentalsAgent(this.client);
         this.stateNews = new StateNewsAgent(this.client);
     }
+    async runLangchainAnalysts(symbol, tradeDate, context) {
+        const { reports, conversationLog } = await runAnalystStage(symbol, tradeDate, context);
+        return {
+            marketReport: reports.market ?? '',
+            newsReport: reports.news ?? '',
+            socialReport: reports.social ?? '',
+            fundamentalsReport: reports.fundamentals ?? '',
+            logs: conversationLog,
+        };
+    }
     async run(payload) {
         const { symbol, tradeDate, context } = payload;
-        const prompts = [
-            this.market.analyze(context, symbol, tradeDate),
-            this.news.analyze(context, symbol, tradeDate),
-            this.social.analyze(context, symbol, tradeDate),
-            this.fundamentals.analyze(context, symbol, tradeDate),
-        ];
         const mode = env.tradingAgentsEngineMode;
-        // attempt to write prompts to a debug log file for later inspection; don't fail the run if logging fails
-        try {
-            // fire-and-forget but await so errors are caught locally
-            await logAgentPrompts(payload, prompts, mode);
+        if (mode === 'multi' && env.useLanggraphPipeline) {
+            return runDecisionGraph(payload);
         }
-        catch (e) {
-            // swallow logging errors intentionally
-            // console.debug('Logging failed', e);
+        const useLangchainAnalysts = env.useLangchainAnalysts && mode === 'multi';
+        let prompts = null;
+        if (!useLangchainAnalysts) {
+            prompts = [
+                this.market.analyze(context, symbol, tradeDate),
+                this.news.analyze(context, symbol, tradeDate),
+                this.social.analyze(context, symbol, tradeDate),
+                this.fundamentals.analyze(context, symbol, tradeDate),
+            ];
+            try {
+                await logAgentPrompts(payload, prompts, mode);
+            }
+            catch (e) {
+                // swallow logging errors intentionally
+            }
         }
         if (mode === 'multi') {
             // Multi-turn: run analysts, then bull/bear debate, manager judge, trader, risk debate, risk manager judge
@@ -87,32 +103,55 @@ export class TradingOrchestrator {
                     .then((v) => { clearTimeout(t); resolve(v); })
                     .catch((e) => { clearTimeout(t); reject(e); });
             });
-            // 1) Base analysts in parallel
-            const [marketPrompt, newsPrompt, socialPrompt, fundamentalsPrompt] = prompts;
-            const mp = marketPrompt ?? this.market.analyze(context, symbol, tradeDate);
-            const np = newsPrompt ?? this.news.analyze(context, symbol, tradeDate);
-            const sp = socialPrompt ?? this.social.analyze(context, symbol, tradeDate);
-            const fp = fundamentalsPrompt ?? this.fundamentals.analyze(context, symbol, tradeDate);
-            console.log(`[Orchestrator] Starting parallel execution of 4 agents for ${symbol}...`);
-            const [marketOut, newsOut, socialOut, fundamentalsOut] = await Promise.all([
-                withTimeout(callAgent(mp)).catch(err => { 
-                    console.error(`[Orchestrator] Market agent failed for ${symbol}:`, err); 
-                    return `Market analysis unavailable: ${err.message}`; 
-                }),
-                withTimeout(this.stateNews.executeWithState(np.system, np.user, context, symbol, tradeDate, payload)).catch(err => { 
-                    console.error(`[Orchestrator] StateNews agent failed for ${symbol}:`, err); 
-                    return `News analysis unavailable: ${err.message}`; 
-                }),
-                withTimeout(callAgent(sp)).catch(err => { 
-                    console.error(`[Orchestrator] Social agent failed for ${symbol}:`, err); 
-                    return `Social analysis unavailable: ${err.message}`; 
-                }),
-                withTimeout(this.stateFundamentals.executeWithState(fp.system, fp.user, context, symbol, tradeDate, payload)).catch(err => { 
-                    console.error(`[Orchestrator] StateFundamentals agent failed for ${symbol}:`, err); 
-                    return `Fundamentals analysis unavailable: ${err.message}`; 
-                }),
-            ]);
-            console.log(`[Orchestrator] All 4 agents completed for ${symbol}`);
+            let marketOut = null;
+            let newsOut = null;
+            let socialOut = null;
+            let fundamentalsOut = null;
+            if (useLangchainAnalysts) {
+                console.log(`[Orchestrator] Executing LangChain analysts for ${symbol}...`);
+                const { marketReport, newsReport, socialReport, fundamentalsReport, logs } = await this.runLangchainAnalysts(symbol, tradeDate, context);
+                marketOut = marketReport;
+                newsOut = newsReport;
+                socialOut = socialReport;
+                fundamentalsOut = fundamentalsReport;
+                try {
+                    await logAgentPrompts(payload, logs, mode);
+                }
+                catch (e) {
+                    // ignore logging failures
+                }
+            }
+            else {
+                const [marketPrompt, newsPrompt, socialPrompt, fundamentalsPrompt] = prompts;
+                const mp = marketPrompt ?? this.market.analyze(context, symbol, tradeDate);
+                const np = newsPrompt ?? this.news.analyze(context, symbol, tradeDate);
+                const sp = socialPrompt ?? this.social.analyze(context, symbol, tradeDate);
+                const fp = fundamentalsPrompt ?? this.fundamentals.analyze(context, symbol, tradeDate);
+                console.log(`[Orchestrator] Starting parallel execution of 4 agents for ${symbol}...`);
+                const analystOutputs = await Promise.all([
+                    withTimeout(callAgent(mp)).catch(err => {
+                        console.error(`[Orchestrator] Market agent failed for ${symbol}:`, err);
+                        return `Market analysis unavailable: ${err.message}`;
+                    }),
+                    withTimeout(this.stateNews.executeWithState(np.system, np.user, context, symbol, tradeDate, payload)).catch(err => {
+                        console.error(`[Orchestrator] StateNews agent failed for ${symbol}:`, err);
+                        return `News analysis unavailable: ${err.message}`;
+                    }),
+                    withTimeout(callAgent(sp)).catch(err => {
+                        console.error(`[Orchestrator] Social agent failed for ${symbol}:`, err);
+                        return `Social analysis unavailable: ${err.message}`;
+                    }),
+                    withTimeout(this.stateFundamentals.executeWithState(fp.system, fp.user, context, symbol, tradeDate, payload)).catch(err => {
+                        console.error(`[Orchestrator] StateFundamentals agent failed for ${symbol}:`, err);
+                        return `Fundamentals analysis unavailable: ${err.message}`;
+                    }),
+                ]);
+                console.log(`[Orchestrator] All 4 agents completed for ${symbol}`);
+                marketOut = analystOutputs[0];
+                newsOut = analystOutputs[1];
+                socialOut = analystOutputs[2];
+                fundamentalsOut = analystOutputs[3];
+            }
             // 2) Investment debate: Bear then Bull (configurable rounds)
             const investRounds = Math.max(1, env.investDebateRounds ?? 1);
             let investHistory = '';

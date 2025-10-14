@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../config/env.js';
+import { withServiceError } from './utils/serviceHelpers.js';
 const REDDIT_BASE_URL = 'https://www.reddit.com';
 const REDDIT_OAUTH_URL = 'https://oauth.reddit.com';
 const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token';
@@ -52,7 +53,7 @@ const requestAccessToken = async () => {
     return accessToken;
 };
 const getAccessToken = async () => requestAccessToken();
-export const getRedditInsights = async (ticker, limit = 10) => {
+export const getRedditInsights = async (ticker, limit = 10) => withServiceError('reddit', 'getRedditInsights', async () => {
     const symbol = ticker.trim().toUpperCase();
     if (!symbol) {
         throw new Error('Ticker symbol is required for Reddit insights.');
@@ -131,5 +132,5 @@ export const getRedditInsights = async (ticker, limit = 10) => {
         posts,
         lastUpdated: new Date().toISOString(),
     };
-};
+});
 //# sourceMappingURL=redditService.js.map

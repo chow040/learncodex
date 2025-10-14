@@ -38,5 +38,7 @@ export const env = {
     // LangGraph-style limits (restored reasonable limits with longer timeouts)
     maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
     maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),
+    useLangchainAnalysts: (process.env.USE_LANGCHAIN_ANALYSTS ?? 'false').toLowerCase() === 'true',
+    useLanggraphPipeline: (process.env.USE_LANGGRAPH_PIPELINE ?? 'true').toLowerCase() === 'true',
 };
 //# sourceMappingURL=env.js.map
