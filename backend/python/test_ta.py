@@ -3,7 +3,8 @@ import sys
 import json
 from pathlib import Path
 
-TRADING_AGENTS_PATH = Path(r'D:/learinvscode/learncodex/TradingAgents-main')
+# Use relative path to TradingAgents-main
+TRADING_AGENTS_PATH = Path(__file__).parent.parent.parent / 'TradingAgents-main'
 if str(TRADING_AGENTS_PATH) not in sys.path:
     sys.path.insert(0, str(TRADING_AGENTS_PATH))
 

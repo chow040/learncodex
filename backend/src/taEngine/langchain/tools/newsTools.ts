@@ -1,5 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import OpenAI from 'openai';
 
 import {
   TOOL_IDS,
@@ -7,6 +8,7 @@ import {
 } from '../toolRegistry.js';
 import { withToolLogging } from '../toolLogging.js';
 import type { ToolContext } from '../types.js';
+import { env } from '../../../config/env.js';
 import { getGoogleNews } from '../../../services/googleNewsService.js';
 import {
   getCompanyNews,
@@ -66,6 +68,16 @@ const redditNewsSchema = {
   additionalProperties: false,
 };
 
+const stockNewsOpenAiSchema = {
+  type: 'object',
+  properties: {
+    query: { type: 'string', description: 'Primary search query. Defaults to the active ticker symbol.' },
+    lookback_days: { type: 'integer', minimum: 1, maximum: 14, description: 'How many days prior to the trade date to include. Defaults to 7.' },
+    focus: { type: 'string', description: 'Optional extra instructions or angles to explore (e.g., product launches, sentiment).' },
+  },
+  additionalProperties: false,
+};
+
 const googleNewsInput = z.object({
   query: z.string().trim().min(1).optional(),
   lookback_days: z.number().int().min(1).max(30).optional(),
@@ -81,6 +93,12 @@ const finnhubNewsInput = z.object({
 const redditNewsInput = z.object({
   ticker: z.string().trim().min(1).optional(),
   limit: z.number().int().min(3).max(20).optional(),
+});
+
+const stockNewsOpenAiInput = z.object({
+  query: z.string().trim().min(1).optional(),
+  lookback_days: z.number().int().min(1).max(14).optional(),
+  focus: z.string().trim().min(1).max(600).optional(),
 });
 
 const formatGoogleNews = (items: Array<Record<string, string>>, limit: number, query: string): string => {
@@ -161,7 +179,87 @@ const formatRedditNews = (insights: RedditInsightsResponse, limit: number): stri
   ].join('\n');
 };
 
+const ensureOpenAiClient = (): OpenAI => {
+  if (!env.openAiApiKey) {
+    throw new Error('OPENAI_API_KEY is not configured. Cannot call OpenAI social news tool.');
+  }
+  return new OpenAI({
+    apiKey: env.openAiApiKey,
+    ...(env.openAiBaseUrl ? { baseURL: env.openAiBaseUrl } : {}),
+  });
+};
+
+const formatDateRangeSummary = (query: string, start: Date, end: Date, focus?: string): string => {
+  const startStr = formatDate(start);
+  const endStr = formatDate(end);
+  const focusLine = focus ? `\nAdditional focus: ${focus}` : '';
+  return `Research recent social media, blog, and alternative news commentary about "${query}" between ${startStr} and ${endStr}.${focusLine}\nSummarize:\n- Key narratives or themes\n- Notable sources (Reddit, X/Twitter, blogs, YouTube, etc.)\n- Sentiment skew (bullish / bearish / mixed)\n- Any emerging catalysts or risks mentioned\n\nReturn a polished report with:\n1. Executive summary (3-5 bullet points)\n2. Detailed sections grouped by theme or source type\n3. A Markdown table capturing top mentions with columns: Source, Topic, Sentiment, Link\nProvide citations or direct links when available.`;
+};
+
 export const registerNewsTools = (): void => {
+  // OpenAI social/news aggregation
+  registerTool({
+    name: TOOL_IDS.STOCK_NEWS_OPENAI,
+    description: 'Use OpenAI web search to synthesise social media chatter and alternative news for the active ticker.',
+    schema: stockNewsOpenAiSchema,
+    create: (context) =>
+      new DynamicStructuredTool({
+        name: TOOL_IDS.STOCK_NEWS_OPENAI,
+        description: 'Compile social media and alternative news commentary via OpenAI web search.',
+        schema: stockNewsOpenAiInput,
+        func: async (input) =>
+          withToolLogging(TOOL_IDS.STOCK_NEWS_OPENAI, input, context.logger, async () => {
+            const client = ensureOpenAiClient();
+            const query = input.query?.trim() || context.symbol;
+            const lookbackDays = input.lookback_days ?? 7;
+            const end = parseTradeDate(context.tradeDate);
+            const start = new Date(end);
+            start.setDate(start.getDate() - lookbackDays);
+            const userPrompt = formatDateRangeSummary(query, start, end, input.focus);
+
+            const response = await client.responses.create({
+              model: env.openAiModel,
+              temperature: 1,
+              max_output_tokens: 1800,
+              tools: [
+                {
+                  type: 'web_search_preview',
+                  user_location: { type: 'approximate' },
+                  search_context_size: 'medium',
+                },
+              ],
+              input: [
+                {
+                  role: 'system',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: 'You are an equity research assistant specialising in synthesising social media activity and alternative data for investors. Cite sources where possible.',
+                    },
+                  ],
+                },
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: userPrompt,
+                    },
+                  ],
+                },
+              ],
+              top_p: 1,
+            });
+
+            const text = response.output_text?.trim();
+            if (!text) {
+              throw new Error('OpenAI social news tool returned an empty response.');
+            }
+            return text;
+          }),
+      }),
+  });
+
   // Google News
   registerTool({
     name: TOOL_IDS.GOOGLE_NEWS,

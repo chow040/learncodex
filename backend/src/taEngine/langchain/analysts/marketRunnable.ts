@@ -4,7 +4,6 @@ import type { RunnableInterface } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
-import { TOOL_IDS } from '../toolRegistry.js';
 import type { AnalystNodeContext, AnalystNodeRegistration } from '../types.js';
 
 const MISSING_PLACEHOLDER = 'Not provided by internal engine at this time.';
@@ -33,21 +32,12 @@ Volatility Indicators:
 Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
-- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_YFin_data first to retrieve the CSV that is needed to generate indicators. Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions. Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read.`;
+- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. External tool calls are not available, so rely on the supplied market price history and technical context. Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions. Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read.`;
 
-const REQUIRED_TOOL_IDS = [
-  TOOL_IDS.YFIN_DATA,
-  TOOL_IDS.YFIN_DATA_ONLINE,
-  TOOL_IDS.STOCKSTATS_INDICATORS,
-  TOOL_IDS.STOCKSTATS_INDICATORS_ONLINE,
-] as const;
-
-const buildToolListLabel = (toolIds: readonly string[]): string =>
-  toolIds.join(', ');
+const REQUIRED_TOOL_IDS = [] as const;
 
 export const buildMarketCollaborationHeader = (context: AnalystNodeContext): string => {
-  const toolList = buildToolListLabel(REQUIRED_TOOL_IDS);
-  return `You are a helpful AI assistant, collaborating with other assistants. Use the provided tools to progress towards answering the question. If you are unable to fully answer, that's OK; another assistant with different tools will help where you left off. Execute what you can to make progress. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop. You have access to the following tools: ${toolList}.\n${MARKET_SYSTEM_PROMPT} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
+  return `You are a helpful AI assistant, collaborating with other assistants. Rely on the market context provided in the prompt to craft your analysis—no external tool calls are available. If you are unable to fully answer, that's OK; another assistant with different context will help where you left off. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop.\n${MARKET_SYSTEM_PROMPT} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
 };
 
 const sanitizeValue = (value: unknown): string | null => {
