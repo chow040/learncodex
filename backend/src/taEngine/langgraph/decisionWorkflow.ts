@@ -100,7 +100,7 @@ const createChatModel = (): ChatOpenAI => {
   const options: Record<string, unknown> = {
     openAIApiKey: env.openAiApiKey,
     model: env.openAiModel,
-    temperature: 0,
+    temperature: 1,
   };
   if (env.openAiBaseUrl) {
     options.configuration = { baseURL: env.openAiBaseUrl };

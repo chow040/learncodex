@@ -2,6 +2,7 @@ import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 
 import { env } from '../../config/env.js';
+import { ensureLangchainToolsRegistered } from '../langchain/tools/bootstrap.js';
 import { createAnalystRunnable } from '../langchain/analysts/index.js';
 import {
   buildMarketCollaborationHeader,
@@ -32,6 +33,8 @@ import {
   type ConversationLogEntry,
 } from './types.js';
 import type { AgentsContext } from '../types.js';
+
+ensureLangchainToolsRegistered();
 
 const StateAnnotation = Annotation.Root({
   symbol: Annotation<string>(),
@@ -78,7 +81,7 @@ const analystNode = async (state: typeof StateAnnotation.State) => {
   const llmOptions: any = {
     openAIApiKey: env.openAiApiKey,
     model: env.openAiModel,
-    temperature: 0,
+    temperature: 1,
   };
   if (env.openAiBaseUrl) {
     llmOptions.configuration = { baseURL: env.openAiBaseUrl };
