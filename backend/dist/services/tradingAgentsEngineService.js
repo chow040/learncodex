@@ -81,7 +81,7 @@ const buildNewsSummary = (articles) => {
         global: 'Global macro feed not supplied; use internal macro dashboard as needed.',
     };
 };
-export const requestTradingAgentsDecisionInternal = async (symbol) => {
+export const requestTradingAgentsDecisionInternal = async (symbol, options) => {
     const orchestrator = new TradingOrchestrator();
     // Defaults
     // No pre-fetching - let agents fetch financial data via tool calls
@@ -195,6 +195,6 @@ export const requestTradingAgentsDecisionInternal = async (symbol) => {
         tradeDate: decisionDate,
         context: contextBase,
     };
-    return orchestrator.run(payload);
+    return orchestrator.run(payload, options);
 };
 //# sourceMappingURL=tradingAgentsEngineService.js.map

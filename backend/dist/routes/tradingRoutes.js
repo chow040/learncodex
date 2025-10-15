@@ -4,6 +4,7 @@ import { analyzeChartImage, MAX_CHART_IMAGE_BYTES, SUPPORTED_CHART_IMAGE_MIME_TY
 import { analyzeChartDebate, MAX_CHART_DEBATE_IMAGE_BYTES, } from '../services/chartDebateService.js';
 import { appendJobStep, completeJob, createDebateJob, failJob, getJobSnapshot, markJobRunning, } from '../services/chartDebateJobService.js';
 import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
+import { attachProgressStream, generateRunId, initializeProgress, publishCompletion, publishError, publishProgressEvent, } from '../services/tradingProgressService.js';
 export const tradingRouter = Router();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -20,14 +21,25 @@ const upload = multer({
 tradingRouter.post('/decision/internal', async (req, res, next) => {
     const rawSymbol = req.body?.symbol ?? req.query?.symbol;
     const symbol = typeof rawSymbol === 'string' ? rawSymbol.trim().toUpperCase() : '';
+    const requestedRunId = typeof req.body?.runId === 'string' && req.body.runId.trim().length > 0 ? req.body.runId.trim() : null;
     if (!symbol) {
         return res.status(400).json({ error: 'symbol is required' });
     }
+    const runId = requestedRunId ?? generateRunId();
+    initializeProgress(runId);
+    publishProgressEvent(runId, {
+        runId,
+        stage: 'queued',
+        label: 'Queued',
+        percent: 0,
+    });
     try {
-        const decision = await requestTradingAgentsDecisionInternal(symbol);
-        res.json(decision);
+        const decision = await requestTradingAgentsDecisionInternal(symbol, { runId });
+        publishCompletion(runId, decision);
+        res.json({ runId, ...decision });
     }
     catch (error) {
+        publishError(runId, error instanceof Error ? error.message : 'Unknown error');
         next(error);
     }
 });
@@ -135,12 +147,29 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
     if (!symbol) {
         return res.status(400).json({ error: 'symbol is required' });
     }
+    const runId = generateRunId();
+    initializeProgress(runId);
+    publishProgressEvent(runId, {
+        runId,
+        stage: 'queued',
+        label: 'Queued',
+        percent: 0,
+    });
     try {
-        const decision = await requestTradingAgentsDecisionInternal(symbol);
-        res.json(decision);
+        const decision = await requestTradingAgentsDecisionInternal(symbol, { runId });
+        publishCompletion(runId, decision);
+        res.json({ runId, ...decision });
     }
     catch (error) {
+        publishError(runId, error instanceof Error ? error.message : 'Unknown error');
         next(error);
     }
+});
+tradingRouter.get('/decision/internal/events/:runId', (req, res) => {
+    const runId = req.params.runId?.trim();
+    if (!runId) {
+        return res.status(400).json({ error: 'runId is required' });
+    }
+    attachProgressStream(runId, res);
 });
 //# sourceMappingURL=tradingRoutes.js.map
