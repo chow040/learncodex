@@ -8,6 +8,13 @@
       "when": 1760496061379,
       "tag": "0000_married_darkstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760522659771,
+      "tag": "0001_majestic_loki",
+      "breakpoints": true
     }
   ]
 }
