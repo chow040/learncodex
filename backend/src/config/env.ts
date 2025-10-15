@@ -26,11 +26,6 @@ export const env = {
   redditUserAgent:
     process.env.REDDIT_USER_AGENT ?? 'EquityInsightApp/1.0 (+https://example.com/contact)',
   databaseUrl: process.env.DATABASE_URL,
-  tradingAgentsPython: process.env.TRADING_AGENTS_PYTHON ?? 'python',
-  tradingAgentsPath: process.env.TRADING_AGENTS_PATH,
-  tradingAgentsResultsDir: process.env.TRADING_AGENTS_RESULTS_DIR ?? undefined,
-  tradingAgentsTimeoutMs: Number.parseInt(process.env.TRADING_AGENTS_TIMEOUT ?? '600000', 10),
-  tradingAgentsEngineMode: (process.env.TA_ENGINE_MODE ?? 'single').toLowerCase() as 'single' | 'multi',
   // Debate round configuration (defaults to 1)
   investDebateRounds: Number.parseInt(process.env.INVEST_DEBATE_ROUNDS ?? '1', 10),
   riskDebateRounds: Number.parseInt(process.env.RISK_DEBATE_ROUNDS ?? '1', 10),
@@ -43,6 +38,4 @@ export const env = {
   // LangGraph-style limits (restored reasonable limits with longer timeouts)
   maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
   maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),
-  useLangchainAnalysts: (process.env.USE_LANGCHAIN_ANALYSTS ?? 'false').toLowerCase() === 'true',
-  useLanggraphPipeline: (process.env.USE_LANGGRAPH_PIPELINE ?? 'true').toLowerCase() === 'true',
 } as const;

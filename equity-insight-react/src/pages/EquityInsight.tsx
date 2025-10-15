@@ -494,7 +494,6 @@ type SnapshotView = 'fundamental' | 'technical'
 
 const EquityInsight = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
-  const USE_INTERNAL_TA = (import.meta.env.VITE_TA_USE_INTERNAL ?? 'true').toLowerCase() !== 'false'
 
   const [tickerInput, setTickerInput] = useState('')
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
@@ -698,8 +697,7 @@ const EquityInsight = () => {
     setTradingError(null)
     const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
     try {
-      const route = USE_INTERNAL_TA ? '/api/trading/decision/internal' : '/api/trading/decision'
-      const tradingResponse = await fetch(`${API_BASE_URL}${route}`, {
+      const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision/internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol })
