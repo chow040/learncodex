@@ -1,17 +1,24 @@
-import { Pool } from 'pg';
-import { env } from '../config/env.js';
+import { desc } from 'drizzle-orm'
+import { env } from '../config/env.js'
+import { db, closeDb } from './client.js'
+import { assessmentLogs } from './schema.js'
 
 if (!env.databaseUrl) {
-  throw new Error('DATABASE_URL not set');
+  throw new Error('DATABASE_URL not set')
 }
 
-const pool = new Pool({ connectionString: env.databaseUrl, max: 1 });
+if (!db) {
+  throw new Error('Database client not initialized')
+}
 
 try {
-  const { rows } = await pool.query(
-    'SELECT id, symbol, created_at FROM assessment_logs ORDER BY created_at DESC LIMIT 5;',
-  );
-  console.table(rows);
+  const rows = await db
+    .select({ id: assessmentLogs.id, symbol: assessmentLogs.symbol, created_at: assessmentLogs.createdAt })
+    .from(assessmentLogs)
+    .orderBy(desc(assessmentLogs.createdAt))
+    .limit(5)
+
+  console.table(rows)
 } finally {
-  await pool.end();
+  await closeDb()
 }

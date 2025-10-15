@@ -1,12 +1,14 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { env } from '../../config/env.js';
+import { ensureLangchainToolsRegistered } from '../langchain/tools/bootstrap.js';
 import { createAnalystRunnable } from '../langchain/analysts/index.js';
 import { buildMarketCollaborationHeader, buildMarketUserContext, MARKET_SYSTEM_PROMPT, } from '../langchain/analysts/marketRunnable.js';
 import { buildNewsCollaborationHeader, buildNewsUserContext, NEWS_SYSTEM_PROMPT, } from '../langchain/analysts/newsRunnable.js';
 import { buildSocialCollaborationHeader, buildSocialUserContext, SOCIAL_SYSTEM_PROMPT, } from '../langchain/analysts/socialRunnable.js';
 import { buildFundamentalsCollaborationHeader, buildFundamentalsUserContext, FUNDAMENTALS_SYSTEM_PROMPT, } from '../langchain/analysts/fundamentalsRunnable.js';
 import { createInitialState, } from './types.js';
+ensureLangchainToolsRegistered();
 const StateAnnotation = Annotation.Root({
     symbol: Annotation(),
     tradeDate: Annotation(),
@@ -48,7 +50,7 @@ const analystNode = async (state) => {
     const llmOptions = {
         openAIApiKey: env.openAiApiKey,
         model: env.openAiModel,
-        temperature: 0,
+        temperature: 1,
     };
     if (env.openAiBaseUrl) {
         llmOptions.configuration = { baseURL: env.openAiBaseUrl };

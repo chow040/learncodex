@@ -38,4 +38,13 @@ export const env = {
   // LangGraph-style limits (restored reasonable limits with longer timeouts)
   maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
   maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),
+  // Past results integration
+  useDbMemories:
+    (process.env.USE_DB_MEMORIES ?? '').toLowerCase() === 'false'
+      ? false
+      : Boolean(process.env.DATABASE_URL),
+  usePastResultsInAssessments:
+    (process.env.USE_PAST_RESULTS_IN_ASSESSMENTS ?? 'false').toLowerCase() === 'true',
+  pastResultsWindowDays: Number.parseInt(process.env.PAST_RESULTS_WINDOW_DAYS ?? '90', 10),
+  pastResultsMaxEntries: Number.parseInt(process.env.PAST_RESULTS_MAX_ENTRIES ?? '5', 10),
 } as const;
