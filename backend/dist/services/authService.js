@@ -1,4 +1,4 @@
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library';
 import crypto from 'crypto';
 import { db } from '../db/client.js';
 import { users, userIdentities, sessions } from '../db/schema.js';
@@ -24,7 +24,7 @@ export function getAuthUrl(state, codeChallenge) {
         scope: ['openid', 'email', 'profile'],
         state,
         code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
+        code_challenge_method: CodeChallengeMethod.S256,
         include_granted_scopes: true,
     });
 }

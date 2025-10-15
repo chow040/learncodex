@@ -1,4 +1,4 @@
-import { OAuth2Client } from 'google-auth-library'
+import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { db } from '../db/client.js'
@@ -52,7 +52,7 @@ export function getAuthUrl(state: string, codeChallenge: string): string {
     scope: ['openid', 'email', 'profile'],
     state,
     code_challenge: codeChallenge,
-    code_challenge_method: 'S256' as const,
+    code_challenge_method: CodeChallengeMethod.S256,
     include_granted_scopes: true,
   })
 }

@@ -96,7 +96,10 @@ const buildNewsSummary = (articles: CompanyNewsArticle[]): { company: string; re
   };
 };
 
-export const requestTradingAgentsDecisionInternal = async (symbol: string): Promise<TradingAgentsDecision> => {
+export const requestTradingAgentsDecisionInternal = async (
+  symbol: string,
+  options?: { runId?: string },
+): Promise<TradingAgentsDecision> => {
   const orchestrator = new TradingOrchestrator();
 
   // Defaults
@@ -208,7 +211,7 @@ export const requestTradingAgentsDecisionInternal = async (symbol: string): Prom
     context: contextBase,
   };
 
-    return orchestrator.run(payload) as Promise<TradingAgentsDecision>;
+    return orchestrator.run(payload, options) as Promise<TradingAgentsDecision>;
 };
 
 

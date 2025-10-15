@@ -5,8 +5,8 @@ import { runDecisionGraph } from '../langgraph/decisionWorkflow.js';
  * the LangGraph implementation.
  */
 export class TradingOrchestrator {
-    async run(payload) {
-        return runDecisionGraph(payload);
+    async run(payload, options) {
+        return runDecisionGraph(payload, options);
     }
 }
 //# sourceMappingURL=orchestrator.js.map

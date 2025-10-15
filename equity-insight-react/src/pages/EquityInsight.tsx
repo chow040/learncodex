@@ -1,8 +1,11 @@
 import clsx from 'clsx'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { FormEvent } from 'react'
 import { Container } from '../components/ui/container'
+import { useTradingProgress } from '../hooks/useTradingProgress'
+import { TradingProgress } from '../components/trading/TradingProgress'
+import { useToast } from '../components/ui/use-toast'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
 const createRng = (seed: number) => {
@@ -513,11 +516,23 @@ const EquityInsight = () => {
   const [socialError, setSocialError] = useState<string | null>(null)
   const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
   const [tradingError, setTradingError] = useState<string | null>(null)
+  const [progressRunId, setProgressRunId] = useState<string | null>(null)
+  const { state: progressState, disconnect: disconnectProgress } = useTradingProgress<TradingAgentsDecision>(
+    progressRunId,
+    {
+      apiBaseUrl: API_BASE_URL,
+      parseResult: (input) => input as TradingAgentsDecision,
+      enabled: Boolean(progressRunId)
+    }
+  )
   // New: top-level tab (research vs trading) and manual trading run state
   const [mainTab, setMainTab] = useState<'research' | 'trading'>('research')
   const [isTradingLoading, setIsTradingLoading] = useState(false)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
   const [assessmentError, setAssessmentError] = useState<string | null>(null)
+  const { toast } = useToast()
+  const tradingRequestController = useRef<AbortController | null>(null)
+  const tradingCancelPending = useRef(false)
 
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
 
@@ -708,18 +723,30 @@ const EquityInsight = () => {
     setIsTradingLoading(true)
     setTradingDecision(null)
     setTradingError(null)
+    tradingCancelPending.current = false
+    const controller = new AbortController()
+    tradingRequestController.current?.abort()
+    tradingRequestController.current = controller
+    const runId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2, 10)
+    setProgressRunId(runId)
     const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
     try {
       const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision/internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
+        body: JSON.stringify({ symbol, runId }),
+        signal: controller.signal
       })
       if (tradingResponse.ok) {
         const tradingData: TradingAgentsDecision = await tradingResponse.json()
         setTradingDecision(tradingData)
         setTradingError(null)
       } else {
+        setProgressRunId(null)
+        disconnectProgress()
         const rawBody = await tradingResponse.text()
         let message = tradingFallbackMessage
         if (rawBody) {
@@ -734,16 +761,95 @@ const EquityInsight = () => {
         }
         setTradingDecision(null)
         setTradingError(message)
+        toast({
+          title: 'Trading agents error',
+          description: message,
+          variant: 'destructive'
+        })
       }
     } catch (error) {
-      console.error(error)
-      const message = error instanceof Error ? `Trading agents error: ${error.message}` : tradingFallbackMessage
-      setTradingDecision(null)
-      setTradingError(message)
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (!tradingCancelPending.current) {
+          const message = 'Trading agents request was aborted.'
+          setTradingDecision(null)
+          setTradingError(message)
+          toast({
+            title: 'Trading agents aborted',
+            description: message,
+            variant: 'destructive'
+          })
+        }
+      } else {
+        console.error(error)
+        setProgressRunId(null)
+        disconnectProgress()
+        const message = error instanceof Error ? `Trading agents error: ${error.message}` : tradingFallbackMessage
+        setTradingDecision(null)
+        setTradingError(message)
+        toast({
+          title: 'Trading agents error',
+          description: message,
+          variant: 'destructive'
+        })
+      }
     } finally {
+      if (tradingRequestController.current === controller) {
+        tradingRequestController.current = null
+      }
+      tradingCancelPending.current = false
       setIsTradingLoading(false)
     }
   }
+
+  const handleCancelTradingRun = () => {
+    if (progressState.status !== 'connecting' && progressState.status !== 'streaming') {
+      return
+    }
+    tradingCancelPending.current = true
+    tradingRequestController.current?.abort()
+    tradingRequestController.current = null
+    disconnectProgress()
+    setProgressRunId(null)
+    setIsTradingLoading(false)
+    setTradingDecision(null)
+    setTradingError(null)
+    toast({
+      title: 'Trading run cancelled',
+      description: 'We stopped listening for the current workflow. You can rerun it anytime.'
+    })
+  }
+
+  useEffect(() => {
+    if (!progressState.runId) return
+    if (progressState.status === 'complete' && progressState.result) {
+      const result = progressState.result
+      setTradingDecision(result)
+      setTradingError(null)
+      setIsTradingLoading(false)
+      toast({
+        title: 'Trading agents complete',
+        description: `${result.symbol} decision ready: ${result.decision ?? result.finalTradeDecision ?? 'Review the output.'}`
+      })
+      disconnectProgress()
+      setProgressRunId(null)
+    } else if (progressState.status === 'error' && progressState.error) {
+      const message = progressState.error
+      setTradingDecision(null)
+      setTradingError(message)
+      setIsTradingLoading(false)
+      toast({
+        title: 'Trading agents error',
+        description: message,
+        variant: 'destructive'
+      })
+      disconnectProgress()
+      setProgressRunId(null)
+    }
+  }, [progressState, disconnectProgress, toast])
+
+  const showTradingProgress =
+    progressState.runId !== null &&
+    (progressState.status === 'connecting' || progressState.status === 'streaming')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1386,10 +1492,12 @@ const EquityInsight = () => {
                       </section>
                     </div>
                   </div>
+                ) : showTradingProgress ? (
+                  <TradingProgress state={progressState} onCancel={handleCancelTradingRun} />
                 ) : (
-                  <p className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
-                    {isTradingLoading ? 'Running trading agents…' : 'Click "Run Trading Agents" to generate the decision.'}
-                  </p>
+                  <div className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
+                    <p>Click "Run Trading Agents" to generate the decision.</p>
+                  </div>
                 )}
               </article>
             </section>
@@ -1401,10 +1509,3 @@ const EquityInsight = () => {
 }
 
 export default EquityInsight
-
-
-
-
-
-
-

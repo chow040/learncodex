@@ -6,6 +6,7 @@ import { insertTaDecision } from '../../db/taDecisionRepository.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { getRoleSummaries } from '../../services/pastResultsService.js';
 import { runAnalystStage } from './analystsWorkflow.js';
+import { publishProgressEvent } from '../../services/tradingProgressService.js';
 import { createInitialState, } from './types.js';
 import { BEAR_SYSTEM_PROMPT, buildBearUserMessage, createBearDebateRunnable, } from '../langchain/debates/bearRunnable.js';
 import { BULL_SYSTEM_PROMPT, buildBullUserMessage, createBullDebateRunnable, } from '../langchain/debates/bullRunnable.js';
@@ -73,6 +74,31 @@ const appendHistory = (history, label, content) => {
 };
 const coalesce = (value, fallback) => value && value.trim().length > 0 ? value : (fallback ?? '');
 const coalesceReport = (reports, key, fallback) => coalesce(reports[key], fallback);
+const stagePercents = {
+    queued: 0,
+    analysts: 15,
+    investment_debate: 45,
+    research_manager: 60,
+    trader: 70,
+    risk_debate: 85,
+    risk_manager: 95,
+    finalizing: 100,
+};
+const emitStage = (state, stage, label, message, iteration) => {
+    const runId = typeof state.metadata?.progressRunId === 'string' ? state.metadata.progressRunId : null;
+    if (!runId)
+        return;
+    console.log('[Progress] emitting', runId, stage, label, message);
+    const payload = {
+        runId,
+        stage,
+        label,
+        percent: stagePercents[stage],
+        ...(message !== undefined ? { message } : {}),
+        ...(iteration !== undefined ? { iteration } : {}),
+    };
+    publishProgressEvent(runId, payload);
+};
 const buildDebateContext = (state) => ({
     ...state.context,
     market_technical_report: coalesceReport(state.reports, 'market', state.context.market_technical_report),
@@ -105,6 +131,7 @@ const loadMemoriesNode = async (state) => {
             const summaries = await getRoleSummaries(symbol, tradeDate);
             return {
                 metadata: {
+                    ...(state.metadata ?? {}),
                     managerMemories: summaries.manager ?? '',
                     traderMemories: summaries.trader ?? '',
                     riskManagerMemories: summaries.risk ?? '',
@@ -133,6 +160,7 @@ const loadMemoriesNode = async (state) => {
     ]);
     return {
         metadata: {
+            ...(state.metadata ?? {}),
             managerMemories,
             traderMemories,
             riskManagerMemories,
@@ -142,6 +170,7 @@ const loadMemoriesNode = async (state) => {
     };
 };
 const analystsNode = async (state) => {
+    emitStage(state, 'analysts', 'Running analyst stage');
     const { reports, conversationLog } = await runAnalystStage(state.symbol, state.tradeDate, state.context);
     return {
         reports,
@@ -153,6 +182,7 @@ const bearNode = async (state) => {
     const runnable = createBearDebateRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.invest_round ?? 0) + 1;
+    emitStage(state, 'investment_debate', 'Investment debate', `Bear vs Bull round ${round}`, round);
     const history = state.debate?.investment ?? '';
     const opponentArgument = state.debate?.bull ?? '';
     const input = {
@@ -208,6 +238,7 @@ const bullNode = async (state) => {
             },
         ],
         metadata: {
+            ...(state.metadata ?? {}),
             invest_round: round,
         },
     };
@@ -217,6 +248,7 @@ const researchManagerNode = async (state) => {
     const runnable = createResearchManagerRunnable(llm);
     const managerMemories = state.metadata?.managerMemories ?? '';
     const debateHistory = state.debate?.investment ?? '';
+    emitStage(state, 'research_manager', 'Research manager synthesis');
     const marketReport = coalesceReport(state.reports, 'market', state.context.market_technical_report);
     const sentimentReport = coalesceReport(state.reports, 'social', state.context.social_reddit_summary);
     const newsReport = coalesceReport(state.reports, 'news', state.context.news_company);
@@ -251,6 +283,7 @@ const traderNode = async (state) => {
     const newsReport = coalesceReport(state.reports, 'news', state.context.news_company);
     const fundamentalsReport = coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary);
     const plan = state.investmentPlan ?? '';
+    emitStage(state, 'trader', 'Trader execution plan');
     const input = {
         company: state.symbol,
         plan,
@@ -278,6 +311,7 @@ const riskyNode = async (state) => {
     const runnable = createRiskyAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.risk_round ?? 0) + 1;
+    emitStage(state, 'risk_debate', 'Risk debate analysis', `Risk round ${round}`, round);
     const history = state.debate?.risk ?? '';
     const input = {
         context,
@@ -372,6 +406,7 @@ const neutralNode = async (state) => {
             },
         ],
         metadata: {
+            ...(state.metadata ?? {}),
             risk_round: round,
         },
     };
@@ -380,6 +415,7 @@ const riskManagerNode = async (state) => {
     const llm = createChatModel();
     const runnable = createRiskManagerRunnable(llm);
     const riskMemories = state.metadata?.riskManagerMemories ?? '';
+    emitStage(state, 'risk_manager', 'Risk manager verdict');
     const marketReport = coalesceReport(state.reports, 'market', state.context.market_technical_report);
     const sentimentReport = coalesceReport(state.reports, 'social', state.context.social_reddit_summary);
     const newsReport = coalesceReport(state.reports, 'news', state.context.news_company);
@@ -406,6 +442,7 @@ const riskManagerNode = async (state) => {
             },
         ],
         metadata: {
+            ...(state.metadata ?? {}),
             decision_token: decisionToken,
         },
     };
@@ -413,6 +450,7 @@ const riskManagerNode = async (state) => {
 const persistMemoriesNode = async (state) => {
     const date = state.tradeDate || new Date().toISOString().slice(0, 10);
     const symbol = state.symbol;
+    emitStage(state, 'finalizing', 'Finalizing decision outputs');
     const tasks = [];
     if (state.investmentPlan) {
         tasks.push(appendMemory({
@@ -554,31 +592,47 @@ const decisionGraph = (() => {
     graph.addEdge('Finalize', END);
     return graph.compile();
 })();
-export const runDecisionGraph = async (payload) => {
+export const runDecisionGraph = async (payload, options) => {
     const initialState = {
         ...createInitialState(payload.symbol, payload.tradeDate, payload.context),
         metadata: {
             payload,
+            progressRunId: options?.runId,
         },
     };
-    const finalState = await decisionGraph.invoke(initialState);
-    if (!finalState.result) {
-        return {
-            symbol: payload.symbol,
-            tradeDate: payload.tradeDate,
-            decision: 'NO DECISION',
-            finalTradeDecision: 'NO DECISION',
-            investmentPlan: finalState.investmentPlan ?? null,
-            traderPlan: finalState.traderPlan ?? null,
-            investmentJudge: finalState.investmentPlan ?? null,
-            riskJudge: finalState.finalDecision ?? null,
-            marketReport: coalesceReport(finalState.reports, 'market', payload.context.market_technical_report) || null,
-            sentimentReport: coalesceReport(finalState.reports, 'social', payload.context.social_reddit_summary) || null,
-            newsReport: coalesceReport(finalState.reports, 'news', payload.context.news_company) || null,
-            fundamentalsReport: coalesceReport(finalState.reports, 'fundamentals', payload.context.fundamentals_summary) || null,
-            debugPrompt: '',
-        };
+    try {
+        const finalState = await decisionGraph.invoke(initialState);
+        if (!finalState.result) {
+            return {
+                symbol: payload.symbol,
+                tradeDate: payload.tradeDate,
+                decision: 'NO DECISION',
+                finalTradeDecision: 'NO DECISION',
+                investmentPlan: finalState.investmentPlan ?? null,
+                traderPlan: finalState.traderPlan ?? null,
+                investmentJudge: finalState.investmentPlan ?? null,
+                riskJudge: finalState.finalDecision ?? null,
+                marketReport: coalesceReport(finalState.reports, 'market', payload.context.market_technical_report) || null,
+                sentimentReport: coalesceReport(finalState.reports, 'social', payload.context.social_reddit_summary) || null,
+                newsReport: coalesceReport(finalState.reports, 'news', payload.context.news_company) || null,
+                fundamentalsReport: coalesceReport(finalState.reports, 'fundamentals', payload.context.fundamentals_summary) || null,
+                debugPrompt: '',
+            };
+        }
+        return finalState.result;
     }
-    return finalState.result;
+    catch (error) {
+        const runId = options?.runId;
+        if (runId) {
+            publishProgressEvent(runId, {
+                runId,
+                stage: 'finalizing',
+                label: 'Workflow error',
+                percent: stagePercents.finalizing,
+                message: error instanceof Error ? error.message : 'Unknown error',
+            });
+        }
+        throw error;
+    }
 };
 //# sourceMappingURL=decisionWorkflow.js.map

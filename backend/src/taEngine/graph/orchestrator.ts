@@ -7,7 +7,10 @@ import { runDecisionGraph } from '../langgraph/decisionWorkflow.js';
  * the LangGraph implementation.
  */
 export class TradingOrchestrator {
-  async run(payload: TradingAgentsPayload): Promise<TradingAgentsDecision> {
-    return runDecisionGraph(payload);
+  async run(
+    payload: TradingAgentsPayload,
+    options?: { runId?: string },
+  ): Promise<TradingAgentsDecision> {
+    return runDecisionGraph(payload, options);
   }
 }
