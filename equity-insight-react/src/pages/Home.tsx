@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Badge } from "../components/ui/badge"
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar"
 import { Link } from "react-router-dom"
+import { SiGoogle } from "@icons-pack/react-simple-icons"
 
 // Hero content for unauthenticated users
 const UnauthenticatedHome = () => {
@@ -16,10 +17,13 @@ const UnauthenticatedHome = () => {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <Container>
           <div className="flex h-16 items-center justify-between">
-            <div className="font-heading text-2xl font-bold">
-              LearnCodex
-            </div>
-            <Button onClick={login} variant="outline">
+            <div className="flex-1"></div>
+            <Button
+              onClick={login}
+              variant="outline"
+              className="gap-2 border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm"
+            >
+              <SiGoogle className="h-4 w-4" title="Google logo" />
               Continue with Google
             </Button>
           </div>
@@ -48,11 +52,14 @@ const UnauthenticatedHome = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button onClick={login} size="lg" className="min-w-[200px]">
+              <Button
+                onClick={login}
+                size="lg"
+                className="min-w-[220px] gap-2 border-primary/50 bg-primary/15 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-md shadow-primary/20"
+                variant="outline"
+              >
+                <SiGoogle className="h-5 w-5" title="Google logo" />
                 Continue with Google
-                <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
               </Button>
               
               {error && (
@@ -60,27 +67,6 @@ const UnauthenticatedHome = () => {
                   {error.message}
                 </div>
               )}
-            </div>
-
-            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Secure OAuth
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                No Credit Card
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Instant Access
-              </div>
             </div>
           </div>
         </Container>
@@ -148,9 +134,7 @@ const AuthenticatedHome = () => {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <Container>
           <div className="flex h-16 items-center justify-between">
-            <div className="font-heading text-2xl font-bold">
-              LearnCodex
-            </div>
+            <div className="flex-1"></div>
             
             <div className="flex items-center gap-4">
               <Avatar className="h-8 w-8">

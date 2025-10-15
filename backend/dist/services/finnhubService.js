@@ -79,6 +79,8 @@ export const getCompanyProfile = async (symbol) => withServiceError('finnhub', '
             token: env.finnhubApiKey,
         },
     });
+    console.log(`Finnhub raw data for ${symbol}:`, JSON.stringify(data, null, 2));
+    console.log(`Raw marketCapitalization value:`, data.marketCapitalization, typeof data.marketCapitalization);
     return {
         symbol: data.ticker ?? symbol,
         name: data.name ?? '',
