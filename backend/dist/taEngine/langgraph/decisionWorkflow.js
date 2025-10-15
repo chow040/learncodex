@@ -2,7 +2,9 @@ import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { env } from '../../config/env.js';
 import { logAgentPrompts, writeEvalSummary } from '../logger.js';
+import { insertTaDecision } from '../../db/taDecisionRepository.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
+import { getRoleSummaries } from '../../services/pastResultsService.js';
 import { runAnalystStage } from './analystsWorkflow.js';
 import { createInitialState, } from './types.js';
 import { BEAR_SYSTEM_PROMPT, buildBearUserMessage, createBearDebateRunnable, } from '../langchain/debates/bearRunnable.js';
@@ -55,7 +57,7 @@ const createChatModel = () => {
     const options = {
         openAIApiKey: env.openAiApiKey,
         model: env.openAiModel,
-        temperature: 0,
+        temperature: 1,
     };
     if (env.openAiBaseUrl) {
         options.configuration = { baseURL: env.openAiBaseUrl };
@@ -96,6 +98,25 @@ const normalizeDecision = (text) => {
 };
 const loadMemoriesNode = async (state) => {
     const symbol = state.symbol;
+    const tradeDate = state.tradeDate || new Date().toISOString().slice(0, 10);
+    // Prefer DB-backed summaries if enabled; fall back to file memories
+    if (env.useDbMemories) {
+        try {
+            const summaries = await getRoleSummaries(symbol, tradeDate);
+            return {
+                metadata: {
+                    managerMemories: summaries.manager ?? '',
+                    traderMemories: summaries.trader ?? '',
+                    riskManagerMemories: summaries.risk ?? '',
+                    invest_round: 0,
+                    risk_round: 0,
+                },
+            };
+        }
+        catch (error) {
+            console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to file store`, error);
+        }
+    }
     const fetchMemory = async (role) => {
         try {
             return await getPastMemories(symbol, role);
@@ -446,16 +467,18 @@ const finalizeNode = async (state) => {
         tradeDate: state.tradeDate,
         context: state.context,
     };
+    let promptsLogPath = null;
     try {
         if (state.conversationLog.length) {
-            await logAgentPrompts(payload, state.conversationLog, 'langgraph');
+            promptsLogPath = await logAgentPrompts(payload, state.conversationLog, 'langgraph');
         }
     }
     catch (error) {
         console.error('[DecisionGraph] Failed to log agent prompts', error);
     }
+    let evalLogPath = null;
     try {
-        await writeEvalSummary(payload, decision, {
+        evalLogPath = await writeEvalSummary(payload, decision, {
             investmentDebateHistory: state.debate?.investment ?? '',
             bullArg: state.debate?.bull ?? null,
             bearArg: state.debate?.bear ?? null,
@@ -467,6 +490,20 @@ const finalizeNode = async (state) => {
     }
     catch (error) {
         console.error('[DecisionGraph] Failed to write eval summary', error);
+    }
+    // Best-effort DB persistence of decision for analytics / memory
+    try {
+        await insertTaDecision({
+            decision,
+            payload,
+            model: env.openAiModel,
+            orchestratorVersion: 'langgraph',
+            logsPath: evalLogPath ?? promptsLogPath ?? null,
+            rawText: null,
+        });
+    }
+    catch (error) {
+        console.error('[DecisionGraph] Failed to persist decision to DB', error);
     }
     return {
         result: decision,

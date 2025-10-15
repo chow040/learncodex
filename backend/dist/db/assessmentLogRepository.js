@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
 import { env } from '../config/env.js';
+import { db } from './client.js';
+import { assessmentLogs } from './schema.js';
 let pool = null;
 const getPool = () => {
     if (!env.databaseUrl) {
@@ -17,11 +19,29 @@ const getPool = () => {
     return pool;
 };
 export const insertAssessmentLog = async ({ input, context, assessment, prompt, systemPrompt, }) => {
-    const pgPool = getPool();
-    if (!pgPool) {
-        return;
-    }
     const { rawText, ...assessmentWithoutRaw } = assessment;
+    // Prefer Drizzle if configured; fall back to raw pg insert otherwise.
+    if (db) {
+        try {
+            await db.insert(assessmentLogs).values({
+                symbol: input.symbol,
+                requestPayload: input,
+                contextPayload: context ?? null,
+                assessmentPayload: assessmentWithoutRaw,
+                rawText: rawText ?? null,
+                promptText: prompt,
+                systemPrompt,
+            });
+            return;
+        }
+        catch (error) {
+            console.error('Failed to persist assessment log via Drizzle', error);
+            // continue to try raw pg
+        }
+    }
+    const pgPool = getPool();
+    if (!pgPool)
+        return;
     try {
         await pgPool.query(`INSERT INTO assessment_logs (
         symbol,

@@ -19,7 +19,10 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    ```
 3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging.
 4. Create a Reddit script application at https://www.reddit.com/prefs/apps, then copy the generated client ID/secret into `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` (choose the script app type).
-5. If `DATABASE_URL` is set, run the migrations in `sql/001_create_assessment_logs.sql` and `sql/002_add_prompt_columns.sql` against your PostgreSQL instance.
+5. If `DATABASE_URL` is set, manage schema with Drizzle:
+   - Generate SQL from the TypeScript schema: `npm run drizzle:generate`
+   - Apply migrations: `npm run drizzle:migrate`
+   - Explore the DB with Drizzle Studio: `npm run drizzle:studio`
 6. Start the development server:
    ```bash
    npm run dev
@@ -90,7 +93,7 @@ Response body:
 
 ## Assessment Logging
 
-When `DATABASE_URL` is configured, each successful `/api/assessment` request is persisted to PostgreSQL (see `src/db/schema.ts` for the Drizzle schema definition). The log stores the request payload, enriched Finnhub context, generated prompt/system prompt, structured AI response, and raw model output. Use the provided migration `sql/001_create_assessment_logs.sql` to create the `assessment_logs` table, and query it to audit past assessments.
+When `DATABASE_URL` is configured, each successful `/api/assessment` request is persisted to PostgreSQL via Drizzle (see `src/db/schema.ts`). The log stores the request payload, enriched Finnhub context, generated prompt/system prompt, structured AI response, and raw model output. Use `npm run drizzle:generate` followed by `npm run drizzle:migrate` to create/update the `assessment_logs` table. Quick check: `npm run db:logs`.
 
 ## Production Build
 

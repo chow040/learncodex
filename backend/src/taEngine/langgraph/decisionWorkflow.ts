@@ -3,7 +3,9 @@ import { ChatOpenAI } from '@langchain/openai';
 
 import { env } from '../../config/env.js';
 import { logAgentPrompts, writeEvalSummary } from '../logger.js';
+import { insertTaDecision } from '../../db/taDecisionRepository.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
+import { getRoleSummaries } from '../../services/pastResultsService.js';
 import type { TradingAgentsPayload, TradingAgentsDecision } from '../types.js';
 import type { AgentsContext } from '../types.js';
 import { runAnalystStage } from './analystsWorkflow.js';
@@ -157,6 +159,26 @@ const normalizeDecision = (text: string | null | undefined): string => {
 
 const loadMemoriesNode = async (state: State) => {
   const symbol = state.symbol;
+  const tradeDate = state.tradeDate || new Date().toISOString().slice(0, 10);
+
+  // Prefer DB-backed summaries if enabled; fall back to file memories
+  if (env.useDbMemories) {
+    try {
+      const summaries = await getRoleSummaries(symbol, tradeDate);
+      return {
+        metadata: {
+          managerMemories: summaries.manager ?? '',
+          traderMemories: summaries.trader ?? '',
+          riskManagerMemories: summaries.risk ?? '',
+          invest_round: 0,
+          risk_round: 0,
+        },
+      };
+    } catch (error) {
+      console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to file store`, error);
+    }
+  }
+
   const fetchMemory = async (role: 'manager' | 'trader' | 'riskManager'): Promise<string> => {
     try {
       return await getPastMemories(symbol, role);
@@ -563,16 +585,18 @@ const finalizeNode = async (state: State) => {
     context: state.context,
   };
 
+  let promptsLogPath: string | null = null;
   try {
     if (state.conversationLog.length) {
-      await logAgentPrompts(payload, state.conversationLog, 'langgraph');
+      promptsLogPath = await logAgentPrompts(payload, state.conversationLog, 'langgraph');
     }
   } catch (error) {
     console.error('[DecisionGraph] Failed to log agent prompts', error);
   }
 
+  let evalLogPath: string | null = null;
   try {
-    await writeEvalSummary(payload, decision, {
+    evalLogPath = await writeEvalSummary(payload, decision, {
       investmentDebateHistory: state.debate?.investment ?? '',
       bullArg: state.debate?.bull ?? null,
       bearArg: state.debate?.bear ?? null,
@@ -583,6 +607,20 @@ const finalizeNode = async (state: State) => {
     });
   } catch (error) {
     console.error('[DecisionGraph] Failed to write eval summary', error);
+  }
+
+  // Best-effort DB persistence of decision for analytics / memory
+  try {
+    await insertTaDecision({
+      decision,
+      payload,
+      model: env.openAiModel,
+      orchestratorVersion: 'langgraph',
+      logsPath: evalLogPath ?? promptsLogPath ?? null,
+      rawText: null,
+    });
+  } catch (error) {
+    console.error('[DecisionGraph] Failed to persist decision to DB', error);
   }
 
   return {
