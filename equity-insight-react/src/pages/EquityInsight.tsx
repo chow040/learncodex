@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { FormEvent } from 'react'
+import { Container } from '../components/ui/container'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
 const createRng = (seed: number) => {
@@ -19,7 +20,15 @@ const seedFromTicker = (ticker: string) =>
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-const formatMarketCap = (billions: number) => (billions >= 1000 ? `$${(billions / 1000).toFixed(1)}T` : `$${billions.toFixed(1)}B`)
+const formatMarketCap = (millions: number) => {
+  if (!Number.isFinite(millions) || millions <= 0) return 'N/A'
+  const billions = millions / 1_000
+  if (billions >= 1_000) {
+    const trillions = billions / 1_000
+    return `$${trillions.toFixed(trillions >= 10 ? 0 : 1)}T`
+  }
+  return `$${billions.toFixed(billions >= 100 ? 0 : billions >= 10 ? 1 : 2)}B`
+}
 
 const formatRelativeTime = (isoDate: string) => {
   const parsed = new Date(isoDate)
@@ -184,7 +193,7 @@ type AssessmentApiResponse = {
 // Renders agent text in a reader-friendly way (paragraphs and bullet lists)
 const StyledText = ({ text }: { text: string }) => {
   if (!text || typeof text !== 'string') {
-    return <p className="text-slate-300">No content.</p>
+    return <p className="text-muted-foreground">No content.</p>
   }
 
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
@@ -219,13 +228,13 @@ const StyledText = ({ text }: { text: string }) => {
       }
       blocks.push(
         ordered ? (
-          <ol key={blocks.length} className="ml-5 list-decimal space-y-2 text-slate-100/90 marker:text-slate-400">
+          <ol key={blocks.length} className="ml-5 list-decimal space-y-2 text-foreground marker:text-muted-foreground">
             {items.map((it, idx) => (
               <li key={idx} className="leading-7">{it}</li>
             ))}
           </ol>
         ) : (
-          <ul key={blocks.length} className="ml-5 list-disc space-y-2 text-slate-100/90 marker:text-slate-400">
+          <ul key={blocks.length} className="ml-5 list-disc space-y-2 text-foreground marker:text-muted-foreground">
             {items.map((it, idx) => (
               <li key={idx} className="leading-7">{it}</li>
             ))}
@@ -242,7 +251,7 @@ const StyledText = ({ text }: { text: string }) => {
       i++
     }
     blocks.push(
-      <p key={blocks.length} className="leading-7 text-slate-100/90 whitespace-pre-wrap break-words">
+      <p key={blocks.length} className="leading-7 text-foreground whitespace-pre-wrap break-words">
         {para.join(' ')}
       </p>
     )
@@ -485,7 +494,7 @@ const generateMockReport = (ticker: string): ReportPayload => {
 
 
 const Placeholder = ({ text }: { text: string }) => (
-  <div className="glass-panel flex min-h-[22rem] items-center justify-center p-8 text-center text-slate-300">
+  <div className="glass-panel flex min-h-[22rem] items-center justify-center p-8 text-center text-muted-foreground">
     <p className="max-w-xl leading-relaxed">{text}</p>
   </div>
 )
@@ -593,8 +602,8 @@ const EquityInsight = () => {
 
       const formattedPrice =
         typeof quote.current === 'number' ? formatCurrencyValue(quote.current) : formatCurrencyValue(0)
-      const marketCapValue =
-        typeof profile.marketCapitalization === 'number' && profile.marketCapitalization > 0
+      const marketCapValue = 
+        typeof profile.marketCapitalization === 'number' && Number.isFinite(profile.marketCapitalization) && profile.marketCapitalization > 0
           ? formatMarketCap(profile.marketCapitalization)
           : 'N/A'
 
@@ -628,10 +637,14 @@ const EquityInsight = () => {
         profile.shareOutstanding > 0
           ? profile.shareOutstanding
           : null
+      const profileFreeCashFlowBillions = 
+        typeof profile.freeCashFlow === 'number' && Number.isFinite(profile.freeCashFlow) && profile.freeCashFlow > 0
+          ? profile.freeCashFlow / 1000  // Convert millions to billions
+          : null
       const freeCashFlowBillions =
         fcfPerShare !== null && sharesOutstandingMillions !== null
           ? (fcfPerShare * sharesOutstandingMillions) / 1000
-          : null
+          : profileFreeCashFlowBillions
 
       const riskRating = typeof assessment?.riskRating === 'string' ? assessment.riskRating.trim() : ''
       const riskLabel =
@@ -818,24 +831,24 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.snapshot = node
           }}
-          className="glass-panel space-y-6 p-6 sm:p-8"
+          className="glass-panel panel-snapshot space-y-6 p-6 sm:p-8"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Signal Monitor</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{ticker} Snapshot</h2>
-              <p className="mt-2 text-sm text-slate-300">
+              <h2 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{ticker} Snapshot</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Blend of market structure, fundamentals, and AI insight.
               </p>
             </div>
-            <div className="flex rounded-full bg-white/10 p-1 text-sm font-semibold">
+            <div className="flex rounded-full bg-muted/80 p-1 text-sm font-semibold">
               <button
                 type="button"
                 className={clsx(
                   'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
                   snapshotView === 'fundamental'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-200 hover:bg-white/10'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/80'
                 )}
                 onClick={() => setSnapshotView('fundamental')}
               >
@@ -846,8 +859,8 @@ const EquityInsight = () => {
                 className={clsx(
                   'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
                   snapshotView === 'technical'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-200 hover:bg-white/10'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/80'
                 )}
                 onClick={() => setSnapshotView('technical')}
               >
@@ -862,13 +875,13 @@ const EquityInsight = () => {
                 <div
                   key={metric.label}
                   className={clsx(
-                    'rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/20',
+                    'rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40',
                     metric.label === 'Risk Rating (AI)' && 'border-emerald-400/40 bg-emerald-400/10'
                   )}
                 >
                   <p
                     className={clsx(
-                      'text-xs uppercase tracking-[0.3em] text-slate-400',
+                      'text-xs uppercase tracking-[0.3em] text-muted-foreground',
                       metric.label === 'Risk Rating (AI)' && 'text-emerald-200'
                     )}
                   >
@@ -876,7 +889,7 @@ const EquityInsight = () => {
                   </p>
                   <p
                     className={clsx(
-                      'mt-3 text-lg font-semibold text-white',
+                      'mt-3 text-lg font-semibold text-foreground',
                       metric.label === 'Risk Rating (AI)' && 'text-emerald-100'
                     )}
                   >
@@ -889,21 +902,21 @@ const EquityInsight = () => {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {technicalStats.map((stat) => (
-                  <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</p>
-                    <p className="mt-3 text-xl font-semibold text-white">{stat.value}</p>
-                    <p className="mt-2 text-sm text-slate-300">{stat.detail}</p>
+                  <div key={stat.label} className="rounded-2xl border border-border bg-card p-5">
+                    <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{stat.label}</p>
+                    <p className="mt-3 text-xl font-semibold text-foreground">{stat.value}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{stat.detail}</p>
                   </div>
                 ))}
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Session Play</h3>
-                  <p className="mt-2 text-sm text-slate-100/90">{data.technical.sessionPlan}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{data.technical.sessionPlan}</p>
                 </div>
                 <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-rose-100">Risk Controls</h3>
-                  <p className="mt-2 text-sm text-slate-100/90">{data.technical.riskNote}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{data.technical.riskNote}</p>
                 </div>
               </div>
             </div>
@@ -915,15 +928,18 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.drivers = node
           }}
-          className="glass-panel space-y-4 p-6 sm:p-8"
+          className="glass-panel panel-valuation space-y-6 p-6 sm:p-8"
         >
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Fundamentals</p>
-            <h2 className="text-xl font-semibold text-white">Valuation Drivers</h2>
+            <h2 className="text-xl font-semibold text-foreground">Valuation Drivers</h2>
           </div>
-          <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+          <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
             {data.keyDrivers.map((item) => (
-              <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <li
+                key={item}
+                className="rounded-2xl border border-[#9FC89F]/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(34,71,54,0.6)]"
+              >
                 {item}
               </li>
             ))}
@@ -935,24 +951,24 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.scenarios = node
           }}
-          className="glass-panel space-y-4 p-6 sm:p-8"
+          className="glass-panel panel-scenarios space-y-4 p-6 sm:p-8"
         >
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Price Map</p>
-            <h2 className="text-xl font-semibold text-white">Scenario Targets</h2>
+            <h2 className="text-xl font-semibold text-foreground">Scenario Targets</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.priceTargets.map((target) => (
               <div
                 key={target.label}
-                className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-sky-400/30"
+                className="rounded-2xl border border-[#C3A1C4]/50 bg-white/90 p-5 transition hover:border-primary/40 shadow-[0_12px_24px_-20px_rgba(99,54,83,0.45)]"
               >
                 <span className="inline-flex items-center rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-sky-100">
                   {target.probability}
                 </span>
-                <h3 className="mt-3 text-lg font-semibold text-white">{target.label}</h3>
-                <div className="mt-2 text-2xl font-bold text-white">{target.price}</div>
-                <p className="mt-2 text-sm text-slate-300">{target.note}</p>
+                <h3 className="mt-3 text-lg font-semibold text-foreground">{target.label}</h3>
+                <div className="mt-2 text-2xl font-bold text-foreground">{target.price}</div>
+                <p className="mt-2 text-sm text-muted-foreground">{target.note}</p>
               </div>
             ))}
           </div>
@@ -963,18 +979,21 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.catalysts = node
           }}
-          className="glass-panel space-y-6 p-6 sm:p-8"
+          className="glass-panel panel-catalysts space-y-6 p-6 sm:p-8"
         >
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Playbook</p>
-            <h2 className="text-xl font-semibold text-white">Catalysts & Risks</h2>
+            <h2 className="text-xl font-semibold text-foreground">Catalysts & Risks</h2>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-200">Catalysts</h3>
-              <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+              <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
                 {data.catalysts.map((item) => (
-                  <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <li
+                    key={item}
+                    className="rounded-2xl border border-emerald-300/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(19,78,74,0.45)]"
+                  >
                     {item}
                   </li>
                 ))}
@@ -982,9 +1001,12 @@ const EquityInsight = () => {
             </div>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-rose-200">Risks</h3>
-              <ul className="space-y-3 text-sm leading-relaxed text-slate-200">
+              <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
                 {data.risks.map((item) => (
-                  <li key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <li
+                    key={item}
+                    className="rounded-2xl border border-rose-300/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(120,36,58,0.45)]"
+                  >
                     {item}
                   </li>
                 ))}
@@ -998,11 +1020,11 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.social = node
           }}
-          className="glass-panel space-y-5 p-6 sm:p-8"
+          className="glass-panel panel-social space-y-5 p-6 sm:p-8"
         >
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Reddit Intelligence</p>
-            <h2 className="text-xl font-semibold text-white">Social Buzz</h2>
+            <h2 className="text-xl font-semibold text-foreground">Social Buzz</h2>
           </div>
           {socialError ? (
             <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
@@ -1011,21 +1033,21 @@ const EquityInsight = () => {
           ) : socialInsights ? (
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Total Posts (7d)</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
+                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Total Posts (7d)</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
                     {socialInsights.totalPosts.toLocaleString('en-US')}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Total Upvotes</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
+                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Total Upvotes</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
                     {socialInsights.totalUpvotes.toLocaleString('en-US')}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Avg Comments</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
+                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Avg Comments</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
                     {new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(
                       socialInsights.averageComments
                     )}
@@ -1036,7 +1058,7 @@ const EquityInsight = () => {
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-200">Active Subreddits</h3>
                   {socialInsights.topSubreddits.length === 0 ? (
-                    <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    <p className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
                       No subreddit activity detected.
                     </p>
                   ) : (
@@ -1044,10 +1066,10 @@ const EquityInsight = () => {
                       {socialInsights.topSubreddits.map((item) => (
                         <li
                           key={item.name}
-                          className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                          className="flex items-center justify-between rounded-2xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
                         >
-                          <span className="font-semibold text-white">r/{item.name}</span>
-                          <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200">
+                          <span className="font-semibold text-foreground">r/{item.name}</span>
+                          <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                             {item.mentions}
                           </span>
                         </li>
@@ -1058,7 +1080,7 @@ const EquityInsight = () => {
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-200">Top Mentions</h3>
                   {socialInsights.posts.length === 0 ? (
-                    <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    <p className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
                       No trending posts for this ticker yet.
                     </p>
                   ) : (
@@ -1069,10 +1091,10 @@ const EquityInsight = () => {
                             href={post.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-sky-400/30 hover:bg-sky-500/10"
+                            className="block rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/10"
                           >
-                            <span className="font-semibold text-white">{post.title}</span>
-                            <span className="mt-2 block text-xs text-slate-300">
+                            <span className="font-semibold text-foreground">{post.title}</span>
+                            <span className="mt-2 block text-xs text-muted-foreground">
                               r/{post.subreddit} - {formatRelativeTime(post.createdAt)} - upvotes {post.score.toLocaleString('en-US')} - comments {post.comments.toLocaleString('en-US')}
                             </span>
                           </a>
@@ -1082,7 +1104,7 @@ const EquityInsight = () => {
                   )}
                 </div>
               </div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                 Search: {socialInsights.query} - Updated{' '}
                 {new Date(socialInsights.lastUpdated).toLocaleString('en-US', {
                   month: 'short',
@@ -1093,7 +1115,7 @@ const EquityInsight = () => {
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <div className="rounded-2xl border border-border bg-muted/60 p-4 text-sm text-muted-foreground">
               No Reddit conversations available.
             </div>
           )}
@@ -1105,16 +1127,16 @@ const EquityInsight = () => {
           ref={(node) => {
             scrollTargets.current.analyst = node
           }}
-          className="glass-panel space-y-4 p-6 sm:p-8"
+          className="glass-panel panel-neutral space-y-4 p-6 sm:p-8"
         >
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Analyst Desk</p>
-            <h2 className="text-xl font-semibold text-white">Analyst Take</h2>
+            <h2 className="text-xl font-semibold text-foreground">Analyst Take</h2>
           </div>
-          <p className="leading-relaxed text-slate-200">{data.summary}</p>
+          <p className="leading-relaxed text-muted-foreground">{data.summary}</p>
         </article>
 
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+        <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
           Mock data refreshed {data.asOf}
         </p>
       </div>
@@ -1122,19 +1144,19 @@ const EquityInsight = () => {
   }, [assessmentError, isLoading, loadError, reportData, snapshotView, socialError, socialInsights, tradingDecision, tradingError])
 
   return (
-    <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 lg:flex-row">
+    <div className="min-h-screen bg-background py-10">
+      <Container className="flex flex-col gap-8 lg:flex-row">
         <aside className="order-2 flex flex-col gap-6 lg:order-1 lg:w-80">
-          <div className="glass-panel space-y-3 p-6">
+          <div className="glass-panel panel-neutral space-y-3 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Navigator</p>
-            <h2 className="text-2xl font-semibold text-white">Research Hub</h2>
-            <p className="text-sm text-slate-300">
+            <h2 className="text-2xl font-semibold text-foreground">Research Hub</h2>
+            <p className="text-sm text-muted-foreground">
               Use quick picks or revisit a ticker to regenerate its mock insights.
             </p>
           </div>
 
-          <section className="glass-panel space-y-4 p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">Quick Picks</h3>
+          <section className="glass-panel panel-neutral space-y-4 p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">Quick Picks</h3>
             <div className="flex flex-wrap gap-2">
               {quickPicks.map((symbol) => (
                 <button
@@ -1149,30 +1171,30 @@ const EquityInsight = () => {
             </div>
           </section>
 
-          <section className="glass-panel space-y-4 p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">Report Sections</h3>
+          <section className="glass-panel panel-neutral space-y-4 p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">Report Sections</h3>
             <ul className="space-y-2">
               {reportSections.map((section) => (
                 <li key={section.id}>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-sky-400/30 hover:bg-sky-500/10 hover:text-white"
+                    className="flex w-full items-center justify-between rounded-2xl border border-[#d6deef]/60 bg-white/90 px-4 py-3 text-left text-sm text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground"
                     onClick={() => handleSectionScroll(section.id)}
                   >
                     <span>{section.label}</span>
-                    <span className="text-xs text-slate-400">View</span>
+                    <span className="text-xs text-muted-foreground">View</span>
                   </button>
                 </li>
               ))}
             </ul>
           </section>
 
-          <section className="glass-panel space-y-4 p-6">
+          <section className="glass-panel panel-history space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">History</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">History</h3>
               <button
                 type="button"
-                className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400 transition hover:text-sky-200"
+                className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground transition hover:text-primary"
                 onClick={() => setHistory([])}
               >
                 Clear
@@ -1180,7 +1202,7 @@ const EquityInsight = () => {
             </div>
             <ul className="space-y-3">
               {history.length === 0 ? (
-                <li className="rounded-2xl border border-dashed border-white/20 p-4 text-sm text-slate-300">
+                <li className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                   No reports yet.
                 </li>
               ) : (
@@ -1188,14 +1210,14 @@ const EquityInsight = () => {
                   <li key={entry.ticker}>
                     <button
                       type="button"
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-sky-400/30 hover:bg-sky-500/10"
+                      className="w-full rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:bg-primary/10"
                       onClick={() => handleGenerate(entry.ticker)}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold text-white">{entry.ticker}</span>
-                        <span className="text-sm text-slate-300">{entry.data.price}</span>
+                        <span className="text-lg font-semibold text-foreground">{entry.ticker}</span>
+                        <span className="text-sm text-muted-foreground">{entry.data.price}</span>
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-semibold uppercase tracking-[0.3em] text-emerald-200">
                           {entry.data.rating}
                         </span>
@@ -1212,18 +1234,18 @@ const EquityInsight = () => {
         <main className="order-1 flex-1 space-y-8 lg:order-2">
           <header className="space-y-3">
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Aurora Desk</p>
-            <h1 className="text-3xl font-semibold text-white sm:text-4xl">Equity Insight</h1>
-            <p className="max-w-2xl text-slate-300">
+            <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">Equity Insight</h1>
+            <p className="max-w-2xl text-muted-foreground">
               Generate a quick equity snapshot by entering a stock ticker symbol.
             </p>
           </header>
 
-          <section className="glass-panel p-6 sm:p-8">
+          <section className="glass-panel panel-neutral p-6 sm:p-8">
             <form autoComplete="off" onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
                 <label
                   htmlFor="ticker"
-                  className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300"
+                  className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground"
                 >
                   Ticker Symbol
                 </label>
@@ -1236,7 +1258,7 @@ const EquityInsight = () => {
                     maxLength={8}
                     value={tickerInput}
                     onChange={(event) => setTickerInput(event.target.value.toUpperCase())}
-                    className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-lg font-semibold uppercase tracking-[0.35em] text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    className="w-full rounded-2xl border border-[#d6deef]/60 bg-white/90 px-4 py-3 text-lg font-semibold uppercase tracking-[0.35em] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                     required
                   />
                   <button type="submit" className="pill-button px-6 py-3 text-xs uppercase tracking-[0.3em]">
@@ -1244,20 +1266,20 @@ const EquityInsight = () => {
                   </button>
                 </div>
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 We blend Finnhub fundamentals, OpenAI commentary, and Reddit sentiment for rapid context.
               </p>
             </form>
           </section>
 
           {/* Top-level tabs: Research vs Trading */}
-          <div className="glass-panel p-1 text-sm font-semibold">
-            <div className="flex rounded-full bg-white/10 p-1">
+          <div className="glass-panel panel-neutral p-1 text-sm font-semibold">
+            <div className="flex rounded-full bg-muted/80 p-1">
               <button
                 type="button"
                 className={clsx(
                   'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                  mainTab === 'research' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-white/10'
+                  mainTab === 'research' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/80'
                 )}
                 onClick={() => setMainTab('research')}
               >
@@ -1267,7 +1289,7 @@ const EquityInsight = () => {
                 type="button"
                 className={clsx(
                   'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                  mainTab === 'trading' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-white/10'
+                  mainTab === 'trading' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/80'
                 )}
                 onClick={() => setMainTab('trading')}
               >
@@ -1286,12 +1308,12 @@ const EquityInsight = () => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Trading Agents</p>
-                    <h2 className="text-xl font-semibold text-white">Manual Run</h2>
-                    <p className="mt-1 text-sm text-slate-300">Run the multi-agent trading assessment on demand.</p>
+                    <h2 className="text-xl font-semibold text-foreground">Manual Run</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Run the multi-agent trading assessment on demand.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-300">Ticker:</span>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-white">
+                    <span className="text-sm text-muted-foreground">Ticker:</span>
+                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-foreground">
                       {reportData?.ticker || tickerInput || '—'}
                     </span>
                     <button
@@ -1316,47 +1338,47 @@ const EquityInsight = () => {
                   <div className="space-y-5">
                     <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
                       <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
-                      <p className="mt-2 text-lg font-semibold text-white">
+                      <p className="mt-2 text-lg font-semibold text-foreground">
                         {tradingDecision.decision ?? tradingDecision.finalTradeDecision ?? 'Decision unavailable'}
                       </p>
-                      <p className="mt-2 text-xs text-slate-300">Trade date: {tradingDecision.tradeDate}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Trade date: {tradingDecision.tradeDate}</p>
                     </div>
                     {/* Stacked, single-column content cards for readability */}
                     <div className="space-y-4">
-                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <section className="rounded-2xl border border-border bg-card p-5">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Trader Plan</h3>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Trader Plan</h3>
                         </div>
                         <div className="mt-3 text-[0.95rem]">
                           <StyledText text={tradingDecision.traderPlan ?? 'No trader plan returned.'} />
                         </div>
                       </section>
 
-                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <section className="rounded-2xl border border-border bg-card p-5">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-2 w-2 rounded-full bg-sky-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Investment Plan</h3>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Investment Plan</h3>
                         </div>
                         <div className="mt-3 text-[0.95rem]">
                           <StyledText text={tradingDecision.investmentPlan ?? 'No investment plan returned.'} />
                         </div>
                       </section>
 
-                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <section className="rounded-2xl border border-border bg-card p-5">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-2 w-2 rounded-full bg-indigo-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Investment Judge</h3>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Investment Judge</h3>
                         </div>
                         <div className="mt-3 text-[0.95rem]">
                           <StyledText text={tradingDecision.investmentJudge ?? 'No judge commentary returned.'} />
                         </div>
                       </section>
 
-                      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <section className="rounded-2xl border border-border bg-card p-5">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-2 w-2 rounded-full bg-rose-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-200">Risk Judge</h3>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Risk Judge</h3>
                         </div>
                         <div className="mt-3 text-[0.95rem]">
                           <StyledText text={tradingDecision.riskJudge ?? 'No risk commentary returned.'} />
@@ -1365,7 +1387,7 @@ const EquityInsight = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                  <p className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
                     {isTradingLoading ? 'Running trading agents…' : 'Click "Run Trading Agents" to generate the decision.'}
                   </p>
                 )}
@@ -1373,15 +1395,12 @@ const EquityInsight = () => {
             </section>
           )}
         </main>
-      </div>
+      </Container>
     </div>
   )
 }
 
 export default EquityInsight
-
-
-
 
 
 
