@@ -668,12 +668,15 @@ const TradeIdeas = () => {
   }, [analysis])
 
   return (
-    <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-10 sm:px-6 lg:px-10">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(56,189,248,0.16),transparent_55%),radial-gradient(circle_at_90%_10%,rgba(59,130,246,0.15),transparent_55%),radial-gradient(circle_at_15%_90%,rgba(236,72,153,0.12),transparent_60%),linear-gradient(155deg,rgba(2,6,23,0.88),rgba(15,23,42,0.95))]" />
+      </div>
+      <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Pattern Lab</p>
-            <h1 className="text-3xl font-semibold text-white sm:text-4xl">Trade Ideas Analyzer</h1>
+            <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">Trade Ideas Analyzer</h1>
             <p className="max-w-2xl text-sm leading-relaxed text-slate-300">
               Upload any chart image for instant AI analysis with Signal Strength assessment, trade plans, and risk evaluation.
             </p>
@@ -761,7 +764,7 @@ const TradeIdeas = () => {
                     min={1}
                     value={aRounds}
                     onChange={(e) => setARounds(parseInt(e.target.value || '1', 10))}
-                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-foreground placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
                   />
                 </label>
                 <label className="text-xs uppercase tracking-[0.25em] text-slate-400">
@@ -771,7 +774,7 @@ const TradeIdeas = () => {
                     min={0}
                     value={bRounds}
                     onChange={(e) => setBRounds(parseInt(e.target.value || '0', 10))}
-                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
+                    className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-foreground placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
                   />
                 </label>
               </div>
@@ -814,7 +817,7 @@ const TradeIdeas = () => {
           <section ref={screenshotRef} className="flex flex-col gap-6">
             <div className="glass-panel space-y-4 p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
-                <span className="font-semibold text-white">{file?.name ?? 'Uploaded Chart'}</span>
+                <span className="font-semibold text-foreground">{file?.name ?? 'Uploaded Chart'}</span>
                 <div className="flex flex-wrap gap-2">
                   {['Zoom', 'Pan', 'Annotate'].map((action) => (
                     <button
@@ -847,7 +850,7 @@ const TradeIdeas = () => {
                   <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center sm:text-left">
                     <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-sky-300" aria-hidden="true" />
                     <div className="space-y-1">
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-foreground">
                         {isDebateInProgress ? 'Coordinating debate...' : 'Analyzing chart...'}
                       </p>
                       <small className="text-xs text-slate-400">
@@ -940,7 +943,7 @@ const TradeIdeas = () => {
                               className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-right shadow-inner shadow-white/5"
                             >
                               <dt className="text-xs uppercase tracking-[0.3em] text-slate-300">{item.label}</dt>
-                              <dd className="mt-1 text-sm font-semibold text-white">{item.value}</dd>
+                              <dd className="mt-1 text-sm font-semibold text-foreground">{item.value}</dd>
                             </div>
                           ))}
                         </dl>

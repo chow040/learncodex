@@ -1,11 +1,8 @@
 import clsx from 'clsx'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Container } from '../components/ui/container'
-import { useTradingProgress } from '../hooks/useTradingProgress'
-import { TradingProgress } from '../components/trading/TradingProgress'
-import { useToast } from '../components/ui/use-toast'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
 const createRng = (seed: number) => {
@@ -130,23 +127,6 @@ type HistoryEntry = {
   data: ReportPayload
 }
 
-type TradingAgentsDecision = {
-  symbol: string
-  tradeDate: string
-  decision: string | null
-  finalTradeDecision?: string | null
-  investmentPlan?: string | null
-  traderPlan?: string | null
-  investmentJudge?: string | null
-  riskJudge?: string | null
-  marketReport?: string | null
-  sentimentReport?: string | null
-  newsReport?: string | null
-  fundamentalsReport?: string | null
-}
-
-
-
 type RedditPostInsight = {
   id: string
   title: string
@@ -191,76 +171,6 @@ type AssessmentApiResponse = {
   opportunities?: unknown
   watchItems?: unknown
   nextSteps?: unknown
-}
-
-// Renders agent text in a reader-friendly way (paragraphs and bullet lists)
-const StyledText = ({ text }: { text: string }) => {
-  if (!text || typeof text !== 'string') {
-    return <p className="text-muted-foreground">No content.</p>
-  }
-
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
-
-  const blocks: ReactNode[] = []
-  let i = 0
-
-  const isBullet = (line: string) => /^\s*[-*]\s+/.test(line)
-  const isNumbered = (line: string) => /^\s*\d+[.)]\s+/.test(line)
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    // Skip excess blank lines but preserve paragraph breaks
-    if (!line.trim()) {
-      i++
-      continue
-    }
-
-    if (isBullet(line) || isNumbered(line)) {
-      const items: string[] = []
-      const ordered = isNumbered(line)
-      while (i < lines.length && (isBullet(lines[i]) || isNumbered(lines[i]) || !lines[i].trim())) {
-        if (lines[i].trim()) {
-          const cleaned = lines[i]
-            .replace(/^\s*[-*]\s+/, '')
-            .replace(/^\s*\d+[.)]\s+/, '')
-            .trim()
-          if (cleaned) items.push(cleaned)
-        }
-        i++
-      }
-      blocks.push(
-        ordered ? (
-          <ol key={blocks.length} className="ml-5 list-decimal space-y-2 text-foreground marker:text-muted-foreground">
-            {items.map((it, idx) => (
-              <li key={idx} className="leading-7">{it}</li>
-            ))}
-          </ol>
-        ) : (
-          <ul key={blocks.length} className="ml-5 list-disc space-y-2 text-foreground marker:text-muted-foreground">
-            {items.map((it, idx) => (
-              <li key={idx} className="leading-7">{it}</li>
-            ))}
-          </ul>
-        )
-      )
-      continue
-    }
-
-    // Paragraph: collect consecutive non-empty, non-list lines
-    const para: string[] = []
-    while (i < lines.length && lines[i].trim() && !isBullet(lines[i]) && !isNumbered(lines[i])) {
-      para.push(lines[i])
-      i++
-    }
-    blocks.push(
-      <p key={blocks.length} className="leading-7 text-foreground whitespace-pre-wrap break-words">
-        {para.join(' ')}
-      </p>
-    )
-  }
-
-  return <div className="space-y-3">{blocks}</div>
 }
 
 const companyOverrides: Record<string, CompanyOverride> = {
@@ -514,25 +424,8 @@ const EquityInsight = () => {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [socialInsights, setSocialInsights] = useState<RedditInsights | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
-  const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
-  const [tradingError, setTradingError] = useState<string | null>(null)
-  const [progressRunId, setProgressRunId] = useState<string | null>(null)
-  const { state: progressState, disconnect: disconnectProgress } = useTradingProgress<TradingAgentsDecision>(
-    progressRunId,
-    {
-      apiBaseUrl: API_BASE_URL,
-      parseResult: (input) => input as TradingAgentsDecision,
-      enabled: Boolean(progressRunId)
-    }
-  )
-  // New: top-level tab (research vs trading) and manual trading run state
-  const [mainTab, setMainTab] = useState<'research' | 'trading'>('research')
-  const [isTradingLoading, setIsTradingLoading] = useState(false)
   const [snapshotView, setSnapshotView] = useState<SnapshotView>('fundamental')
   const [assessmentError, setAssessmentError] = useState<string | null>(null)
-  const { toast } = useToast()
-  const tradingRequestController = useRef<AbortController | null>(null)
-  const tradingCancelPending = useRef(false)
 
   const scrollTargets = useRef<Record<string, HTMLElement | null>>({})
 
@@ -545,8 +438,6 @@ const EquityInsight = () => {
     setLoadError(null)
     setSocialInsights(null)
     setSocialError(null)
-    setTradingDecision(null)
-    setTradingError(null)
     setAssessmentError(null)
 
     try {
@@ -691,7 +582,7 @@ const EquityInsight = () => {
       if (nextSteps.length) data.catalysts = nextSteps
       if (watchItems.length) data.risks = watchItems
 
-      // Do not auto-invoke TradingAgents here anymore; user can run it manually from the Trading tab
+      // Do not auto-invoke TradingAgents here; users trigger runs from the dedicated Trading Agents screen.
 
 
       setReportData({ ticker: trimmed, data })
@@ -712,144 +603,6 @@ const EquityInsight = () => {
       setIsLoading(false)
     }
   }
-
-  // Manual trigger for TradingAgents from the Trading tab
-  const runTradingAgents = async () => {
-    const symbol = (reportData?.ticker ?? tickerInput.trim().toUpperCase())
-    if (!symbol) {
-      setTradingError('Enter a ticker first, then open the Trading Agents tab to run the report.')
-      return
-    }
-    setIsTradingLoading(true)
-    setTradingDecision(null)
-    setTradingError(null)
-    tradingCancelPending.current = false
-    const controller = new AbortController()
-    tradingRequestController.current?.abort()
-    tradingRequestController.current = controller
-    const runId =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2, 10)
-    setProgressRunId(runId)
-    const tradingFallbackMessage = 'Trading agents decision is unavailable right now.'
-    try {
-      const tradingResponse = await fetch(`${API_BASE_URL}/api/trading/decision/internal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, runId }),
-        signal: controller.signal
-      })
-      if (tradingResponse.ok) {
-        const tradingData: TradingAgentsDecision = await tradingResponse.json()
-        setTradingDecision(tradingData)
-        setTradingError(null)
-      } else {
-        setProgressRunId(null)
-        disconnectProgress()
-        const rawBody = await tradingResponse.text()
-        let message = tradingFallbackMessage
-        if (rawBody) {
-          try {
-            const parsed = JSON.parse(rawBody) as { error?: unknown }
-            const extracted = String(parsed.error ?? '').trim()
-            if (extracted) message = extracted
-            else if (rawBody.trim()) message = rawBody.trim()
-          } catch {
-            if (rawBody.trim()) message = rawBody.trim()
-          }
-        }
-        setTradingDecision(null)
-        setTradingError(message)
-        toast({
-          title: 'Trading agents error',
-          description: message,
-          variant: 'destructive'
-        })
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        if (!tradingCancelPending.current) {
-          const message = 'Trading agents request was aborted.'
-          setTradingDecision(null)
-          setTradingError(message)
-          toast({
-            title: 'Trading agents aborted',
-            description: message,
-            variant: 'destructive'
-          })
-        }
-      } else {
-        console.error(error)
-        setProgressRunId(null)
-        disconnectProgress()
-        const message = error instanceof Error ? `Trading agents error: ${error.message}` : tradingFallbackMessage
-        setTradingDecision(null)
-        setTradingError(message)
-        toast({
-          title: 'Trading agents error',
-          description: message,
-          variant: 'destructive'
-        })
-      }
-    } finally {
-      if (tradingRequestController.current === controller) {
-        tradingRequestController.current = null
-      }
-      tradingCancelPending.current = false
-      setIsTradingLoading(false)
-    }
-  }
-
-  const handleCancelTradingRun = () => {
-    if (progressState.status !== 'connecting' && progressState.status !== 'streaming') {
-      return
-    }
-    tradingCancelPending.current = true
-    tradingRequestController.current?.abort()
-    tradingRequestController.current = null
-    disconnectProgress()
-    setProgressRunId(null)
-    setIsTradingLoading(false)
-    setTradingDecision(null)
-    setTradingError(null)
-    toast({
-      title: 'Trading run cancelled',
-      description: 'We stopped listening for the current workflow. You can rerun it anytime.'
-    })
-  }
-
-  useEffect(() => {
-    if (!progressState.runId) return
-    if (progressState.status === 'complete' && progressState.result) {
-      const result = progressState.result
-      setTradingDecision(result)
-      setTradingError(null)
-      setIsTradingLoading(false)
-      toast({
-        title: 'Trading agents complete',
-        description: `${result.symbol} decision ready: ${result.decision ?? result.finalTradeDecision ?? 'Review the output.'}`
-      })
-      disconnectProgress()
-      setProgressRunId(null)
-    } else if (progressState.status === 'error' && progressState.error) {
-      const message = progressState.error
-      setTradingDecision(null)
-      setTradingError(message)
-      setIsTradingLoading(false)
-      toast({
-        title: 'Trading agents error',
-        description: message,
-        variant: 'destructive'
-      })
-      disconnectProgress()
-      setProgressRunId(null)
-    }
-  }, [progressState, disconnectProgress, toast])
-
-  const showTradingProgress =
-    progressState.runId !== null &&
-    (progressState.status === 'connecting' || progressState.status === 'streaming')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1044,7 +797,7 @@ const EquityInsight = () => {
             {data.keyDrivers.map((item) => (
               <li
                 key={item}
-                className="rounded-2xl border border-[#9FC89F]/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(34,71,54,0.6)]"
+                className="rounded-2xl border border-emerald-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(16,185,129,0.45)]"
               >
                 {item}
               </li>
@@ -1067,7 +820,7 @@ const EquityInsight = () => {
             {data.priceTargets.map((target) => (
               <div
                 key={target.label}
-                className="rounded-2xl border border-[#C3A1C4]/50 bg-white/90 p-5 transition hover:border-primary/40 shadow-[0_12px_24px_-20px_rgba(99,54,83,0.45)]"
+                className="rounded-2xl border border-violet-400/40 bg-card/80 p-5 shadow-[0_18px_38px_-24px_rgba(124,58,237,0.5)] transition hover:border-primary/50 hover:bg-card/70"
               >
                 <span className="inline-flex items-center rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-sky-100">
                   {target.probability}
@@ -1098,7 +851,7 @@ const EquityInsight = () => {
                 {data.catalysts.map((item) => (
                   <li
                     key={item}
-                    className="rounded-2xl border border-emerald-300/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(19,78,74,0.45)]"
+                    className="rounded-2xl border border-emerald-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(16,185,129,0.45)]"
                   >
                     {item}
                   </li>
@@ -1111,7 +864,7 @@ const EquityInsight = () => {
                 {data.risks.map((item) => (
                   <li
                     key={item}
-                    className="rounded-2xl border border-rose-300/50 bg-white/90 p-4 shadow-[0_12px_24px_-20px_rgba(120,36,58,0.45)]"
+                    className="rounded-2xl border border-rose-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(244,63,94,0.45)]"
                   >
                     {item}
                   </li>
@@ -1139,19 +892,19 @@ const EquityInsight = () => {
           ) : socialInsights ? (
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                <div className="rounded-2xl border border-sky-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(56,189,248,0.35)]">
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Total Posts (7d)</p>
                   <p className="mt-2 text-2xl font-semibold text-foreground">
                     {socialInsights.totalPosts.toLocaleString('en-US')}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                <div className="rounded-2xl border border-sky-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(56,189,248,0.35)]">
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Total Upvotes</p>
                   <p className="mt-2 text-2xl font-semibold text-foreground">
                     {socialInsights.totalUpvotes.toLocaleString('en-US')}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#B8E2E9]/60 bg-white/90 p-4 shadow-[0_12px_24px_-24px_rgba(12,74,110,0.35)]">
+                <div className="rounded-2xl border border-sky-400/40 bg-card/80 p-4 shadow-[0_18px_38px_-24px_rgba(56,189,248,0.35)]">
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Avg Comments</p>
                   <p className="mt-2 text-2xl font-semibold text-foreground">
                     {new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(
@@ -1227,7 +980,7 @@ const EquityInsight = () => {
           )}
         </article>
 
-        {/* Trading section removed from research content; moved to its own tab below */}
+        {/* Trading agents content now lives on the dedicated screen linked from the sidebar. */}
         <article
           id="analyst"
           ref={(node) => {
@@ -1247,11 +1000,14 @@ const EquityInsight = () => {
         </p>
       </div>
     )
-  }, [assessmentError, isLoading, loadError, reportData, snapshotView, socialError, socialInsights, tradingDecision, tradingError])
+  }, [assessmentError, isLoading, loadError, reportData, snapshotView, socialError, socialInsights])
 
   return (
-    <div className="min-h-screen bg-background py-10">
-      <Container className="flex flex-col gap-8 lg:flex-row">
+    <div className="relative min-h-screen overflow-hidden bg-background py-10">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,rgba(56,189,248,0.18),transparent_55%),radial-gradient(circle_at_85%_10%,rgba(147,197,253,0.12),transparent_55%),radial-gradient(circle_at_15%_85%,rgba(129,140,248,0.14),transparent_60%),linear-gradient(160deg,rgba(2,6,23,0.88),rgba(15,23,42,0.95))]" />
+      </div>
+      <Container className="relative z-10 flex flex-col gap-8 lg:flex-row">
         <aside className="order-2 flex flex-col gap-6 lg:order-1 lg:w-80">
           <div className="glass-panel panel-neutral space-y-3 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Navigator</p>
@@ -1284,7 +1040,7 @@ const EquityInsight = () => {
                 <li key={section.id}>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between rounded-2xl border border-[#d6deef]/60 bg-white/90 px-4 py-3 text-left text-sm text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground"
+                    className="flex w-full items-center justify-between rounded-2xl border border-border/60 bg-card/80 px-4 py-3 text-left text-sm text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground"
                     onClick={() => handleSectionScroll(section.id)}
                   >
                     <span>{section.label}</span>
@@ -1293,6 +1049,23 @@ const EquityInsight = () => {
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section className="glass-panel panel-neutral space-y-4 p-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Agent Workspace</p>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">Trading Agents</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Launch the dedicated Trading Agents screen to configure analyst personas and monitor LangGraph progress with
+              the new modern-black theme.
+            </p>
+            <Link
+              to="/trading-agents"
+              className="pill-button inline-flex justify-center px-5 py-2 text-xs uppercase tracking-[0.35em]"
+            >
+              Open Trading Agents
+            </Link>
           </section>
 
           <section className="glass-panel panel-history space-y-4 p-6">
@@ -1364,7 +1137,7 @@ const EquityInsight = () => {
                     maxLength={8}
                     value={tickerInput}
                     onChange={(event) => setTickerInput(event.target.value.toUpperCase())}
-                    className="w-full rounded-2xl border border-[#d6deef]/60 bg-white/90 px-4 py-3 text-lg font-semibold uppercase tracking-[0.35em] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full rounded-2xl border border-border/60 bg-card/80 px-4 py-3 text-lg font-semibold uppercase tracking-[0.35em] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
                     required
                   />
                   <button type="submit" className="pill-button px-6 py-3 text-xs uppercase tracking-[0.3em]">
@@ -1378,130 +1151,9 @@ const EquityInsight = () => {
             </form>
           </section>
 
-          {/* Top-level tabs: Research vs Trading */}
-          <div className="glass-panel panel-neutral p-1 text-sm font-semibold">
-            <div className="flex rounded-full bg-muted/80 p-1">
-              <button
-                type="button"
-                className={clsx(
-                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                  mainTab === 'research' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/80'
-                )}
-                onClick={() => setMainTab('research')}
-              >
-                Research
-              </button>
-              <button
-                type="button"
-                className={clsx(
-                  'rounded-full px-4 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60',
-                  mainTab === 'trading' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/80'
-                )}
-                onClick={() => setMainTab('trading')}
-              >
-                Trading Agents
-              </button>
-            </div>
-          </div>
-
-          {mainTab === 'research' ? (
-            <section className="space-y-6" aria-live="polite" aria-busy={isLoading}>
-              {reportContent}
-            </section>
-          ) : (
-            <section className="space-y-6" aria-live="polite" aria-busy={isTradingLoading}>
-              <article className="glass-panel space-y-5 p-6 sm:p-8">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Trading Agents</p>
-                    <h2 className="text-xl font-semibold text-foreground">Manual Run</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">Run the multi-agent trading assessment on demand.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">Ticker:</span>
-                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-foreground">
-                      {reportData?.ticker || tickerInput || '—'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={runTradingAgents}
-                      disabled={isTradingLoading || !(reportData?.ticker || tickerInput)}
-                      className={clsx(
-                        'pill-button px-4 py-2 text-xs uppercase tracking-[0.3em]',
-                        (isTradingLoading || !(reportData?.ticker || tickerInput)) && 'opacity-60'
-                      )}
-                    >
-                      {isTradingLoading ? 'Running…' : 'Run Trading Agents'}
-                    </button>
-                  </div>
-                </div>
-
-                {tradingError ? (
-                  <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                    {tradingError}
-                  </div>
-                ) : tradingDecision ? (
-                  <div className="space-y-5">
-                    <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-100">Headline Decision</h3>
-                      <p className="mt-2 text-lg font-semibold text-foreground">
-                        {tradingDecision.decision ?? tradingDecision.finalTradeDecision ?? 'Decision unavailable'}
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">Trade date: {tradingDecision.tradeDate}</p>
-                    </div>
-                    {/* Stacked, single-column content cards for readability */}
-                    <div className="space-y-4">
-                      <section className="rounded-2xl border border-border bg-card p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Trader Plan</h3>
-                        </div>
-                        <div className="mt-3 text-[0.95rem]">
-                          <StyledText text={tradingDecision.traderPlan ?? 'No trader plan returned.'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-border bg-card p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-sky-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Investment Plan</h3>
-                        </div>
-                        <div className="mt-3 text-[0.95rem]">
-                          <StyledText text={tradingDecision.investmentPlan ?? 'No investment plan returned.'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-border bg-card p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-indigo-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Investment Judge</h3>
-                        </div>
-                        <div className="mt-3 text-[0.95rem]">
-                          <StyledText text={tradingDecision.investmentJudge ?? 'No judge commentary returned.'} />
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-border bg-card p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex h-2 w-2 rounded-full bg-rose-400/80"></span>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground">Risk Judge</h3>
-                        </div>
-                        <div className="mt-3 text-[0.95rem]">
-                          <StyledText text={tradingDecision.riskJudge ?? 'No risk commentary returned.'} />
-                        </div>
-                      </section>
-                    </div>
-                  </div>
-                ) : showTradingProgress ? (
-                  <TradingProgress state={progressState} onCancel={handleCancelTradingRun} />
-                ) : (
-                  <div className="rounded-2xl border border-border bg-muted/70 p-4 text-sm text-muted-foreground">
-                    <p>Click "Run Trading Agents" to generate the decision.</p>
-                  </div>
-                )}
-              </article>
-            </section>
-          )}
+          <section className="space-y-6" aria-live="polite" aria-busy={isLoading}>
+            {reportContent}
+          </section>
         </main>
       </Container>
     </div>

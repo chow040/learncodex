@@ -16,6 +16,9 @@
 - Apply `camelCase` to values/functions and `PascalCase` to React components and TypeScript types; keep Tailwind utilities grouped logically.
 - Python changes follow PEP 8 with type hints for new graph components and prompts.
 
+## Documentation & Blueprints
+- Record new product or architecture context in `docs/` and include a traceable checklist with every blueprint to track implementation progress.
+
 ## Testing Guidelines
 - There is no Jest/Vitest suite; run `npm run lint` on every backend/frontend change and add focused `*.test.ts` coverage when touching endpoints.
 - For the trading stack, POST to `/api/trading/decision/internal` (e.g. `curl -X POST http://localhost:4000/api/trading/decision/internal -H 'Content-Type: application/json' -d '{"symbol":"AAPL"}'`) and attach the JSON decision in your PR.
@@ -28,4 +31,3 @@
 ## Environment & Secrets
 - Copy `backend/.env.example` and supply OpenAI, Finnhub, Reddit, and optional `DATABASE_URL`; never commit populated env files.
 - Reuse the same API keys across backend scripts and the `TradingAgents-main` CLI to avoid inconsistent model responses and rate limits.
-

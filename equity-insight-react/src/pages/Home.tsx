@@ -12,8 +12,12 @@ const UnauthenticatedHome = () => {
   const { login, error } = useAuth()
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 opacity-80">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.18),transparent_55%),radial-gradient(circle_at_80%_0%,rgba(147,51,234,0.14),transparent_60%),linear-gradient(140deg,rgba(2,6,23,0.85),rgba(15,23,42,0.92))]" />
+      </div>
+      <div className="relative z-10">
+        {/* Navigation */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <Container>
           <div className="flex h-16 items-center justify-between">
@@ -63,7 +67,7 @@ const UnauthenticatedHome = () => {
               </Button>
               
               {error && (
-                <div className="text-sm text-red-500">
+                <div className="text-sm text-rose-300">
                   {error.message}
                 </div>
               )}
@@ -120,6 +124,7 @@ const UnauthenticatedHome = () => {
           </div>
         </Container>
       </section>
+      </div>
     </div>
   )
 }
@@ -129,8 +134,12 @@ const AuthenticatedHome = () => {
   const { user, logout } = useAuth()
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navigation */}
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 opacity-80">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,rgba(56,189,248,0.18),transparent_55%),radial-gradient(circle_at_80%_10%,rgba(59,130,246,0.14),transparent_60%),radial-gradient(circle_at_10%_85%,rgba(236,72,153,0.12),transparent_60%),linear-gradient(150deg,rgba(2,6,23,0.85),rgba(15,23,42,0.94))]" />
+      </div>
+      <div className="relative z-10">
+        {/* Navigation */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <Container>
           <div className="flex h-16 items-center justify-between">
@@ -165,7 +174,7 @@ const AuthenticatedHome = () => {
             <p className="text-muted-foreground">Choose your analysis tool to get started</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 max-w-4xl">
+          <div className="grid gap-6 md:grid-cols-3 max-w-5xl">
             {/* Equity Insight Card */}
             <Card className="group cursor-pointer transition-all hover:shadow-lg border-border/50 hover:border-blue-500/50">
               <CardHeader>
@@ -233,6 +242,41 @@ const AuthenticatedHome = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Trading Agents Card */}
+            <Card className="group cursor-pointer transition-all hover:shadow-lg border-border/50 hover:border-cyan-500/50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-700 flex items-center justify-center">
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m-7 8h8a2 2 0 002-2V8a2 2 0 00-2-2h-5l-3 3v7a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <Badge variant="secondary">New</Badge>
+                </div>
+                <CardTitle className="group-hover:text-cyan-500 transition-colors">
+                  Trading Agents Command Center
+                </CardTitle>
+                <CardDescription>
+                  Configure analyst personas, stream LangGraph stages, and review trading decisions in a dedicated workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Manual runs with live progress updates
+                  </div>
+                  <Link to="/trading-agents">
+                    <Button className="group-hover:bg-cyan-500 group-hover:text-black">
+                      Enter
+                      <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Quick Stats or Recent Activity could go here */}
@@ -243,6 +287,7 @@ const AuthenticatedHome = () => {
           </div>
         </Container>
       </section>
+      </div>
     </div>
   )
 }
