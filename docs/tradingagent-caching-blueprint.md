@@ -104,28 +104,32 @@ Deliverable: dashboards + runbook; feature flag default ON post burn-in.
 
 ### Data Store Options
 
-Option A: SQLite (MVP, single process)
+Option A: Postgres (reuse existing infra)
 
 ```sql
 CREATE TABLE IF NOT EXISTS http_cache (
   key TEXT PRIMARY KEY,
-  data_json TEXT NOT NULL,
+  data_json JSONB NOT NULL,
   data_fp TEXT NOT NULL,
   etag TEXT,
-  last_modified TEXT,
+  last_modified TIMESTAMPTZ,
   as_of TEXT,
-  fetched_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
   schema_version TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS http_cache_expires_at_idx ON http_cache (expires_at);
 
 CREATE TABLE IF NOT EXISTS assessment_cache (
   key TEXT PRIMARY KEY,
   input_fp TEXT NOT NULL,
-  result_json TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
+  result_json JSONB NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
   agent_version TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS assessment_cache_expires_at_idx ON assessment_cache (expires_at);
 ```
 
 Option B: Redis (distributed, multi-worker)

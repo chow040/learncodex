@@ -174,7 +174,7 @@ const TradingAgents = () => {
       <Button
         type="button"
         variant="ghost"
-        onClick={() => navigate(-1)}
+        onClick={() => navigate('/')}
         className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-200"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -389,21 +389,56 @@ const TradingAgents = () => {
     tradingHistoryQuery.status === 'error' && !hasHistory
       ? tradingHistoryQuery.error?.message ?? null
       : null
-  const historyRefreshing =
-    tradingHistoryQuery.isFetching && hasHistory && tradingHistoryQuery.status === 'success'
+  const historyRefreshing = tradingHistoryQuery.isRefetching && hasHistory
 
   const formatTradeDate = (input: string): string => {
     if (!input) return '—'
-    const parsed = new Date(input)
+    const normalized = input.trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      const [year, month, day] = normalized.split('-').map((value) => Number.parseInt(value, 10))
+      if ([year, month, day].some((part) => Number.isNaN(part))) {
+        return normalized
+      }
+      const utcDate = new Date(Date.UTC(year, month - 1, day))
+      return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+        timeZoneName: 'short'
+      }).format(utcDate)
+    }
+    const parsed = new Date(normalized)
     if (Number.isNaN(parsed.getTime())) {
-      return input
+      return normalized
     }
     return parsed.toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    })
+  }
+
+  const formatRunTimestamp = (input: string): string => {
+    if (!input) return ''
+    const parsed = new Date(input)
+    if (Number.isNaN(parsed.getTime())) {
+      return ''
+    }
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
     })
   }
 
@@ -732,6 +767,7 @@ const TradingAgents = () => {
                 const modelLabel = resolveModelLabel(assessment.modelId)
                 const customModel = assessment.modelId ? assessment.modelId !== MODEL_OPTIONS[0]?.id : false
                 const defaultCohort = isDefaultAnalystCohort(analystsDisplay)
+                const runRecordedAt = formatRunTimestamp(assessment.createdAt)
                 return (
                   <TableRow
                     key={assessment.runId}
@@ -746,7 +782,12 @@ const TradingAgents = () => {
                       }
                     }}
                   >
-                    <TableCell className="font-medium text-foreground">{formatTradeDate(assessment.tradeDate)}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <span className="block">{formatTradeDate(assessment.tradeDate)}</span>
+                      <span className="block text-xs text-muted-foreground/70">
+                        Run logged {runRecordedAt || '—'}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"

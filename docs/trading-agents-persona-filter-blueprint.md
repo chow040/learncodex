@@ -45,7 +45,7 @@ Align the Trading Agents backend with the persona configuration selected in the 
 - [ ] Extend LangGraph state annotations to carry `enabledAnalysts`.
 - [ ] Update analyst nodes to no-op when their persona is not enabled.
 - [ ] Skip investment/risk debates if the required personas are disabled.
-- [ ] Adjust final payload shaping to omit unused reports.
+- [x] Adjust final payload shaping to omit unused reports.
 - [ ] Persist filtered analysts list in `insertTaDecision`.
 - [ ] Add tests covering single-analyst, dual-analyst, and full-cohort runs.
 

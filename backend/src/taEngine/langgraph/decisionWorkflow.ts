@@ -648,6 +648,8 @@ const finalizeNode = async (state: State) => {
 
   const modelId = resolveModelId(state);
   const enabledAnalysts = resolveEnabledAnalysts(state);
+  const enabledSet = new Set(enabledAnalysts);
+
   const decision: TradingAgentsDecision = {
     symbol: state.symbol,
     tradeDate: state.tradeDate,
@@ -657,16 +659,26 @@ const finalizeNode = async (state: State) => {
     traderPlan: state.traderPlan ?? null,
     investmentJudge: state.investmentPlan ?? null,
     riskJudge: state.finalDecision ?? null,
-    marketReport: coalesceReport(state.reports, 'market', state.context.market_technical_report) || null,
-    sentimentReport:
-      coalesceReport(state.reports, 'social', state.context.social_reddit_summary) || null,
-    newsReport: coalesceReport(state.reports, 'news', state.context.news_company) || null,
-    fundamentalsReport:
-      coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null,
     modelId,
     analysts: enabledAnalysts,
     debugPrompt: '',
   };
+
+  if (enabledSet.has('market')) {
+    decision.marketReport =
+      coalesceReport(state.reports, 'market', state.context.market_technical_report) || null;
+  }
+  if (enabledSet.has('social')) {
+    decision.sentimentReport =
+      coalesceReport(state.reports, 'social', state.context.social_reddit_summary) || null;
+  }
+  if (enabledSet.has('news')) {
+    decision.newsReport = coalesceReport(state.reports, 'news', state.context.news_company) || null;
+  }
+  if (enabledSet.has('fundamental')) {
+    decision.fundamentalsReport =
+      coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null;
+  }
 
   const payload: TradingAgentsPayload = {
     symbol: state.symbol,
@@ -802,7 +814,8 @@ export const runDecisionGraph = async (
   try {
     const finalState = await decisionGraph.invoke(initialState);
     if (!finalState.result) {
-      return {
+      const enabledSet = new Set(normalizedAnalysts);
+      const fallback: TradingAgentsDecision = {
         symbol: normalizedPayload.symbol,
         tradeDate: normalizedPayload.tradeDate,
         decision: 'NO DECISION',
@@ -811,14 +824,29 @@ export const runDecisionGraph = async (
         traderPlan: finalState.traderPlan ?? null,
         investmentJudge: finalState.investmentPlan ?? null,
         riskJudge: finalState.finalDecision ?? null,
-        marketReport: coalesceReport(finalState.reports, 'market', normalizedPayload.context.market_technical_report) || null,
-        sentimentReport: coalesceReport(finalState.reports, 'social', normalizedPayload.context.social_reddit_summary) || null,
-        newsReport: coalesceReport(finalState.reports, 'news', normalizedPayload.context.news_company) || null,
-        fundamentalsReport: coalesceReport(finalState.reports, 'fundamentals', normalizedPayload.context.fundamentals_summary) || null,
         modelId: normalizedModelId,
         analysts: normalizedAnalysts,
         debugPrompt: '',
       };
+
+      if (enabledSet.has('market')) {
+        fallback.marketReport =
+          coalesceReport(finalState.reports, 'market', normalizedPayload.context.market_technical_report) || null;
+      }
+      if (enabledSet.has('social')) {
+        fallback.sentimentReport =
+          coalesceReport(finalState.reports, 'social', normalizedPayload.context.social_reddit_summary) || null;
+      }
+      if (enabledSet.has('news')) {
+        fallback.newsReport =
+          coalesceReport(finalState.reports, 'news', normalizedPayload.context.news_company) || null;
+      }
+      if (enabledSet.has('fundamental')) {
+        fallback.fundamentalsReport =
+          coalesceReport(finalState.reports, 'fundamentals', normalizedPayload.context.fundamentals_summary) || null;
+      }
+
+      return fallback;
     }
     return finalState.result;
   } catch (error) {
