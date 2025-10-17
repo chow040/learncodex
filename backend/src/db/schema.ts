@@ -89,14 +89,47 @@ export const assessmentLogs = pgTable(
   }),
 );
 
+export const httpCache = pgTable(
+  'http_cache',
+  {
+    key: text('key').primaryKey(),
+    dataJson: jsonb('data_json').notNull(),
+    dataFingerprint: text('data_fp').notNull(),
+    etag: text('etag'),
+    lastModified: timestamp('last_modified', { withTimezone: true }),
+    asOf: text('as_of'),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    schemaVersion: text('schema_version').notNull(),
+  },
+  (table) => ({
+    expiresAtIdx: index('idx_http_cache_expires_at').on(table.expiresAt),
+  }),
+);
+
+export const assessmentCache = pgTable(
+  'assessment_cache',
+  {
+    key: text('key').primaryKey(),
+    inputFingerprint: text('input_fp').notNull(),
+    resultJson: jsonb('result_json').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    agentVersion: text('agent_version').notNull(),
+  },
+  (table) => ({
+    expiresAtIdx: index('idx_assessment_cache_expires_at').on(table.expiresAt),
+  }),
+);
+
 export const schema = {
   tables: {
     users: users,
     user_identities: userIdentities,
     sessions: sessions,
     assessment_logs: assessmentLogs,
+    http_cache: httpCache,
+    assessment_cache: assessmentCache,
   },
 } as const;
 
 export type Schema = typeof schema;
-

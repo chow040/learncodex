@@ -9,15 +9,18 @@ import {
   type CompanyNewsArticle,
   type InsiderTransactionItem,
   getQuote,
-  getStockMetrics,
-  getCompanyProfile,
-  getCompanyNews,
+  getStockMetricsCached,
+  getCompanyProfileCached,
+  getCompanyNewsCached,
   getInsiderTransactions,
 } from './finnhubService.js';
 import { getRedditInsights, type RedditInsightsResponse } from './redditService.js';
 import { getGoogleNews } from './googleNewsService.js';
 import { getAlphaDailyCandles } from './alphaVantageService.js';
 import { buildIndicatorsSummary } from './indicatorsService.js';
+import { fetchAssessmentCache, upsertAssessmentCache } from '../db/cacheRepository.js';
+import { fingerprint } from './cache/index.js';
+import { recordAssessmentCacheEvent } from './cache/telemetry.js';
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 2): string => {
   if (value === null || value === undefined || Number.isNaN(value)) return 'N/A';
@@ -33,6 +36,8 @@ const formatCurrency = (value: number | null | undefined, currency = 'USD'): str
     return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
   } catch { return value.toFixed(2); }
 };
+
+const ASSESSMENT_CACHE_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days by default
 
 const buildMarketSummary = (
   quote: QuoteResponse,
@@ -127,42 +132,66 @@ export const requestTradingAgentsDecisionInternal = async (
   let companyNews: CompanyNewsArticle[] = [];
   let insiderSummary: string | undefined = undefined;
 
+  const fingerprintComponents: Record<string, string> = {};
+  let profileFingerprint = fingerprint(defaultProfile, 'profile_default_v1');
+  let metricsFingerprint = fingerprint(defaultMetrics, 'metrics_default_v1');
+  let newsFingerprint = fingerprint(companyNews, 'company_news_empty_v1');
+  let insiderFingerprint: string | undefined;
+
   try {
     if (env.finnhubApiKey) {
-      const [q, m, p] = await Promise.all([
+      const [q, metricsResult, profileResult] = await Promise.all([
         getQuote(symbol).catch(() => defaultQuote),
-        getStockMetrics(symbol).catch(() => defaultMetrics),
-        getCompanyProfile(symbol).catch(() => defaultProfile),
+        getStockMetricsCached(symbol).catch(() => null),
+        getCompanyProfileCached(symbol).catch(() => null),
       ]);
-      quote = q; metrics = m; profile = p;
+      quote = q;
+      if (metricsResult) {
+        metrics = metricsResult.data;
+        metricsFingerprint = metricsResult.meta.fingerprint;
+      } else {
+        metricsFingerprint = fingerprint(metrics, 'metrics_fallback_v1');
+      }
+      if (profileResult) {
+        profile = profileResult.data;
+        profileFingerprint = profileResult.meta.fingerprint;
+      } else {
+        profileFingerprint = fingerprint(profile, 'profile_fallback_v1');
+      }
+
       const toDate = new Date();
-      const fromDate = new Date(toDate); fromDate.setDate(fromDate.getDate() - 7);
-      companyNews = await getCompanyNews(symbol, fromDate, toDate).catch(() => []);
+      const fromDate = new Date(toDate);
+      fromDate.setDate(fromDate.getDate() - 7);
+      const newsResult = await getCompanyNewsCached(symbol, fromDate, toDate).catch(() => null);
+      if (newsResult) {
+        companyNews = newsResult.data;
+        newsFingerprint = newsResult.meta.fingerprint;
+      } else {
+        newsFingerprint = fingerprint(companyNews, 'company_news_fallback_v1');
+      }
+
       // Insider transactions (last ~90 days)
       try {
-        const insFrom = new Date(toDate); insFrom.setDate(insFrom.getDate() - 90);
+        const insFrom = new Date(toDate);
+        insFrom.setDate(insFrom.getDate() - 90);
         const tx = await getInsiderTransactions(symbol, insFrom, toDate).catch(() => []);
         if (tx.length) {
           const lines = tx
             .slice(0, 12)
             .map((t: InsiderTransactionItem) => `• ${t.transactionDate} ${t.name} (${t.transactionCode}) @ ${t.transactionPrice ?? 'N/A'} | Change ${t.change ?? 'N/A'} | Shares ${t.share ?? 'N/A'}`);
           insiderSummary = ['Recent insider transactions (90d):', ...lines].join('\n');
+          insiderFingerprint = fingerprint(tx, 'insider_tx_v1');
         }
       } catch {}
       // Also attempt to fetch Google News for global/company context (basic scraping)
       try {
-  const start = fromDate.toISOString().slice(0, 10);
-  const end = toDate.toISOString().slice(0, 10);
-  const g = await getGoogleNews(symbol, start, end).catch(() => []);
-        // format into a single string similar to Python get_google_news
+        const start = fromDate.toISOString().slice(0, 10);
+        const end = toDate.toISOString().slice(0, 10);
+        const g = await getGoogleNews(symbol, start, end).catch(() => []);
         const gFormatted = g.slice(0, 20).map((it) => `### ${it.title} (source: ${it.source})\n\n${it.snippet}`).join('\n\n');
-        // if found, add as global news placeholder appended to existing news
         if (gFormatted) {
-          companyNews.push(...[]); // keep companyNews as-is for company-specific articles
+          companyNews.push(...[]);
         }
-        // attach the formatted global feed to a local variable used below
-        // We'll set news_global based on this gFormatted later
-        // store in a temporary variable on this scope
         (globalThis as any)._la_gnews = gFormatted;
       } catch (e) {
         // ignore google news failures
@@ -216,12 +245,70 @@ export const requestTradingAgentsDecisionInternal = async (
     contextBase.fundamentals_insider_transactions = insiderSummary;
   }
 
+  const quoteFingerprint = fingerprint(quote, 'quote_snapshot_v1');
+  const redditFingerprint = fingerprint(redditInsights ?? null, 'reddit_insights_v1');
+  const marketFingerprint = fingerprint(market, 'market_summary_v1');
+  const socialFingerprint = fingerprint(social, 'social_summary_v1');
+  const newsSummaryFingerprint = fingerprint(news, 'news_summary_v1');
+  const contextFingerprint = fingerprint(contextBase, 'context_v1');
+
+  fingerprintComponents.profile = profileFingerprint;
+  fingerprintComponents.metrics = metricsFingerprint;
+  fingerprintComponents.companyNews = newsFingerprint;
+  fingerprintComponents.quote = quoteFingerprint;
+  fingerprintComponents.market = marketFingerprint;
+  fingerprintComponents.social = socialFingerprint;
+  fingerprintComponents.newsText = newsSummaryFingerprint;
+  fingerprintComponents.context = contextFingerprint;
+  fingerprintComponents.reddit = redditFingerprint;
+  if (insiderFingerprint) {
+    fingerprintComponents.insider = insiderFingerprint;
+  } else if (insiderSummary) {
+    fingerprintComponents.insider = fingerprint(insiderSummary, 'insider_summary_text_v1');
+  }
+
+  const sortedAnalysts = [...analysts].sort();
+  const assessmentInputFingerprint = fingerprint(
+    {
+      symbol,
+      modelId,
+      analysts: sortedAnalysts,
+      components: fingerprintComponents,
+    },
+    'assessment_input_v1',
+  );
+  const agentVersion = env.tradingAgentVersion;
+  const assessmentCacheKey = `assessment:${agentVersion}:${symbol}:${assessmentInputFingerprint}`;
+  const cacheCheckTime = new Date();
+  const cachedAssessment = await fetchAssessmentCache<TradingAgentsDecision>(assessmentCacheKey);
+  if (cachedAssessment && cachedAssessment.expiresAt > cacheCheckTime) {
+    recordAssessmentCacheEvent('hit', {
+      key: assessmentCacheKey,
+      symbol,
+      source: 'assessment_cache',
+      meta: { agentVersion, fingerprint: assessmentInputFingerprint },
+    });
+    return { ...cachedAssessment.result };
+  }
+  recordAssessmentCacheEvent('miss', {
+    key: assessmentCacheKey,
+    symbol,
+    source: 'assessment_cache',
+    meta: {
+      agentVersion,
+      fingerprint: assessmentInputFingerprint,
+      hadCache: Boolean(cachedAssessment),
+    },
+  });
+
   const payload: TradingAgentsPayload = {
     symbol,
     tradeDate: decisionDate,
     context: contextBase,
     modelId,
     analysts,
+    cacheFingerprint: assessmentInputFingerprint,
+    cacheFingerprintComponents: fingerprintComponents,
   };
 
   const orchestratorOptions = {
@@ -230,7 +317,38 @@ export const requestTradingAgentsDecisionInternal = async (
     ...(options?.runId ? { runId: options.runId } : {}),
   } satisfies { runId?: string; modelId: string; analysts: TradingAnalystId[] };
 
-  return orchestrator.run(payload, orchestratorOptions) as Promise<TradingAgentsDecision>;
+  const decision = (await orchestrator.run(payload, orchestratorOptions)) as TradingAgentsDecision;
+
+  try {
+    const expiresAt = new Date(Date.now() + ASSESSMENT_CACHE_TTL_SECONDS * 1000);
+    await upsertAssessmentCache({
+      key: assessmentCacheKey,
+      inputFingerprint: assessmentInputFingerprint,
+      result: decision,
+      expiresAt,
+      agentVersion,
+    });
+    recordAssessmentCacheEvent('store', {
+      key: assessmentCacheKey,
+      symbol,
+      source: 'assessment_cache',
+      meta: { agentVersion, expiresAt: expiresAt.toISOString() },
+    });
+  } catch (error) {
+    recordAssessmentCacheEvent('error', {
+      key: assessmentCacheKey,
+      symbol,
+      source: 'assessment_cache',
+      meta: { agentVersion, error: (error as Error).message },
+    });
+    console.warn(
+      `[tradingAgentsEngineService] Failed to cache assessment for ${symbol}: ${
+        (error as Error).message
+      }`,
+    );
+  }
+
+  return decision;
 };
 
 
