@@ -17,7 +17,7 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    ```bash
    cp .env.example .env
    ```
-3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging.
+3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging. By default Trading Agents allow `gpt-4o-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5`, and `gpt-5-pro`; set `TRADING_ALLOWED_MODELS` (comma separated) to override the list or add additional models. Enable the Trading Agents assessment history endpoints by setting `TRADING_ASSESSMENT_HISTORY_ENABLED=true` (requires `DATABASE_URL` so results can be queried).
 4. Create a Reddit script application at https://www.reddit.com/prefs/apps, then copy the generated client ID/secret into `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` (choose the script app type).
 5. If `DATABASE_URL` is set, manage schema with Drizzle:
    - Generate SQL from the TypeScript schema: `npm run drizzle:generate`
@@ -88,6 +88,53 @@ Response body:
   "shareOutstanding": 15100,
   "logo": "https://logo.clearbit.com/apple.com",
   "weburl": "https://www.apple.com"
+}
+```
+
+### `GET /api/trading/assessments?symbol=AAPL&limit=5`
+Return the most recent Trading Agents assessments for a ticker when `TRADING_ASSESSMENT_HISTORY_ENABLED` is enabled and the database is configured.
+
+Response body:
+```json
+{
+  "items": [
+    {
+      "runId": "run_abcd1234",
+      "symbol": "AAPL",
+      "tradeDate": "2025-01-10",
+      "decision": "BUY",
+      "modelId": "gpt-4o-mini",
+      "analysts": ["fundamental", "market", "news", "social"],
+      "createdAt": "2025-01-10T18:22:41.000Z",
+      "orchestratorVersion": "2025.01.10"
+    }
+  ],
+  "nextCursor": "2025-01-08T17:11:20.000Z"
+}
+```
+
+### `GET /api/trading/assessments/:runId`
+Fetch the stored Trading Agents payload for a previous run. Returns `404` when the run does not exist or the flag is disabled.
+
+Response body:
+```json
+{
+  "runId": "run_abcd1234",
+  "symbol": "AAPL",
+  "tradeDate": "2025-01-10",
+  "decision": "BUY",
+  "modelId": "gpt-4o-mini",
+  "analysts": ["fundamental", "market", "news", "social"],
+  "createdAt": "2025-01-10T18:22:41.000Z",
+  "orchestratorVersion": "2025.01.10",
+  "payload": {
+    "symbol": "AAPL",
+    "tradeDate": "2025-01-10",
+    "context": { "...": "..." }
+  },
+  "rawText": "{...}",
+  "promptHash": "prompt_hash_value",
+  "logsPath": "/var/log/ta_runs/run_abcd1234.json"
 }
 ```
 

@@ -2,6 +2,7 @@ import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
 
 import type { TradingAgentsDecision } from '../taEngine/types.js';
+import type { TradingAnalystId } from '../constants/tradingAgents.js';
 
 export type ProgressStage =
   | 'queued'
@@ -21,6 +22,8 @@ export interface ProgressEvent {
   message?: string;
   iteration?: number;
   timestamp: number;
+  modelId?: string;
+  analysts?: TradingAnalystId[];
 }
 
 interface ProgressState {

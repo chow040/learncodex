@@ -6,6 +6,7 @@ import Home from "./pages/Home"
 import EquityInsight from "./pages/EquityInsight"
 import TradeIdeas from "./pages/TradeIdeas"
 import TradingAgents from "./pages/TradingAgents"
+import TradingAgentsHistoryDetail from "./pages/TradingAgentsHistoryDetail"
 import { Toaster } from "./components/ui/toaster"
 
 const App = () => {
@@ -27,6 +28,11 @@ const App = () => {
           <Route path="/trading-agents" element={
             <ProtectedRoute>
               <TradingAgents />
+            </ProtectedRoute>
+          } />
+          <Route path="/trading-agents/history/:runId" element={
+            <ProtectedRoute>
+              <TradingAgentsHistoryDetail />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />

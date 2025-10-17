@@ -1,4 +1,7 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowUpRight, Loader2 } from 'lucide-react'
 
 import { TradingAgentsLayout } from '../components/trading/TradingAgentsLayout'
 import { TradingProgress } from '../components/trading/TradingProgress'
@@ -13,7 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { useTradingProgress } from '../hooks/useTradingProgress'
+import { useTradingAssessments } from '../hooks/useTradingAssessments'
+import type { TradingAssessmentSummary } from '../hooks/useTradingAssessments'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { cn } from '../lib/utils'
+import { sendAnalyticsEvent } from '../lib/analytics'
 
 type TradingAgentsDecision = {
   symbol: string
@@ -25,6 +32,9 @@ type TradingAgentsDecision = {
   investmentJudge?: string
   riskJudge?: string
   rawJson?: unknown
+  modelId?: string | null
+  analysts?: string[]
+  runId?: string
 }
 
 type AnalystOption = {
@@ -62,9 +72,12 @@ const ANALYST_OPTIONS: AnalystOption[] = [
 ]
 
 const MODEL_OPTIONS = [
-  { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', description: 'Balanced reasoning for daily workflows.' },
+  { id: 'gpt-4o-mini', label: 'GPT-4o Mini', description: 'Optimized for cost-sensitive daily workflows.' },
   { id: 'gpt-4o', label: 'GPT-4o', description: 'Premium accuracy for high-stakes runs.' },
-  { id: 'gpt-3.5-turbo', label: 'GPT-3.5', description: 'Budget-friendly baseline coverage.' }
+  { id: 'gpt-5-mini', label: 'GPT-5 Mini', description: 'Next-gen reasoning with fast responses.' },
+  { id: 'gpt-5-nano', label: 'GPT-5 Nano', description: 'Ultra-light deployment for rapid iterations.' },
+  { id: 'gpt-5', label: 'GPT-5', description: 'Flagship capability balanced for most desks.' },
+  { id: 'gpt-5-pro', label: 'GPT-5 Pro', description: 'Top-tier insights when every basis point counts.' }
 ]
 
 const DEFAULT_ANALYST_SELECTION = ANALYST_OPTIONS.map((analyst) => analyst.id)
@@ -126,6 +139,7 @@ const AgentTextBlock = ({ text, emptyLabel = 'No output provided yet.' }: AgentT
 
 const TradingAgents = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+  const navigate = useNavigate()
   const { toast } = useToast()
 
   const [ticker, setTicker] = useState('')
@@ -148,11 +162,24 @@ const TradingAgents = () => {
   const tradingRequestController = useRef<AbortController | null>(null)
   const tradingCancelPending = useRef(false)
 
+  const {
+    assessments: tradingHistory,
+    query: tradingHistoryQuery
+  } = useTradingAssessments(ticker, {
+    apiBaseUrl: API_BASE_URL
+  })
+
   const hero = (
     <div className="space-y-6">
-      <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-cyan-200 shadow-[0_10px_45px_-25px_rgba(59,130,246,0.9)]">
-        New trading run
-      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-200"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Back
+      </Button>
       <div className="max-w-3xl space-y-4">
         <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">Trading Agents Command Center</h1>
         <p className="text-base leading-7 text-muted-foreground sm:text-lg">
@@ -174,10 +201,10 @@ const TradingAgents = () => {
     </div>
   )
 
-  const selectedAnalystDetails = useMemo(
-    () => ANALYST_OPTIONS.filter((analyst) => selectedAnalysts.includes(analyst.id)),
-    [selectedAnalysts]
-  )
+  const selectedAnalystDetails = useMemo(() => {
+    const ids = tradingDecision?.analysts ?? selectedAnalysts
+    return ANALYST_OPTIONS.filter((analyst) => ids.includes(analyst.id))
+  }, [tradingDecision?.analysts, selectedAnalysts])
 
   const showTradingProgress =
     progressState.runId !== null &&
@@ -193,6 +220,11 @@ const TradingAgents = () => {
     const symbol = ticker.trim().toUpperCase()
     if (!symbol) {
       setTradingError('Enter a ticker symbol to run the agents.')
+      return
+    }
+
+    if (selectedAnalysts.length === 0) {
+      setTradingError('Select at least one analyst persona.')
       return
     }
 
@@ -218,7 +250,7 @@ const TradingAgents = () => {
       const response = await fetch(`${API_BASE_URL}/api/trading/decision/internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, runId }),
+        body: JSON.stringify({ symbol, runId, modelId, analysts: selectedAnalysts }),
         signal: controller.signal
       })
 
@@ -312,6 +344,7 @@ const TradingAgents = () => {
       setTradingDecision(result)
       setTradingError(null)
       setIsTradingLoading(false)
+      void tradingHistoryQuery.refetch()
       toast({
         title: 'Trading agents complete',
         description: `${result.symbol} decision ready: ${
@@ -325,6 +358,7 @@ const TradingAgents = () => {
       setTradingDecision(null)
       setTradingError(message)
       setIsTradingLoading(false)
+      void tradingHistoryQuery.refetch()
       toast({
         title: 'Trading agents error',
         description: message,
@@ -342,6 +376,87 @@ const TradingAgents = () => {
     }
   }, [disconnectProgress])
 
+  useEffect(() => {
+    if (tradingDecision?.runId) {
+      void tradingHistoryQuery.refetch()
+    }
+  }, [tradingDecision?.runId, tradingHistoryQuery])
+
+  const normalizedTicker = ticker.trim().toUpperCase()
+  const hasHistory = tradingHistory.length > 0
+  const historyLoading = tradingHistoryQuery.status === 'pending' && !hasHistory
+  const historyError =
+    tradingHistoryQuery.status === 'error' && !hasHistory
+      ? tradingHistoryQuery.error?.message ?? null
+      : null
+  const historyRefreshing =
+    tradingHistoryQuery.isFetching && hasHistory && tradingHistoryQuery.status === 'success'
+
+  const formatTradeDate = (input: string): string => {
+    if (!input) return '—'
+    const parsed = new Date(input)
+    if (Number.isNaN(parsed.getTime())) {
+      return input
+    }
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const isDefaultAnalystCohort = (analysts: string[]): boolean => {
+    if (analysts.length !== DEFAULT_ANALYST_SELECTION.length) return false
+    const sorted = [...analysts].sort()
+    const baseline = [...DEFAULT_ANALYST_SELECTION].sort()
+    return sorted.every((value, index) => value === baseline[index])
+  }
+
+  const resolveModelLabel = (id: string | null): string => {
+    if (!id) return 'Unspecified'
+    return MODEL_OPTIONS.find((option) => option.id === id)?.label ?? id
+  }
+
+  const decisionToneClasses = (decision: string | null): string => {
+    const value = (decision ?? '').toUpperCase()
+    switch (value) {
+      case 'BUY':
+        return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+      case 'SELL':
+        return 'border-rose-500/40 bg-rose-500/10 text-rose-100'
+      case 'HOLD':
+        return 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+      default:
+        return 'border-border/60 bg-border/10 text-muted-foreground'
+    }
+  }
+
+  const logHistoryRowOpened = (assessment: TradingAssessmentSummary, source: 'row' | 'button' | 'keyboard') => {
+    sendAnalyticsEvent('trading_history_row_opened', {
+      runId: assessment.runId,
+      symbol: assessment.symbol,
+      decision: assessment.decision,
+      modelId: assessment.modelId,
+      analysts: assessment.analysts,
+      source,
+      triggeredAt: new Date().toISOString()
+    })
+  }
+
+  const openHistoryDetail = (
+    assessment: TradingAssessmentSummary,
+    source: 'row' | 'button' | 'keyboard'
+  ) => {
+    if (!assessment.runId) return
+    logHistoryRowOpened(assessment, source)
+    const detailPath = `/trading-agents/history/${encodeURIComponent(assessment.runId)}`
+    if (typeof window !== 'undefined') {
+      window.open(detailPath, '_blank', 'noopener')
+    }
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     runTradingAgents()
@@ -354,7 +469,7 @@ const TradingAgents = () => {
           <p className="text-xs uppercase tracking-[0.35em] text-slate-200/70">Configuration</p>
           <h2 className="text-2xl font-semibold text-foreground">Trading agents run</h2>
           <p className="text-sm text-muted-foreground">
-            Tune the inputs for this LangGraph workflow. Analyst selections are optional while backend support lands.
+            Tune the inputs for this LangGraph workflow. Disable personas to skip them for the next run.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -395,7 +510,7 @@ const TradingAgents = () => {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground/80">Backend currently routes to the configured default model.</p>
+          <p className="text-xs text-muted-foreground/80">We honor this selection on the backend and fall back to the default env model when omitted.</p>
         </div>
 
         <div className="lg:col-span-2" />
@@ -431,7 +546,7 @@ const TradingAgents = () => {
           })}
         </div>
         <p className="text-xs text-muted-foreground/70">
-          Multiple analysts stay enabled while we wire selective participation into the orchestrator.
+          Only checked personas participate in the LangGraph pipeline for this run.
         </p>
       </div>
 
@@ -453,6 +568,10 @@ const TradingAgents = () => {
   const renderDecisionSummary = (decision: TradingAgentsDecision) => {
     const headline = decision.decision ?? decision.finalTradeDecision ?? 'Decision unavailable'
     const tradeDate = decision.tradeDate ? new Date(decision.tradeDate).toLocaleString() : 'Unreported'
+    const resolvedModelId = decision.modelId ?? modelId
+    const resolvedModelLabel = resolvedModelId
+      ? MODEL_OPTIONS.find((option) => option.id === resolvedModelId)?.label ?? resolvedModelId
+      : 'Unspecified'
 
     return (
       <div className="space-y-6">
@@ -470,7 +589,7 @@ const TradingAgents = () => {
                 Trade date: {tradeDate}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1">
-                Model: {modelId}
+                <span title={resolvedModelId ?? undefined}>Model: {resolvedModelLabel}</span>
               </span>
             </div>
             <p className="text-xs text-muted-foreground/70">
@@ -527,15 +646,21 @@ const TradingAgents = () => {
                 Analyst coverage is currently informational. The backend will soon respect persona filtering.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
-                {selectedAnalystDetails.map((analyst) => (
-                  <Badge
-                    key={analyst.id}
-                    variant="outline"
-                    className="border-cyan-400/60 bg-cyan-500/10 text-xs font-medium uppercase tracking-[0.25em] text-cyan-100"
-                  >
-                    {analyst.label}
-                  </Badge>
-                ))}
+                {selectedAnalystDetails.length === 0 ? (
+                  <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground/80">
+                    No analysts ran for this decision.
+                  </span>
+                ) : (
+                  selectedAnalystDetails.map((analyst) => (
+                    <Badge
+                      key={analyst.id}
+                      variant="outline"
+                      className="border-cyan-400/60 bg-cyan-500/10 text-xs font-medium uppercase tracking-[0.25em] text-cyan-100"
+                    >
+                      {analyst.label}
+                    </Badge>
+                  ))
+                )}
               </div>
             </div>
           </TabsContent>
@@ -554,6 +679,197 @@ const TradingAgents = () => {
             </Card>
           </TabsContent>
         </Tabs>
+      </div>
+    )
+  }
+
+  const renderHistoryPanel = () => {
+    const hasTicker = normalizedTicker.length >= 2
+
+    let body: ReactNode
+    if (!hasTicker) {
+      body = (
+        <div className="rounded-2xl border border-dashed border-border/40 bg-background/30 p-6 text-sm text-muted-foreground">
+          Start typing a symbol (at least two characters) to surface the most recent Trading Agents runs.
+        </div>
+      )
+    } else if (historyLoading) {
+      body = (
+        <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background/30 p-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-cyan-300" aria-hidden />
+          Loading recent assessments for {normalizedTicker}…
+        </div>
+      )
+    } else if (historyError) {
+      body = (
+        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-100">
+          {historyError}
+        </div>
+      )
+    } else if (tradingHistory.length === 0) {
+      body = (
+        <div className="rounded-2xl border border-border/40 bg-background/30 p-6 text-sm text-muted-foreground">
+          No prior Trading Agents runs recorded for {normalizedTicker}. Launch a run to populate history.
+        </div>
+      )
+    } else {
+      body = (
+        <div className="space-y-4">
+          <Table className="text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[160px] uppercase tracking-[0.25em]">Trade date</TableHead>
+                <TableHead className="w-[120px] uppercase tracking-[0.25em]">Decision</TableHead>
+                <TableHead className="uppercase tracking-[0.25em]">Model</TableHead>
+                <TableHead className="uppercase tracking-[0.25em]">Analysts</TableHead>
+                <TableHead className="w-[180px] uppercase tracking-[0.25em]">Run ID</TableHead>
+                <TableHead aria-label="actions" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tradingHistory.map((assessment) => {
+                const analystsDisplay = assessment.analysts ?? []
+                const modelLabel = resolveModelLabel(assessment.modelId)
+                const customModel = assessment.modelId ? assessment.modelId !== MODEL_OPTIONS[0]?.id : false
+                const defaultCohort = isDefaultAnalystCohort(analystsDisplay)
+                return (
+                  <TableRow
+                    key={assessment.runId}
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer rounded-xl border-border/50 hover:bg-cyan-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80"
+                    onClick={() => openHistoryDetail(assessment, 'row')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        openHistoryDetail(assessment, 'keyboard')
+                      }
+                    }}
+                  >
+                    <TableCell className="font-medium text-foreground">{formatTradeDate(assessment.tradeDate)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'inline-flex min-w-[4rem] justify-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em]',
+                          decisionToneClasses(assessment.decision)
+                        )}
+                      >
+                        {assessment.decision ?? '—'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="space-y-1 text-xs text-muted-foreground">
+                      <span className="block font-semibold text-foreground">{modelLabel}</span>
+                      {assessment.modelId && (
+                        <span className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground/70">
+                          {assessment.modelId}
+                        </span>
+                      )}
+                      {customModel && (
+                        <Badge variant="outline" className="mt-1 border-cyan-400/60 bg-cyan-500/10 text-[0.65rem] uppercase tracking-[0.3em] text-cyan-100">
+                          Custom model
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {analystsDisplay.map((analyst) => {
+                          const analystMeta = ANALYST_OPTIONS.find((option) => option.id === analyst)
+                          return (
+                            <Badge
+                              key={analyst}
+                              variant="outline"
+                              className={cn(
+                                'rounded-full border-border/60 bg-background/60 text-[0.65rem] uppercase tracking-[0.3em]',
+                                analystMeta?.accent ?? ''
+                              )}
+                            >
+                              {analystMeta?.label ?? analyst}
+                            </Badge>
+                          )
+                        })}
+                        {defaultCohort ? null : (
+                          <Badge
+                            variant="outline"
+                            className="border-cyan-400/60 bg-cyan-500/10 text-[0.65rem] uppercase tracking-[0.3em] text-cyan-100"
+                          >
+                            Custom cohort
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                      {assessment.runId}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em]"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openHistoryDetail(assessment, 'button')
+                        }}
+                      >
+                        View detail
+                        <ArrowUpRight className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground/70">
+            <span>
+              Showing {tradingHistory.length} {tradingHistory.length === 1 ? 'result' : 'results'}
+            </span>
+            {tradingHistoryQuery.hasNextPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full border-cyan-400/60 bg-cyan-500/10 px-3 py-1 text-[0.7rem] uppercase tracking-[0.3em] text-cyan-100 hover:bg-cyan-500/20"
+                disabled={tradingHistoryQuery.isFetchingNextPage}
+                onClick={() => tradingHistoryQuery.fetchNextPage()}
+              >
+                {tradingHistoryQuery.isFetchingNextPage ? (
+                  <>
+                    Loading…
+                    <Loader2 className="ml-2 h-3 w-3 animate-spin" aria-hidden />
+                  </>
+                ) : (
+                  'View more'
+                )}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="rounded-3xl border border-border/50 bg-background/40 p-6 shadow-[0_40px_90px_-45px_rgba(59,130,246,0.4)] sm:p-8">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground/80">Assessment history</p>
+            <h3 className="text-xl font-semibold text-foreground">
+              Recent trading assessments {hasTicker ? `for ${normalizedTicker}` : ''}
+            </h3>
+          </div>
+          <div className="relative flex items-start justify-between">
+            <p className="text-sm text-muted-foreground">
+              Pulls the latest Trading Agents runs directly from the command center API. Click a row to open the full
+              payload in a new tab.
+            </p>
+            {historyRefreshing ? (
+              <span className="pointer-events-none absolute -top-3 right-0 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs uppercase tracking-[0.25em] text-muted-foreground/70 shadow-md shadow-background/40">
+                Refreshing…
+                <Loader2 className="h-3 w-3 animate-spin text-cyan-300" aria-hidden />
+              </span>
+            ) : null}
+          </div>
+          {body}
+        </div>
       </div>
     )
   }
@@ -586,20 +902,7 @@ const TradingAgents = () => {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border/50 bg-background/40 p-6 shadow-[0_40px_90px_-45px_rgba(59,130,246,0.4)] sm:p-8">
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground/80">Coming Soon</p>
-            <h3 className="text-xl font-semibold text-foreground">Recent trading assessments</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            We&apos;ll surface your latest decisions with quick drill-down access once the history endpoint lands.
-          </p>
-          <div className="rounded-2xl border border-dashed border-border/40 bg-background/30 p-6 text-sm text-muted-foreground">
-            No history yet. After backend support, last runs will populate this panel automatically.
-          </div>
-        </div>
-      </div>
+      {renderHistoryPanel()}
     </>
   )
 

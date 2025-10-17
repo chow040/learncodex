@@ -56,7 +56,7 @@ describe('TradingOrchestrator (LangGraph pipeline)', () => {
     const result = await orchestrator.run(payload);
 
     expect(runDecisionGraphMock).toHaveBeenCalledOnce();
-    expect(runDecisionGraphMock).toHaveBeenCalledWith(payload);
+    expect(runDecisionGraphMock).toHaveBeenCalledWith(payload, undefined);
     expect(result).toEqual(decisionStub);
   });
 });

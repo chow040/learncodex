@@ -33,8 +33,37 @@ import {
   type ConversationLogEntry,
 } from './types.js';
 import type { AgentsContext } from '../types.js';
+import {
+  DEFAULT_TRADING_ANALYSTS,
+  isTradingAnalystId,
+  type TradingAnalystId,
+} from '../../constants/tradingAgents.js';
 
 ensureLangchainToolsRegistered();
+
+const resolveModelId = (state: typeof StateAnnotation.State): string => {
+  const raw = (state.metadata?.modelId as string | undefined) ?? '';
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : env.openAiModel;
+};
+
+const resolveEnabledAnalysts = (state: typeof StateAnnotation.State): Set<TradingAnalystId> => {
+  const raw = state.metadata?.enabledAnalysts;
+  if (Array.isArray(raw)) {
+    const result = new Set<TradingAnalystId>();
+    for (const entry of raw) {
+      if (typeof entry !== 'string') continue;
+      const normalized = entry.trim().toLowerCase();
+      if (isTradingAnalystId(normalized)) {
+        result.add(normalized);
+      }
+    }
+    if (result.size > 0) {
+      return result;
+    }
+  }
+  return new Set(DEFAULT_TRADING_ANALYSTS);
+};
 
 const StateAnnotation = Annotation.Root({
   symbol: Annotation<string>(),
@@ -78,9 +107,11 @@ const buildAnalystContext = (
 });
 
 const analystNode = async (state: typeof StateAnnotation.State) => {
+  const modelId = resolveModelId(state);
+  const enabledAnalysts = resolveEnabledAnalysts(state);
   const llmOptions: any = {
     openAIApiKey: env.openAiApiKey,
-    model: env.openAiModel,
+    model: modelId,
     temperature: 1,
   };
   if (env.openAiBaseUrl) {
@@ -124,38 +155,64 @@ const analystNode = async (state: typeof StateAnnotation.State) => {
     reports[key] = report;
   };
 
-  await runAnalyst(
-    'MarketAnalyst',
-    'Market Analyst',
-    buildMarketCollaborationHeader,
-    buildMarketUserContext,
-    MARKET_SYSTEM_PROMPT,
-    'market',
-  );
-  await runAnalyst(
-    'NewsAnalyst',
-    'News Analyst',
-    buildNewsCollaborationHeader,
-    buildNewsUserContext,
-    NEWS_SYSTEM_PROMPT,
-    'news',
-  );
-  await runAnalyst(
-    'SocialAnalyst',
-    'Social Analyst',
-    buildSocialCollaborationHeader,
-    buildSocialUserContext,
-    SOCIAL_SYSTEM_PROMPT,
-    'social',
-  );
-  await runAnalyst(
-    'FundamentalsAnalyst',
-    'Fundamentals Analyst',
-    buildFundamentalsCollaborationHeader,
-    buildFundamentalsUserContext,
-    FUNDAMENTALS_SYSTEM_PROMPT,
-    'fundamentals',
-  );
+  const analystConfigs: Array<{
+    personaId: TradingAnalystId;
+    runnableId: string;
+    label: string;
+    buildHeader: (context: AnalystNodeContext) => string;
+    buildUserContextFn: (ctx: AgentsContext) => string;
+    systemPrompt: string;
+    key: keyof AnalystReports;
+  }> = [
+    {
+      personaId: 'market',
+      runnableId: 'MarketAnalyst',
+      label: 'Market Analyst',
+      buildHeader: buildMarketCollaborationHeader,
+      buildUserContextFn: buildMarketUserContext,
+      systemPrompt: MARKET_SYSTEM_PROMPT,
+      key: 'market',
+    },
+    {
+      personaId: 'news',
+      runnableId: 'NewsAnalyst',
+      label: 'News Analyst',
+      buildHeader: buildNewsCollaborationHeader,
+      buildUserContextFn: buildNewsUserContext,
+      systemPrompt: NEWS_SYSTEM_PROMPT,
+      key: 'news',
+    },
+    {
+      personaId: 'social',
+      runnableId: 'SocialAnalyst',
+      label: 'Social Analyst',
+      buildHeader: buildSocialCollaborationHeader,
+      buildUserContextFn: buildSocialUserContext,
+      systemPrompt: SOCIAL_SYSTEM_PROMPT,
+      key: 'social',
+    },
+    {
+      personaId: 'fundamental',
+      runnableId: 'FundamentalsAnalyst',
+      label: 'Fundamentals Analyst',
+      buildHeader: buildFundamentalsCollaborationHeader,
+      buildUserContextFn: buildFundamentalsUserContext,
+      systemPrompt: FUNDAMENTALS_SYSTEM_PROMPT,
+      key: 'fundamentals',
+    },
+  ];
+
+  for (const config of analystConfigs) {
+    if (!enabledAnalysts.has(config.personaId)) continue;
+    await runAnalyst(
+      config.runnableId,
+      config.label,
+      config.buildHeader,
+      config.buildUserContextFn,
+      config.systemPrompt,
+      config.key,
+    );
+  }
 
   return {
     reports,
@@ -171,12 +228,29 @@ const analystGraph = (() => {
   return graph.compile();
 })();
 
+export interface RunAnalystStageOptions {
+  modelId?: string;
+  enabledAnalysts?: TradingAnalystId[];
+}
+
 export const runAnalystStage = async (
   symbol: string,
   tradeDate: string,
   context: AgentsContext,
+  options?: RunAnalystStageOptions,
 ) => {
-  const initialState = createInitialState(symbol, tradeDate, context);
+  const modelId = (options?.modelId ?? env.openAiModel)?.trim() ?? env.openAiModel;
+  const enabledAnalysts = options?.enabledAnalysts && options.enabledAnalysts.length > 0
+    ? options.enabledAnalysts
+    : [...DEFAULT_TRADING_ANALYSTS];
+
+  const initialState: GraphState = {
+    ...createInitialState(symbol, tradeDate, context),
+    metadata: {
+      modelId,
+      enabledAnalysts,
+    },
+  };
   const finalState = await analystGraph.invoke(initialState);
   return {
     reports: finalState.reports,

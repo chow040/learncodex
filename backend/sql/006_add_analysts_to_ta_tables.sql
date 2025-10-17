@@ -1,0 +1,5 @@
+ALTER TABLE ta_runs
+  ADD COLUMN IF NOT EXISTS analysts JSONB;
+
+ALTER TABLE ta_decisions
+  ADD COLUMN IF NOT EXISTS analysts JSONB;

@@ -13,10 +13,14 @@ export interface AgentsContext {
   fundamentals_insider_transactions?: string;
 }
 
+import type { TradingAnalystId } from '../constants/tradingAgents.js';
+
 export interface TradingAgentsPayload {
   symbol: string;
   tradeDate: string;
   context: AgentsContext;
+  modelId?: string;
+  analysts?: TradingAnalystId[];
 }
 
 export interface AgentPrompt {
@@ -38,5 +42,7 @@ export interface TradingAgentsDecision {
   sentimentReport?: string | null;
   newsReport?: string | null;
   fundamentalsReport?: string | null;
+  modelId?: string | null;
+  analysts?: TradingAnalystId[];
   debugPrompt?: string; // optional prompt preview for troubleshooting
 }

@@ -20,6 +20,8 @@ export interface TradingProgressEvent {
   message?: string
   iteration?: number
   timestamp: number
+  modelId?: string
+  analysts?: string[]
 }
 
 export interface TradingProgressCompletePayload<Result = unknown> {
@@ -42,6 +44,8 @@ export interface TradingProgressState<Result = unknown> {
   message: string | null
   error: string | null
   result: Result | null
+  modelId: string | null
+  analysts: string[]
 }
 
 export interface UseTradingProgressOptions<Result = unknown> {
@@ -87,7 +91,9 @@ const createInitialState = <Result,>(): TradingProgressState<Result> => ({
   currentLabel: null,
   message: null,
   error: null,
-  result: null
+  result: null,
+  modelId: null,
+  analysts: []
 })
 
 const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Result>): TradingProgressState<Result> => {
@@ -102,6 +108,7 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
       }
     case 'progress': {
       const nextPercent = action.event.percent ?? (STAGE_FALLBACK_PERCENT[action.event.stage] ?? state.percent)
+      const analysts = action.event.analysts ?? state.analysts
       return {
         ...state,
         status: state.status === 'idle' ? 'streaming' : 'streaming',
@@ -109,17 +116,27 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         percent: Math.max(state.percent, nextPercent),
         currentStage: action.event.stage,
         currentLabel: action.event.label,
-        message: action.event.message ?? state.message
+        message: action.event.message ?? state.message,
+        modelId: action.event.modelId ?? state.modelId,
+        analysts: Array.isArray(analysts) ? analysts : state.analysts
       }
     }
-    case 'complete':
+    case 'complete': {
+      const resultRecord = action.payload.result as Record<string, unknown> | null
+      const resultModelId = typeof resultRecord?.modelId === 'string' ? (resultRecord.modelId as string) : undefined
+      const resultAnalysts = Array.isArray(resultRecord?.analysts)
+        ? ([...(resultRecord.analysts as string[])] as string[])
+        : undefined
       return {
         ...state,
         status: 'complete',
         result: action.payload.result,
         percent: Math.max(state.percent, 100),
-        error: null
+        error: null,
+        modelId: state.modelId ?? resultModelId ?? null,
+        analysts: state.analysts.length > 0 ? state.analysts : resultAnalysts ?? []
       }
+    }
     case 'error':
       return {
         ...state,

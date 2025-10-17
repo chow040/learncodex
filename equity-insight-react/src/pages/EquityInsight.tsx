@@ -1,7 +1,9 @@
 import clsx from 'clsx'
 import { useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { Button } from '../components/ui/button'
 import { Container } from '../components/ui/container'
 
 // Lightweight pseudo-random number generator lets us build deterministic mock data per ticker.
@@ -416,6 +418,7 @@ type SnapshotView = 'fundamental' | 'technical'
 
 const EquityInsight = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+  const navigate = useNavigate()
 
   const [tickerInput, setTickerInput] = useState('')
   const [reportData, setReportData] = useState<{ ticker: string; data: ReportPayload } | null>(null)
@@ -1006,6 +1009,17 @@ const EquityInsight = () => {
     <div className="relative min-h-screen overflow-hidden bg-background py-10">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,rgba(56,189,248,0.18),transparent_55%),radial-gradient(circle_at_85%_10%,rgba(147,197,253,0.12),transparent_55%),radial-gradient(circle_at_15%_85%,rgba(129,140,248,0.14),transparent_60%),linear-gradient(160deg,rgba(2,6,23,0.88),rgba(15,23,42,0.95))]" />
+      </div>
+      <div className="relative z-20 mx-auto mb-2 w-full max-w-[1200px] px-6 lg:px-12">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-sky-400/60 hover:bg-sky-500/10 hover:text-sky-200"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back
+        </Button>
       </div>
       <Container className="relative z-10 flex flex-col gap-8 lg:flex-row">
         <aside className="order-2 flex flex-col gap-6 lg:order-1 lg:w-80">

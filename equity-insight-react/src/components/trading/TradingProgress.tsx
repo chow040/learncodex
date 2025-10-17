@@ -75,6 +75,7 @@ export const TradingProgress = memo(function TradingProgress<Result>({
     typeof onCancel === 'function' &&
     (typeof canCancel === 'boolean' ? canCancel : true) &&
     (state.status === 'connecting' || state.status === 'streaming')
+  const analystDisplay = state.analysts?.map((value) => value.charAt(0).toUpperCase() + value.slice(1))
 
   const stageStatuses = useMemo(() => {
     const completed = new Set<TradingProgressStage>()
@@ -137,6 +138,14 @@ export const TradingProgress = memo(function TradingProgress<Result>({
           <Progress value={percent} className="h-2 flex-1" />
           <span className="text-sm font-semibold text-foreground tabular-nums">{percent}%</span>
         </div>
+        {state.modelId || (state.analysts?.length ?? 0) > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/40 bg-background/40 px-4 py-2 text-xs uppercase tracking-[0.25em] text-muted-foreground/80">
+            {state.modelId ? <span>Model: {state.modelId}</span> : null}
+            {state.analysts && state.analysts.length > 0 ? (
+              <span>Analysts: {analystDisplay?.join(', ')}</span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
           <p className="text-sm font-semibold text-foreground">{currentLabel}</p>
           {secondaryMessage ? <p className="mt-1 text-xs text-muted-foreground">{secondaryMessage}</p> : null}

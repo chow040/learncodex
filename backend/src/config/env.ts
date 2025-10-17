@@ -12,12 +12,41 @@ if (!process.env.DATABASE_URL) {
   console.warn('DATABASE_URL is not set. Assessment logs will not be persisted.');
 }
 
+const parseCsvList = (input: string | undefined): string[] => {
+  if (!input) return [];
+  return input
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+};
+
+const DEFAULT_TRADING_MODELS = [
+  'gpt-4o-mini',
+  'gpt-4o',
+  'gpt-5-mini',
+  'gpt-5-nano',
+  'gpt-5',
+  'gpt-5-pro',
+] as const;
+
+const openAiModel = process.env.OPENAI_MODEL ?? DEFAULT_TRADING_MODELS[0];
+const tradingAllowedModels = (() => {
+  const configured = parseCsvList(process.env.TRADING_ALLOWED_MODELS);
+  const base = configured.length > 0 ? configured : [...DEFAULT_TRADING_MODELS];
+  const unique = new Set(base);
+  if (openAiModel) {
+    unique.add(openAiModel);
+  }
+  return Array.from(unique);
+})();
+
 export const env = {
   openAiBaseUrl: process.env.OPENAI_BASE_URL ?? undefined,
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number.parseInt(process.env.PORT ?? '4000', 10),
   openAiApiKey: process.env.OPENAI_API_KEY ?? '',
-  openAiModel: process.env.OPENAI_MODEL ?? 'gpt-4.1-mini',
+  openAiModel,
+  tradingAllowedModels,
   finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',
   finnhubBaseUrl: process.env.FINNHUB_BASE_URL ?? 'https://finnhub.io/api/v1',
   alphaVantageApiKey: process.env.ALPHAVANTAGE_API_KEY ?? '',
@@ -47,4 +76,6 @@ export const env = {
     (process.env.USE_PAST_RESULTS_IN_ASSESSMENTS ?? 'false').toLowerCase() === 'true',
   pastResultsWindowDays: Number.parseInt(process.env.PAST_RESULTS_WINDOW_DAYS ?? '90', 10),
   pastResultsMaxEntries: Number.parseInt(process.env.PAST_RESULTS_MAX_ENTRIES ?? '5', 10),
+  tradingAssessmentHistoryEnabled:
+    (process.env.TRADING_ASSESSMENT_HISTORY_ENABLED ?? 'false').toLowerCase() === 'true',
 } as const;

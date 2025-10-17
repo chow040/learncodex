@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import { TradingOrchestrator } from '../taEngine/graph/orchestrator.js';
+import { DEFAULT_TRADING_ANALYSTS, type TradingAnalystId } from '../constants/tradingAgents.js';
 import type { TradingAgentsDecision, TradingAgentsPayload, AgentsContext } from '../taEngine/types.js';
 import {
   type QuoteResponse,
@@ -96,11 +97,21 @@ const buildNewsSummary = (articles: CompanyNewsArticle[]): { company: string; re
   };
 };
 
+export interface TradingAgentsDecisionOptions {
+  runId?: string;
+  modelId?: string;
+  analysts?: TradingAnalystId[];
+}
+
 export const requestTradingAgentsDecisionInternal = async (
   symbol: string,
-  options?: { runId?: string },
+  options?: TradingAgentsDecisionOptions,
 ): Promise<TradingAgentsDecision> => {
   const orchestrator = new TradingOrchestrator();
+  const modelId = options?.modelId ?? env.openAiModel;
+  const analysts = options?.analysts && options.analysts.length > 0
+    ? options.analysts
+    : [...DEFAULT_TRADING_ANALYSTS];
 
   // Defaults
       // No pre-fetching - let agents fetch financial data via tool calls
@@ -209,9 +220,17 @@ export const requestTradingAgentsDecisionInternal = async (
     symbol,
     tradeDate: decisionDate,
     context: contextBase,
+    modelId,
+    analysts,
   };
 
-    return orchestrator.run(payload, options) as Promise<TradingAgentsDecision>;
+  const orchestratorOptions = {
+    modelId,
+    analysts,
+    ...(options?.runId ? { runId: options.runId } : {}),
+  } satisfies { runId?: string; modelId: string; analysts: TradingAnalystId[] };
+
+  return orchestrator.run(payload, orchestratorOptions) as Promise<TradingAgentsDecision>;
 };
 
 
