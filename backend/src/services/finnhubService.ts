@@ -1,15 +1,6 @@
 import axios from 'axios';
-import type { AxiosRequestConfig } from 'axios';
 
 import { env } from '../config/env.js';
-import {
-  buildHttpCacheKey,
-  fetchWithHttpCache,
-  getCachePolicy,
-  type CacheDataType,
-  type CachedFetchMeta,
-  type CachedAxiosRequestOptions,
-} from './cache/index.js';
 import { toArray, withServiceError } from './utils/serviceHelpers.js';
 
 const ensureApiKey = () => {
@@ -25,69 +16,6 @@ const http = axios.create({
   timeout: 15_000,
 });
 
-export interface CachedFundamentalsResult<T> {
-  data: T;
-  meta: CachedFetchMeta;
-  raw: unknown;
-}
-
-interface FinnhubCachedFetchOptions<Payload, Result> {
-  symbol: string;
-  dataType: CacheDataType;
-  schemaVersion: string;
-  requestConfig: AxiosRequestConfig;
-  transform: (payload: Payload) => Result;
-  qualifier?: string;
-  asOfExtractor?: (payload: Payload) => string | null | undefined;
-  fingerprintSalt?: string;
-  ttlOverrideSeconds?: number;
-}
-
-const fetchFinnhubCached = async <Payload = unknown, Result = Payload>(
-  options: FinnhubCachedFetchOptions<Payload, Result>,
-): Promise<CachedFundamentalsResult<Result>> => {
-  const {
-    symbol,
-    dataType,
-    schemaVersion,
-    requestConfig,
-    transform,
-    qualifier,
-    asOfExtractor,
-    fingerprintSalt,
-    ttlOverrideSeconds,
-  } = options;
-
-  const ttlSeconds = ttlOverrideSeconds ?? getCachePolicy(dataType).ttlSeconds;
-  const keyParts = {
-    vendor: 'finnhub',
-    dataType,
-    symbol: symbol.toUpperCase(),
-  } satisfies Parameters<typeof buildHttpCacheKey>[0];
-  const cacheKey = buildHttpCacheKey(
-    qualifier ? { ...keyParts, qualifier } : keyParts,
-  );
-  const requestOptions: CachedAxiosRequestOptions<Payload> = {
-    axios: http,
-    requestConfig,
-    cacheKey,
-    schemaVersion,
-    ttlSeconds,
-    dataType,
-  };
-  if (asOfExtractor) {
-    requestOptions.asOfExtractor = asOfExtractor;
-  }
-  if (fingerprintSalt) {
-    requestOptions.fingerprintSalt = fingerprintSalt;
-  }
-  const { data, meta } = await fetchWithHttpCache<Payload>(requestOptions);
-  return {
-    data: transform(data),
-    meta,
-    raw: data as unknown,
-  };
-};
 const toNumberOrNull = (value: unknown): number | null => {
   if (value === null || value === undefined) {
     return null;
@@ -244,155 +172,89 @@ export const getInsiderSentiment = async (
     }));
   });
 
-export const getCompanyProfileCached = async (
-  symbol: string,
-): Promise<CachedFundamentalsResult<CompanyProfile>> =>
+export const getCompanyProfile = async (symbol: string): Promise<CompanyProfile> =>
   withServiceError('finnhub', 'getCompanyProfile', async () => {
     ensureApiKey();
 
-    return fetchFinnhubCached<Record<string, any>, CompanyProfile>({
-      symbol,
-      dataType: 'profile',
-      schemaVersion: 'finnhub_profile_v1',
-      requestConfig: {
-        url: '/stock/profile2',
-        method: 'GET',
-        params: {
-          symbol,
-          token: env.finnhubApiKey,
-        },
+    const { data } = await http.get('/stock/profile2', {
+      params: {
+        symbol,
+        token: env.finnhubApiKey,
       },
-      transform: (payload) => ({
-        symbol: String(payload?.ticker ?? symbol),
-        name: String(payload?.name ?? ''),
-        exchange: String(payload?.exchange ?? ''),
-        currency: String(payload?.currency ?? ''),
-        ipo: String(payload?.ipo ?? ''),
-        marketCapitalization: Number(payload?.marketCapitalization ?? 0),
-        shareOutstanding: Number(payload?.shareOutstanding ?? 0),
-        logo: String(payload?.logo ?? ''),
-        weburl: String(payload?.weburl ?? ''),
-      }),
     });
+
+    return {
+      symbol: data.ticker ?? symbol,
+      name: data.name ?? '',
+      exchange: data.exchange ?? '',
+      currency: data.currency ?? '',
+      ipo: data.ipo ?? '',
+      marketCapitalization: Number(data.marketCapitalization ?? 0),
+      shareOutstanding: Number(data.shareOutstanding ?? 0),
+      logo: data.logo ?? '',
+      weburl: data.weburl ?? '',
+    } satisfies CompanyProfile;
   });
 
-export const getCompanyProfile = async (symbol: string): Promise<CompanyProfile> => {
-  const result = await getCompanyProfileCached(symbol);
-  return result.data;
-};
-
-export const getStockMetricsCached = async (
-  symbol: string,
-): Promise<CachedFundamentalsResult<StockMetrics>> =>
+export const getStockMetrics = async (symbol: string): Promise<StockMetrics> =>
   withServiceError('finnhub', 'getStockMetrics', async () => {
     ensureApiKey();
 
-    return fetchFinnhubCached<Record<string, any>, StockMetrics>({
-      symbol,
-      dataType: 'metrics',
-      schemaVersion: 'finnhub_metrics_v1',
-      qualifier: 'metric:all',
-      requestConfig: {
-        url: '/stock/metric',
-        method: 'GET',
-        params: {
-          symbol,
-          metric: 'all',
-          token: env.finnhubApiKey,
-        },
-      },
-      transform: (payload) => {
-        const metrics = (payload?.metric ?? {}) as Record<string, unknown>;
-        return {
-          symbol,
-          pe: toNumberOrNull(metrics.peNormalizedAnnual ?? metrics.peTTM ?? metrics.peAnnual),
-          eps: toNumberOrNull(metrics.epsNormalizedAnnual ?? metrics.epsTTM ?? metrics.epsAnnual),
-          revenueGrowth: toNumberOrNull(
-            metrics.revenueGrowthTTMYoy ?? metrics.revenueGrowth3Y ?? metrics.revenueGrowth5Y,
-          ),
-          operatingMargin: toNumberOrNull(
-            metrics.operatingMarginTTM ?? metrics.operatingMarginAnnual ?? metrics.operatingMargin5Y,
-          ),
-          dividendYield: toNumberOrNull(
-            metrics.dividendYieldIndicatedAnnual ?? metrics.currentDividendYieldTTM ?? metrics.dividendYieldTTM,
-          ),
-          priceToFreeCashFlow: toNumberOrNull(metrics.pfcfShareTTM ?? metrics['currentEv/freeCashFlowTTM']),
-          debtToEquity: toNumberOrNull(
-            metrics['totalDebt/totalEquityQuarterly'] ?? metrics['totalDebt/totalEquityAnnual'],
-          ),
-          earningsRevision: toNumberOrNull(
-            metrics.epsGrowthTTMYoy ?? metrics.epsGrowthQuarterlyYoy ?? metrics.epsGrowth5Y,
-          ),
-        };
+    const { data } = await http.get('/stock/metric', {
+      params: {
+        symbol,
+        metric: 'all',
+        token: env.finnhubApiKey,
       },
     });
-  });
 
-export const getStockMetrics = async (symbol: string): Promise<StockMetrics> => {
-  const result = await getStockMetricsCached(symbol);
-  return result.data;
-};
+    const metrics = (data?.metric ?? {}) as Record<string, unknown>;
 
-
-
-export const getCompanyNewsCached = async (
-  symbol: string,
-  from: Date,
-  to: Date,
-): Promise<CachedFundamentalsResult<CompanyNewsArticle[]>> =>
-  withServiceError('finnhub', 'getCompanyNews', async () => {
-    ensureApiKey();
-    const fromStr = formatDateParam(from);
-    const toStr = formatDateParam(to);
-
-    return fetchFinnhubCached<any[], CompanyNewsArticle[]>({
+    return {
       symbol,
-      dataType: 'news',
-      schemaVersion: 'finnhub_company_news_v1',
-      qualifier: `${fromStr}:${toStr}`,
-      requestConfig: {
-        url: '/company-news',
-        method: 'GET',
-        params: {
-          symbol,
-          from: fromStr,
-          to: toStr,
-          token: env.finnhubApiKey,
-        },
-      },
-      asOfExtractor: (payload) => {
-        if (!Array.isArray(payload) || payload.length === 0) return toStr;
-        const timestamps = payload
-          .map((item) => (typeof item?.datetime === 'number' ? item.datetime : Number(item?.datetime)))
-          .filter((value) => Number.isFinite(value));
-        if (!timestamps.length) return toStr;
-        const latest = Math.max(...timestamps);
-        return new Date(latest * 1000).toISOString();
-      },
-      transform: (payload) =>
-        toArray<any>(payload)
-          .map((item) => ({
-            datetime:
-              typeof item?.datetime === 'number'
-                ? item.datetime
-                : Number.parseInt(item?.datetime ?? '0', 10) || 0,
-            headline: typeof item?.headline === 'string' ? item.headline : '',
-            summary: typeof item?.summary === 'string' ? item.summary : '',
-            source: typeof item?.source === 'string' ? item.source : '',
-            url: typeof item?.url === 'string' ? item.url : '',
-          }))
-          .filter((article) => article.headline || article.summary || article.url),
-    });
+      pe: toNumberOrNull(metrics.peNormalizedAnnual ?? metrics.peTTM ?? metrics.peAnnual),
+      eps: toNumberOrNull(metrics.epsNormalizedAnnual ?? metrics.epsTTM ?? metrics.epsAnnual),
+      revenueGrowth: toNumberOrNull(metrics.revenueGrowthTTMYoy ?? metrics.revenueGrowth3Y ?? metrics.revenueGrowth5Y),
+      operatingMargin: toNumberOrNull(metrics.operatingMarginTTM ?? metrics.operatingMarginAnnual ?? metrics.operatingMargin5Y),
+      dividendYield: toNumberOrNull(metrics.dividendYieldIndicatedAnnual ?? metrics.currentDividendYieldTTM ?? metrics.dividendYieldTTM),
+      priceToFreeCashFlow: toNumberOrNull(metrics.pfcfShareTTM ?? metrics['currentEv/freeCashFlowTTM']),
+      debtToEquity: toNumberOrNull(metrics['totalDebt/totalEquityQuarterly'] ?? metrics['totalDebt/totalEquityAnnual']),
+      earningsRevision: toNumberOrNull(metrics.epsGrowthTTMYoy ?? metrics.epsGrowthQuarterlyYoy ?? metrics.epsGrowth5Y),
+    } satisfies StockMetrics;
   });
+
+
 
 export const getCompanyNews = async (
   symbol: string,
   from: Date,
   to: Date,
-): Promise<CompanyNewsArticle[]> => {
-  const result = await getCompanyNewsCached(symbol, from, to);
-  return result.data;
-};
+): Promise<CompanyNewsArticle[]> =>
+  withServiceError('finnhub', 'getCompanyNews', async () => {
+    ensureApiKey();
+
+    const { data } = await http.get('/company-news', {
+      params: {
+        symbol,
+        from: formatDateParam(from),
+        to: formatDateParam(to),
+        token: env.finnhubApiKey,
+      },
+    });
+
+    return toArray<any>(data)
+      .map((item) => ({
+        datetime:
+          typeof item.datetime === 'number'
+            ? item.datetime
+            : Number.parseInt(item.datetime ?? '0', 10) || 0,
+        headline: typeof item.headline === 'string' ? item.headline : '',
+        summary: typeof item.summary === 'string' ? item.summary : '',
+        source: typeof item.source === 'string' ? item.source : '',
+        url: typeof item.url === 'string' ? item.url : '',
+      }))
+      .filter((article) => article.headline || article.summary || article.url);
+  });
 
 export const getCandles = async (
   symbol: string,
@@ -430,46 +292,21 @@ export const getCandles = async (
     };
   });
 
-export const getFinancialsReportedCached = async (
-  symbol: string,
-  freq: string = 'quarterly',
-): Promise<CachedFundamentalsResult<any[]>> =>
-  withServiceError('finnhub', 'getFinancialsReported', async () => {
-    ensureApiKey();
-
-    return fetchFinnhubCached<any, any[]>({
-      symbol,
-      dataType: 'statements',
-      schemaVersion: 'finnhub_financials_reported_v1',
-      qualifier: freq,
-      requestConfig: {
-        url: '/stock/financials-reported',
-        method: 'GET',
-        params: {
-          symbol,
-          freq,
-          token: env.finnhubApiKey,
-        },
-      },
-      asOfExtractor: (payload) => {
-        const rows = Array.isArray(payload) ? payload : toArray<any>(payload?.data);
-        if (!rows.length) return null;
-        const first = rows[0] ?? {};
-        const candidates = [
-          typeof first?.endDate === 'string' ? first.endDate : null,
-          typeof first?.reportDate === 'string' ? first.reportDate : null,
-          typeof first?.fiscalDate === 'string' ? first.fiscalDate : null,
-        ];
-        return candidates.find((value) => value && value.length > 0) ?? null;
-      },
-      transform: (payload) => (Array.isArray(payload) ? payload : toArray<any>(payload?.data)),
-    });
-  });
-
 export const getFinancialsReported = async (
   symbol: string,
   freq: string = 'quarterly',
-): Promise<any[]> => {
-  const result = await getFinancialsReportedCached(symbol, freq);
-  return result.data;
-};
+): Promise<any[]> =>
+  withServiceError('finnhub', 'getFinancialsReported', async () => {
+    ensureApiKey();
+
+    const { data } = await http.get('/stock/financials-reported', {
+      params: {
+        symbol,
+        freq,
+        token: env.finnhubApiKey,
+      },
+    });
+
+    // Finnhub may return an object with a `data` array or an array directly
+    return Array.isArray(data) ? data : toArray<any>(data?.data);
+  });

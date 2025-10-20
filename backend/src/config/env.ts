@@ -78,6 +78,4 @@ export const env = {
   pastResultsMaxEntries: Number.parseInt(process.env.PAST_RESULTS_MAX_ENTRIES ?? '5', 10),
   tradingAssessmentHistoryEnabled:
     (process.env.TRADING_ASSESSMENT_HISTORY_ENABLED ?? 'false').toLowerCase() === 'true',
-  tradingAgentVersion: process.env.TRADING_AGENT_VERSION ?? 'v1',
-  cachePolicyPath: process.env.CACHE_POLICY_PATH ?? undefined,
 } as const;

@@ -21,8 +21,6 @@ export interface TradingAgentsPayload {
   context: AgentsContext;
   modelId?: string;
   analysts?: TradingAnalystId[];
-  cacheFingerprint?: string;
-  cacheFingerprintComponents?: Record<string, string>;
 }
 
 export interface AgentPrompt {

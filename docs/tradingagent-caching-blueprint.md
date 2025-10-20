@@ -51,29 +51,29 @@ Deliverable: brief table of endpoints → change signals, and chosen backend.
 
 ### Phase 1 — Core Cache Layer (1–2 days)
 
-- [x] Implement canonicalization and fingerprint utility.
-- [x] Implement HTTP fetcher with conditional requests and TTL fallback.
-- [x] Add cache store with get/set, per-key metadata, and expirations.
-- [x] Define cache key scheme and TTL policy (see Policy section).
+- [ ] Implement canonicalization and fingerprint utility.
+- [ ] Implement HTTP fetcher with conditional requests and TTL fallback.
+- [ ] Add cache store with get/set, per-key metadata, and expirations.
+- [ ] Define cache key scheme and TTL policy (see Policy section).
 - [ ] Add per-key locking to prevent thundering herds (mutex/semaphore).
 
 Deliverable: library module + unit tests for canonicalization and 304 flow.
 
 ### Phase 2 — Wire Up Fundamentals (1–2 days)
 
-- [x] Wrap each fundamentals fetch in HTTP cache layer.
-- [x] Store payload fingerprint and metadata (etag, last_modified, as_of).
+- [ ] Wrap each fundamentals fetch in HTTP cache layer.
+- [ ] Store payload fingerprint and metadata (etag, last_modified, as_of).
 - [ ] Implement event-aware refresh (earnings/filings) for fundamentals.
-- [x] Add config-driven TTLs per data type.
+- [ ] Add config-driven TTLs per data type.
 
 Deliverable: service functions returning `(data, fingerprint, meta)` for each endpoint.
 
 ### Phase 3 — Derived Assessment Cache (1 day)
 
-- [x] Compute composite input fingerprint for assessments (include all inputs, schema, and `agent_version`).
-- [x] Cache assessment results keyed by `assessment:{agent_version}:{symbol}:{input_fp}`.
-- [x] Add fast path to skip LLM call if fingerprint unchanged and not expired.
-- [x] Expose invalidation path when agent logic changes (bump `agent_version`).
+- [ ] Compute composite input fingerprint for assessments (include all inputs, schema, and `agent_version`).
+- [ ] Cache assessment results keyed by `assessment:{agent_version}:{symbol}:{input_fp}`.
+- [ ] Add fast path to skip LLM call if fingerprint unchanged and not expired.
+- [ ] Expose invalidation path when agent logic changes (bump `agent_version`).
 
 Deliverable: assessment wrapper returning cached result when inputs identical.
 
@@ -293,24 +293,13 @@ news:
 
 ## Deliverables Checklist
 
-- [x] Cache library module (HTTP + assessment + store).
-- [x] Configurable policy (JSON override via `CACHE_POLICY_PATH`) for TTLs and events.
-- [x] Wrappers for each fundamentals endpoint returning `(data, fp, meta)`.
-- [x] Assessment wrapper with fingerprint reuse.
+- [ ] Cache library module (HTTP + assessment + store).
+- [ ] Configurable policy (YAML/JSON) for TTLs and events.
+- [ ] Wrappers for each fundamentals endpoint returning `(data, fp, meta)`.
+- [ ] Assessment wrapper with fingerprint reuse.
 - [ ] Metrics + logs + dashboards.
-- [x] Tests (unit + integration).
+- [ ] Tests (unit + integration).
 - [ ] Rollout flag and runbook.
-
-## Implementation Notes — 2025-10-17
-
-- Postgres cache tables (`http_cache`, `assessment_cache`) defined via `backend/sql/007_create_cache_tables.sql`.
-- TypeScript cache utilities live at `backend/src/services/cache/`, exposing canonical JSON fingerprints and a `fetchWithHttpCache` helper.
-- Finnhub fundamentals now flow through `fetchFinnhubCached`, with `getCompanyProfileCached`, `getStockMetricsCached`, and `getCompanyNewsCached` returning fingerprints + metadata for reuse.
-- Trading Agents engine computes composite fingerprints, checks/stores `assessment_cache`, and tags payloads with cache components keyed by `TRADING_AGENT_VERSION`.
-- Cache policy overrides load from an optional JSON file referenced by `CACHE_POLICY_PATH`.
-- Cache telemetry hooks (`recordHttpCacheEvent`, `recordAssessmentCacheEvent`) emit counters and optional JSON logs; enable verbose logging with `CACHE_TELEMETRY_VERBOSE=true`. Dashboards/alert wiring still pending.
-- Vitest coverage added for cache fingerprint, HTTP cache flows, and policy overrides (`backend/src/services/cache/__tests__/`).
-- `getFinancialsReportedCached` seeds statement caching ahead of assessment reuse; legacy `get*` exports proxy to the cached variants for backward compatibility.
 
 ---
 

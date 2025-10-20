@@ -18,8 +18,6 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    cp .env.example .env
    ```
 3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging. By default Trading Agents allow `gpt-4o-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5`, and `gpt-5-pro`; set `TRADING_ALLOWED_MODELS` (comma separated) to override the list or add additional models. Enable the Trading Agents assessment history endpoints by setting `TRADING_ASSESSMENT_HISTORY_ENABLED=true` (requires `DATABASE_URL` so results can be queried).
-   - Optional cache controls: `TRADING_AGENT_VERSION` (default `v1`) partitions stored assessments, and `CACHE_POLICY_PATH` can point to a JSON file that overrides TTLs per cache data type.
-   - Telemetry toggle: set `CACHE_TELEMETRY_VERBOSE=true` to log every cache decision (hits, misses, stores) for debugging.
 4. Create a Reddit script application at https://www.reddit.com/prefs/apps, then copy the generated client ID/secret into `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` (choose the script app type).
 5. If `DATABASE_URL` is set, manage schema with Drizzle:
    - Generate SQL from the TypeScript schema: `npm run drizzle:generate`
