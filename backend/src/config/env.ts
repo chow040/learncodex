@@ -54,6 +54,7 @@ export const env = {
   redditClientSecret: process.env.REDDIT_CLIENT_SECRET ?? '',
   redditUserAgent:
     process.env.REDDIT_USER_AGENT ?? 'EquityInsightApp/1.0 (+https://example.com/contact)',
+  openAiEmbeddingModel: process.env.OPENAI_EMBEDDING_MODEL ?? 'text-embedding-3-small',
   databaseUrl: process.env.DATABASE_URL,
   // Debate round configuration (defaults to 1)
   investDebateRounds: Number.parseInt(process.env.INVEST_DEBATE_ROUNDS ?? '1', 10),

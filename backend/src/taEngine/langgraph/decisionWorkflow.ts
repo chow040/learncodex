@@ -4,8 +4,8 @@ import { ChatOpenAI } from '@langchain/openai';
 import { env } from '../../config/env.js';
 import { logAgentPrompts, writeEvalSummary, logToolCalls } from '../logger.js';
 import { insertTaDecision } from '../../db/taDecisionRepository.js';
-import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { getRoleSummaries } from '../../services/pastResultsService.js';
+import { fetchPersonaMemories, recordPersonaMemory } from '../../services/personaMemoryService.js';
 import type { TradingAgentsPayload, TradingAgentsDecision } from '../types.js';
 import type { AgentsContext } from '../types.js';
 import { runAnalystStage } from './analystsWorkflow.js';
@@ -202,6 +202,18 @@ const buildDebateContext = (state: State): AgentsContext => ({
   ),
 });
 
+const buildSituationSummary = (context: AgentsContext): string => {
+  const sections = [
+    context.market_technical_report ? `Market context:\n${context.market_technical_report}` : null,
+    context.social_reddit_summary ? `Social sentiment:\n${context.social_reddit_summary}` : null,
+    context.news_company ? `Company news:\n${context.news_company}` : null,
+    context.news_global ? `Global news:\n${context.news_global}` : null,
+    context.fundamentals_summary ? `Fundamentals:\n${context.fundamentals_summary}` : null,
+  ].filter((segment): segment is string => Boolean(segment));
+
+  return sections.length ? sections.join('\n\n') : 'No prior context available.';
+};
+
 const truncate = (input: string | null | undefined, limit = 240): string =>
   (input ?? '').slice(0, limit);
 
@@ -223,47 +235,43 @@ const normalizeDecision = (text: string | null | undefined): string => {
 const loadMemoriesNode = async (state: State) => {
   const symbol = state.symbol;
   const tradeDate = state.tradeDate || new Date().toISOString().slice(0, 10);
+  const baseContextSummary = buildSituationSummary(state.context);
 
-  // Prefer DB-backed summaries if enabled; fall back to file memories
+  const personaMemoriesPromise = Promise.all([
+    fetchPersonaMemories('research_manager', symbol, baseContextSummary, 3),
+    fetchPersonaMemories('trader', symbol, baseContextSummary, 3),
+    fetchPersonaMemories('risk_manager', symbol, baseContextSummary, 3),
+  ]);
+
+  let managerMemories = '';
+  let traderMemories = '';
+  let riskManagerMemories = '';
+
   if (env.useDbMemories) {
     try {
       const summaries = await getRoleSummaries(symbol, tradeDate);
-      return {
-        metadata: {
-          ...(state.metadata ?? {}),
-          managerMemories: summaries.manager ?? '',
-          traderMemories: summaries.trader ?? '',
-          riskManagerMemories: summaries.risk ?? '',
-          invest_round: 0,
-          risk_round: 0,
-        },
-      };
+      managerMemories = summaries.manager ?? '';
+      traderMemories = summaries.trader ?? '';
+      riskManagerMemories = summaries.risk ?? '';
     } catch (error) {
-      console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to file store`, error);
+      console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to Supabase/local store`, error);
     }
   }
 
-  const fetchMemory = async (role: 'manager' | 'trader' | 'riskManager'): Promise<string> => {
-    try {
-      return await getPastMemories(symbol, role);
-    } catch (error) {
-      console.error(`[DecisionGraph] Failed to load ${role} memories for ${symbol}`, error);
-      return '';
-    }
-  };
+  const [managerVector, traderVector, riskVector] = await personaMemoriesPromise;
 
-  const [managerMemories, traderMemories, riskManagerMemories] = await Promise.all([
-    fetchMemory('manager'),
-    fetchMemory('trader'),
-    fetchMemory('riskManager'),
-  ]);
+  const normalize = (value: string): string => (value && value.trim().length ? value : '');
+
+  if (!normalize(managerMemories)) managerMemories = normalize(managerVector);
+  if (!normalize(traderMemories)) traderMemories = normalize(traderVector);
+  if (!normalize(riskManagerMemories)) riskManagerMemories = normalize(riskVector);
 
   return {
     metadata: {
       ...(state.metadata ?? {}),
-      managerMemories,
-      traderMemories,
-      riskManagerMemories,
+      managerMemories: normalize(managerMemories),
+      traderMemories: normalize(traderMemories),
+      riskManagerMemories: normalize(riskManagerMemories),
       invest_round: 0,
       risk_round: 0,
     },
@@ -307,6 +315,7 @@ const bearNode = async (state: State) => {
   emitStage(state, 'investment_debate', 'Investment debate', `Bear vs Bull round ${round}`, round);
   const history = state.debate?.investment ?? '';
   const opponentArgument = state.debate?.bull ?? '';
+  const situationSummary = buildSituationSummary(context);
 
   const input = {
     context,
@@ -314,6 +323,7 @@ const bearNode = async (state: State) => {
     tradeDate: state.tradeDate,
     history,
     opponentArgument,
+    reflections: await fetchPersonaMemories('bear', state.symbol, situationSummary, 2),
   };
   const userMessage = buildBearUserMessage(input);
   const output = await runnable.invoke(input);
@@ -341,6 +351,7 @@ const bullNode = async (state: State) => {
   const round = completedRounds + 1;
   const history = state.debate?.investment ?? '';
   const opponentArgument = state.debate?.bear ?? '';
+  const situationSummary = buildSituationSummary(context);
 
   const input = {
     context,
@@ -348,6 +359,7 @@ const bullNode = async (state: State) => {
     tradeDate: state.tradeDate,
     history,
     opponentArgument,
+    reflections: await fetchPersonaMemories('bull', state.symbol, situationSummary, 2),
   };
   const userMessage = buildBullUserMessage(input);
   const output = await runnable.invoke(input);
@@ -607,6 +619,7 @@ const riskManagerNode = async (state: State) => {
 const persistMemoriesNode = async (state: State) => {
   const date = state.tradeDate || new Date().toISOString().slice(0, 10);
   const symbol = state.symbol;
+  const contextSummary = buildSituationSummary(buildDebateContext(state));
 
   emitStage(state, 'finalizing', 'Finalizing decision outputs');
 
@@ -614,32 +627,35 @@ const persistMemoriesNode = async (state: State) => {
 
   if (state.investmentPlan) {
     tasks.push(
-      appendMemory({
+      recordPersonaMemory({
+        persona: 'research_manager',
         symbol,
         date,
-        role: 'manager',
-        summary: `Plan: ${truncate(state.investmentPlan)}`,
+        situation: contextSummary,
+        recommendation: `Plan: ${truncate(state.investmentPlan)}`,
       }),
     );
   }
   if (state.traderPlan) {
     tasks.push(
-      appendMemory({
+      recordPersonaMemory({
+        persona: 'trader',
         symbol,
         date,
-        role: 'trader',
-        summary: `Trader: ${truncate(state.traderPlan)}`,
+        situation: contextSummary,
+        recommendation: `Trader: ${truncate(state.traderPlan)}`,
       }),
     );
   }
   if (state.finalDecision) {
     const decisionToken = (state.metadata?.decision_token as string) ?? normalizeDecision(state.finalDecision);
     tasks.push(
-      appendMemory({
+      recordPersonaMemory({
+        persona: 'risk_manager',
         symbol,
         date,
-        role: 'riskManager',
-        summary: `Risk: ${truncate(state.finalDecision)} | Decision: ${decisionToken}`,
+        situation: contextSummary,
+        recommendation: `Risk: ${truncate(state.finalDecision)} | Decision: ${decisionToken}`,
       }),
     );
   }

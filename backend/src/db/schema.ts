@@ -1,5 +1,5 @@
 import { desc } from 'drizzle-orm';
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum, date } from 'drizzle-orm/pg-core';
 
 import type {
   AssessmentContext,
@@ -89,14 +89,32 @@ export const assessmentLogs = pgTable(
   }),
 );
 
+export const personaMemories = pgTable(
+  'persona_memories',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    persona: text('persona').notNull(),
+    symbol: text('symbol').notNull(),
+    situation: text('situation'),
+    recommendation: text('recommendation').notNull(),
+    embedding: jsonb('embedding').$type<number[]>().notNull(),
+    tradeDate: date('trade_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    personaSymbolIdx: index('idx_persona_memories_persona_symbol').on(table.persona, table.symbol),
+    createdAtIdx: index('idx_persona_memories_created_at').on(desc(table.createdAt)),
+  }),
+);
+
 export const schema = {
   tables: {
     users: users,
     user_identities: userIdentities,
     sessions: sessions,
     assessment_logs: assessmentLogs,
+    persona_memories: personaMemories,
   },
 } as const;
 
 export type Schema = typeof schema;
-
