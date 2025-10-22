@@ -1,7 +1,7 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables';
 import type { RunnableInterface } from '@langchain/core/runnables';
-import { AIMessage } from '@langchain/core/messages';
+import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
 import { TOOL_IDS } from '../toolRegistry.js';
@@ -98,7 +98,9 @@ const aiMessageToString = (message: unknown): string => {
   return JSON.stringify(message ?? '');
 };
 
-const buildFundamentalsRunnable = (context: AnalystNodeContext): RunnableInterface<AgentsContext, string> => {
+type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
+
+const buildFundamentalsRunnable = (context: AnalystNodeContext): RunnableInterface<AnalystInput, AIMessage> => {
   const llm = context.llm;
   if (!llm) {
     throw new Error('Fundamentals analyst runnable requires an LLM instance in context.');
@@ -119,17 +121,15 @@ const buildFundamentalsRunnable = (context: AnalystNodeContext): RunnableInterfa
   const prompt = ChatPromptTemplate.fromMessages([
     ['system', FUNDAMENTALS_SYSTEM_PROMPT],
     ['human', '{collaborationHeader}\n\n{userContext}'],
+    new MessagesPlaceholder('messages'),
   ]);
 
   const prepareInputs = new RunnableLambda({
-    func: async (input: AgentsContext) => ({
+    func: async (input: AnalystInput) => ({
       collaborationHeader: buildFundamentalsCollaborationHeader(context),
       userContext: buildFundamentalsUserContext(input),
+      messages: input.messages ?? [],
     }),
-  });
-
-  const convertOutput = new RunnableLambda({
-    func: async (message: unknown) => aiMessageToString(message),
   });
 
   const llmWithTools =
@@ -141,7 +141,6 @@ const buildFundamentalsRunnable = (context: AnalystNodeContext): RunnableInterfa
     prepareInputs,
     prompt,
     llmWithTools,
-    convertOutput,
   ]);
 };
 

@@ -2,7 +2,7 @@ import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 
 import { env } from '../../config/env.js';
-import { logAgentPrompts, writeEvalSummary } from '../logger.js';
+import { logAgentPrompts, writeEvalSummary, logToolCalls } from '../logger.js';
 import { insertTaDecision } from '../../db/taDecisionRepository.js';
 import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { getRoleSummaries } from '../../services/pastResultsService.js';
@@ -274,7 +274,7 @@ const analystsNode = async (state: State) => {
   emitStage(state, 'analysts', 'Running analyst stage');
   const modelId = resolveModelId(state);
   const enabledAnalysts = resolveEnabledAnalysts(state);
-  const { reports, conversationLog } = await runAnalystStage(
+  const { reports, conversationLog, toolCalls } = await runAnalystStage(
     state.symbol,
     state.tradeDate,
     state.context,
@@ -282,6 +282,16 @@ const analystsNode = async (state: State) => {
       modelId,
       enabledAnalysts,
     },
+  );
+  await logToolCalls(
+    {
+      symbol: state.symbol,
+      tradeDate: state.tradeDate,
+      context: state.context,
+      modelId,
+      analysts: enabledAnalysts,
+    },
+    toolCalls ?? [],
   );
   return {
     reports,

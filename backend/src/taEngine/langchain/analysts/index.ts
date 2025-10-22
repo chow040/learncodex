@@ -34,10 +34,15 @@ type CreateOptions = {
   runLogger?: ToolLogger;
 };
 
+type CreateAnalystRunnableResult = {
+  runnable: RunnableInterface<any, any>;
+  tools: Record<string, StructuredToolInterface<any, any>>;
+};
+
 export const createAnalystRunnable = (
   id: string,
   options: CreateOptions,
-) => {
+): CreateAnalystRunnableResult => {
   const registration = getAnalystRegistration(id);
 
   const toolContext: ToolContext = {
@@ -63,5 +68,10 @@ export const createAnalystRunnable = (
     context.runLogger = options.runLogger;
   }
 
-  return registration.createRunnable(context);
+  const runnable = registration.createRunnable(context);
+
+  return {
+    runnable,
+    tools,
+  };
 };

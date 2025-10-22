@@ -1,5 +1,6 @@
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { RunnableInterface, RunnableConfig } from '@langchain/core/runnables';
+import type { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../types.js';
 import type { ToolId } from './toolRegistry.js';
@@ -73,7 +74,7 @@ export interface AnalystNodeContext {
 
 export interface AnalystNodeRegistration<
   Input = AgentsContext,
-  Output = unknown
+  Output = AIMessage
 > {
   /**
    * Identifier for the node inside the LangGraph workflow.

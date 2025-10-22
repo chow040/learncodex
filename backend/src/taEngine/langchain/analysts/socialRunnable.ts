@@ -1,7 +1,7 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables';
 import type { RunnableInterface } from '@langchain/core/runnables';
-import { AIMessage } from '@langchain/core/messages';
+import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
 import { TOOL_IDS } from '../toolRegistry.js';
@@ -78,7 +78,9 @@ const messageToString = (message: unknown): string => {
   return JSON.stringify(message ?? '');
 };
 
-const buildSocialRunnable = (context: AnalystNodeContext): RunnableInterface<AgentsContext, string> => {
+type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
+
+const buildSocialRunnable = (context: AnalystNodeContext): RunnableInterface<AnalystInput, AIMessage> => {
   const llm = context.llm;
   if (!llm) {
     throw new Error('Social analyst runnable requires an LLM instance in context.');
@@ -99,17 +101,15 @@ const buildSocialRunnable = (context: AnalystNodeContext): RunnableInterface<Age
   const prompt = ChatPromptTemplate.fromMessages([
     ['system', SOCIAL_SYSTEM_PROMPT],
     ['human', '{collaborationHeader}\n\n{userContext}'],
+    new MessagesPlaceholder('messages'),
   ]);
 
   const prepareInputs = new RunnableLambda({
-    func: async (input: AgentsContext) => ({
+    func: async (input: AnalystInput) => ({
       collaborationHeader: buildSocialCollaborationHeader(context),
       userContext: buildSocialUserContext(input),
+      messages: input.messages ?? [],
     }),
-  });
-
-  const convertOutput = new RunnableLambda({
-    func: async (message: unknown) => messageToString(message),
   });
 
   const llmWithTools =
@@ -121,7 +121,6 @@ const buildSocialRunnable = (context: AnalystNodeContext): RunnableInterface<Age
     prepareInputs,
     prompt,
     llmWithTools,
-    convertOutput,
   ]);
 };
 

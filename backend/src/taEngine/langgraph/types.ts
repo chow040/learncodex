@@ -1,4 +1,5 @@
 import type { AgentsContext } from '../types.js';
+import type { ToolCallRecord } from '../langchain/types.js';
 
 export type AnalystReports = {
   market?: string;
@@ -23,6 +24,10 @@ export interface ConversationLogEntry {
   user: string;
 }
 
+export type AnalystToolCall = ToolCallRecord & {
+  persona: string;
+};
+
 export interface GraphState {
   symbol: string;
   tradeDate: string;
@@ -35,6 +40,7 @@ export interface GraphState {
   debate: DebateHistory;
   metadata: Record<string, unknown>;
   result?: import('../types.js').TradingAgentsDecision;
+  toolCalls: AnalystToolCall[];
 }
 
 export const createInitialState = (
@@ -52,4 +58,5 @@ export const createInitialState = (
   conversationLog: [],
   debate: {},
   metadata: {},
+  toolCalls: [],
 });

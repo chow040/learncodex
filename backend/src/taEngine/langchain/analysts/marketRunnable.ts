@@ -1,7 +1,7 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables';
 import type { RunnableInterface } from '@langchain/core/runnables';
-import { AIMessage } from '@langchain/core/messages';
+import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
 import type { AnalystNodeContext, AnalystNodeRegistration } from '../types.js';
@@ -80,7 +80,9 @@ const aiMessageToString = (message: unknown): string => {
   return JSON.stringify(message ?? '');
 };
 
-const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<AgentsContext, string> => {
+type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
+
+const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<AnalystInput, AIMessage> => {
   const llm = context.llm;
   if (!llm) {
     throw new Error('Market analyst runnable requires an LLM instance in context.');
@@ -101,17 +103,15 @@ const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<Age
   const prompt = ChatPromptTemplate.fromMessages([
     ['system', MARKET_SYSTEM_PROMPT],
     ['human', '{collaborationHeader}\n\n{userContext}'],
+    new MessagesPlaceholder('messages'),
   ]);
 
   const prepareInputs = new RunnableLambda({
-    func: async (input: AgentsContext) => ({
+    func: async (input: AnalystInput) => ({
       collaborationHeader: buildMarketCollaborationHeader(context),
       userContext: buildMarketUserContext(input),
+      messages: input.messages ?? [],
     }),
-  });
-
-  const convertOutput = new RunnableLambda({
-    func: async (message: unknown) => aiMessageToString(message),
   });
 
   const llmWithTools =
@@ -123,7 +123,6 @@ const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<Age
     prepareInputs,
     prompt,
     llmWithTools,
-    convertOutput,
   ]);
 };
 
