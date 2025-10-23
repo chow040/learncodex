@@ -1,4 +1,4 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 import { TOOL_IDS } from '../toolRegistry.js';
@@ -91,15 +91,14 @@ const buildNewsRunnable = (context) => {
     const prompt = ChatPromptTemplate.fromMessages([
         ['system', NEWS_SYSTEM_PROMPT],
         ['human', '{collaborationHeader}\n\n{userContext}'],
+        new MessagesPlaceholder('messages'),
     ]);
     const prepareInputs = new RunnableLambda({
         func: async (input) => ({
             collaborationHeader: buildNewsCollaborationHeader(context),
             userContext: buildNewsUserContext(input),
+            messages: input.messages ?? [],
         }),
-    });
-    const convertOutput = new RunnableLambda({
-        func: async (message) => aiMessageToString(message),
     });
     let llmWithTools;
     if (typeof llm.bindTools === 'function') {
@@ -112,7 +111,6 @@ const buildNewsRunnable = (context) => {
         prepareInputs,
         prompt,
         llmWithTools,
-        convertOutput,
     ]);
 };
 export const newsAnalystRegistration = {

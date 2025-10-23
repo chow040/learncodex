@@ -1,5 +1,5 @@
 import { desc } from 'drizzle-orm';
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum, date } from 'drizzle-orm/pg-core';
 // Auth-related enums
 export const providerEnum = pgEnum('provider', ['google']);
 // Users table - canonical user records
@@ -58,12 +58,26 @@ export const assessmentLogs = pgTable('assessment_logs', {
 }, (table) => ({
     symbolCreatedAtIdx: index('idx_assessment_logs_symbol_created_at').on(table.symbol, desc(table.createdAt)),
 }));
+export const personaMemories = pgTable('persona_memories', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    persona: text('persona').notNull(),
+    symbol: text('symbol').notNull(),
+    situation: text('situation'),
+    recommendation: text('recommendation').notNull(),
+    embedding: jsonb('embedding').$type().notNull(),
+    tradeDate: date('trade_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    personaSymbolIdx: index('idx_persona_memories_persona_symbol').on(table.persona, table.symbol),
+    createdAtIdx: index('idx_persona_memories_created_at').on(desc(table.createdAt)),
+}));
 export const schema = {
     tables: {
         users: users,
         user_identities: userIdentities,
         sessions: sessions,
         assessment_logs: assessmentLogs,
+        persona_memories: personaMemories,
     },
 };
 //# sourceMappingURL=schema.js.map

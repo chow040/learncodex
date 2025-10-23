@@ -9,5 +9,6 @@ export const createInitialState = (symbol, tradeDate, context) => ({
     conversationLog: [],
     debate: {},
     metadata: {},
+    toolCalls: [],
 });
 //# sourceMappingURL=types.js.map

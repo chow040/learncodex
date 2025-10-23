@@ -1,4 +1,4 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { RunnableLambda, RunnableSequence } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 const MISSING_PLACEHOLDER = 'Not provided by internal engine at this time.';
@@ -84,15 +84,14 @@ const buildMarketRunnable = (context) => {
     const prompt = ChatPromptTemplate.fromMessages([
         ['system', MARKET_SYSTEM_PROMPT],
         ['human', '{collaborationHeader}\n\n{userContext}'],
+        new MessagesPlaceholder('messages'),
     ]);
     const prepareInputs = new RunnableLambda({
         func: async (input) => ({
             collaborationHeader: buildMarketCollaborationHeader(context),
             userContext: buildMarketUserContext(input),
+            messages: input.messages ?? [],
         }),
-    });
-    const convertOutput = new RunnableLambda({
-        func: async (message) => aiMessageToString(message),
     });
     const llmWithTools = typeof llm.bindTools === 'function'
         ? llm.bindTools(toolInstances)
@@ -101,7 +100,6 @@ const buildMarketRunnable = (context) => {
         prepareInputs,
         prompt,
         llmWithTools,
-        convertOutput,
     ]);
 };
 export const marketAnalystRegistration = {

@@ -4,6 +4,7 @@ import type { RunnableInterface } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
+import type { RiskDebateRoundEntry } from '../../langgraph/types.js';
 
 export interface RiskDebateInput {
   context: AgentsContext;
@@ -12,6 +13,7 @@ export interface RiskDebateInput {
   lastRisky?: string;
   lastSafe?: string;
   lastNeutral?: string;
+  rounds?: RiskDebateRoundEntry[];
 }
 
 const messageToString = (message: unknown): string => {
@@ -61,6 +63,11 @@ export const buildRiskBaseSections = (input: RiskDebateInput): string[] => [
   `Sentiment report:\n${input.context.social_reddit_summary}`,
   `News report:\n${input.context.news_global}`,
   `Debate history:\n${input.history || '(none)'}`,
+  `Round transcripts:\n${
+    input.rounds && input.rounds.length
+      ? input.rounds.map((round) => `${round.round}. ${round.persona.toUpperCase()}: ${round.content}`).join('\n')
+      : '(none)'
+  }`,
 ];
 
 export const buildRiskyUserMessage = (input: RiskDebateInput): string => {

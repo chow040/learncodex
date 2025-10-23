@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import type { TradingAgentsPayload, AgentPrompt } from './types.js';
 import type { TradingAgentsDecision } from './types.js';
 import type { ToolCallRecord } from './langchain/types.js';
+import type { DebateRoundEntry, RiskDebateRoundEntry } from './langgraph/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,9 +60,11 @@ export async function writeEvalSummary(
   decision: TradingAgentsDecision,
   details: {
     investmentDebateHistory?: string;
+    investmentDebateRounds?: DebateRoundEntry[];
     bullArg?: string | null;
     bearArg?: string | null;
     riskDebateHistory?: string;
+    riskDebateRounds?: RiskDebateRoundEntry[];
     riskyOut?: string | null;
     safeOut?: string | null;
     neutralOut?: string | null;
@@ -91,6 +94,7 @@ export async function writeEvalSummary(
         bull_history: details.bullArg ?? null,
         bear_history: details.bearArg ?? null,
         history: details.investmentDebateHistory ?? null,
+        rounds: details.investmentDebateRounds ?? null,
         current_response: decision.investmentPlan ?? null,
         judge_decision: decision.investmentJudge ?? decision.investmentPlan ?? null,
       },
@@ -100,6 +104,7 @@ export async function writeEvalSummary(
         safe_history: details.safeOut ?? null,
         neutral_history: details.neutralOut ?? null,
         history: details.riskDebateHistory ?? null,
+        rounds: details.riskDebateRounds ?? null,
         judge_decision: decision.riskJudge ?? null,
       },
       investment_plan: decision.investmentPlan ?? null,

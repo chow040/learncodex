@@ -4,6 +4,7 @@ import type { RunnableInterface } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
+import type { DebateRoundEntry } from '../../langgraph/types.js';
 
 export interface DebateInput {
   context: AgentsContext;
@@ -12,9 +13,17 @@ export interface DebateInput {
   history: string;
   opponentArgument: string;
   reflections?: string;
+  rounds?: DebateRoundEntry[];
 }
 
 export const BEAR_SYSTEM_PROMPT = `You are a Bear Analyst making the case against investing. Emphasize risks, challenges, and negative indicators. Engage directly with the bull's latest argument. Be conversational, no special formatting.`;
+
+const formatDebateRounds = (rounds?: DebateRoundEntry[]): string => {
+  if (!rounds || rounds.length === 0) return '(none)';
+  return rounds
+    .map((round) => `${round.round}. ${round.persona.toUpperCase()}: ${round.content}`)
+    .join('\n');
+};
 
 export const buildBearUserMessage = (input: DebateInput): string => {
   const lines = [
@@ -25,6 +34,7 @@ export const buildBearUserMessage = (input: DebateInput): string => {
     `Fundamentals summary:\n${input.context.fundamentals_summary || 'No fundamentals summary provided.'}`,
     `Past reflections:\n${input.reflections || '(none)'}`,
     `Conversation history:\n${input.history || '(none)'}`,
+    `Round transcripts:\n${formatDebateRounds(input.rounds)}`,
     `Last bull argument:\n${input.opponentArgument || '(none)'}`,
     'Deliver a compelling bear argument and directly refute the bull’s points.',
   ];

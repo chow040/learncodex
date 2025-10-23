@@ -1,12 +1,13 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { env } from '../../config/env.js';
-import { logAgentPrompts, writeEvalSummary } from '../logger.js';
+import { logAgentPrompts, writeEvalSummary, logToolCalls } from '../logger.js';
 import { insertTaDecision } from '../../db/taDecisionRepository.js';
-import { getPastMemories, appendMemory } from '../memoryStore.js';
 import { getRoleSummaries } from '../../services/pastResultsService.js';
+import { fetchPersonaMemories, recordPersonaMemory } from '../../services/personaMemoryService.js';
 import { runAnalystStage } from './analystsWorkflow.js';
 import { publishProgressEvent } from '../../services/tradingProgressService.js';
+import { DEFAULT_TRADING_ANALYSTS, isTradingAnalystId, } from '../../constants/tradingAgents.js';
 import { createInitialState, } from './types.js';
 import { BEAR_SYSTEM_PROMPT, buildBearUserMessage, createBearDebateRunnable, } from '../langchain/debates/bearRunnable.js';
 import { BULL_SYSTEM_PROMPT, buildBullUserMessage, createBullDebateRunnable, } from '../langchain/debates/bullRunnable.js';
@@ -51,13 +52,13 @@ const StateAnnotation = Annotation.Root({
         default: () => undefined,
     }),
 });
-const createChatModel = () => {
+const createChatModel = (modelOverride) => {
     if (!env.openAiApiKey) {
         throw new Error('OPENAI_API_KEY is not configured.');
     }
     const options = {
         openAIApiKey: env.openAiApiKey,
-        model: env.openAiModel,
+        model: modelOverride ?? env.openAiModel,
         temperature: 1,
     };
     if (env.openAiBaseUrl) {
@@ -84,11 +85,33 @@ const stagePercents = {
     risk_manager: 95,
     finalizing: 100,
 };
+const resolveModelId = (state) => {
+    const raw = state.metadata?.modelId ?? '';
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : env.openAiModel;
+};
+const resolveEnabledAnalysts = (state) => {
+    const raw = state.metadata?.enabledAnalysts;
+    if (Array.isArray(raw)) {
+        const set = new Set();
+        for (const entry of raw) {
+            if (typeof entry !== 'string')
+                continue;
+            const normalized = entry.trim().toLowerCase();
+            if (isTradingAnalystId(normalized)) {
+                set.add(normalized);
+            }
+        }
+        if (set.size > 0) {
+            return DEFAULT_TRADING_ANALYSTS.filter((id) => set.has(id));
+        }
+    }
+    return [...DEFAULT_TRADING_ANALYSTS];
+};
 const emitStage = (state, stage, label, message, iteration) => {
     const runId = typeof state.metadata?.progressRunId === 'string' ? state.metadata.progressRunId : null;
     if (!runId)
         return;
-    console.log('[Progress] emitting', runId, stage, label, message);
     const payload = {
         runId,
         stage,
@@ -96,6 +119,8 @@ const emitStage = (state, stage, label, message, iteration) => {
         percent: stagePercents[stage],
         ...(message !== undefined ? { message } : {}),
         ...(iteration !== undefined ? { iteration } : {}),
+        modelId: resolveModelId(state),
+        analysts: resolveEnabledAnalysts(state),
     };
     publishProgressEvent(runId, payload);
 };
@@ -107,6 +132,16 @@ const buildDebateContext = (state) => ({
     news_company: coalesceReport(state.reports, 'news', state.context.news_company),
     fundamentals_summary: coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary),
 });
+const buildSituationSummary = (context) => {
+    const sections = [
+        context.market_technical_report ? `Market context:\n${context.market_technical_report}` : null,
+        context.social_reddit_summary ? `Social sentiment:\n${context.social_reddit_summary}` : null,
+        context.news_company ? `Company news:\n${context.news_company}` : null,
+        context.news_global ? `Global news:\n${context.news_global}` : null,
+        context.fundamentals_summary ? `Fundamentals:\n${context.fundamentals_summary}` : null,
+    ].filter((segment) => Boolean(segment));
+    return sections.length ? sections.join('\n\n') : 'No prior context available.';
+};
 const truncate = (input, limit = 240) => (input ?? '').slice(0, limit);
 const normalizeDecision = (text) => {
     const value = (text ?? '').toString();
@@ -125,45 +160,40 @@ const normalizeDecision = (text) => {
 const loadMemoriesNode = async (state) => {
     const symbol = state.symbol;
     const tradeDate = state.tradeDate || new Date().toISOString().slice(0, 10);
-    // Prefer DB-backed summaries if enabled; fall back to file memories
+    const baseContextSummary = buildSituationSummary(state.context);
+    const personaMemoriesPromise = Promise.all([
+        fetchPersonaMemories('research_manager', symbol, baseContextSummary, 3),
+        fetchPersonaMemories('trader', symbol, baseContextSummary, 3),
+        fetchPersonaMemories('risk_manager', symbol, baseContextSummary, 3),
+    ]);
+    let managerMemories = '';
+    let traderMemories = '';
+    let riskManagerMemories = '';
     if (env.useDbMemories) {
         try {
             const summaries = await getRoleSummaries(symbol, tradeDate);
-            return {
-                metadata: {
-                    ...(state.metadata ?? {}),
-                    managerMemories: summaries.manager ?? '',
-                    traderMemories: summaries.trader ?? '',
-                    riskManagerMemories: summaries.risk ?? '',
-                    invest_round: 0,
-                    risk_round: 0,
-                },
-            };
+            managerMemories = summaries.manager ?? '';
+            traderMemories = summaries.trader ?? '';
+            riskManagerMemories = summaries.risk ?? '';
         }
         catch (error) {
-            console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to file store`, error);
+            console.warn(`[DecisionGraph] DB-backed memories unavailable for ${symbol}; falling back to Supabase/local store`, error);
         }
     }
-    const fetchMemory = async (role) => {
-        try {
-            return await getPastMemories(symbol, role);
-        }
-        catch (error) {
-            console.error(`[DecisionGraph] Failed to load ${role} memories for ${symbol}`, error);
-            return '';
-        }
-    };
-    const [managerMemories, traderMemories, riskManagerMemories] = await Promise.all([
-        fetchMemory('manager'),
-        fetchMemory('trader'),
-        fetchMemory('riskManager'),
-    ]);
+    const [managerVector, traderVector, riskVector] = await personaMemoriesPromise;
+    const normalize = (value) => (value && value.trim().length ? value : '');
+    if (!normalize(managerMemories))
+        managerMemories = normalize(managerVector);
+    if (!normalize(traderMemories))
+        traderMemories = normalize(traderVector);
+    if (!normalize(riskManagerMemories))
+        riskManagerMemories = normalize(riskVector);
     return {
         metadata: {
             ...(state.metadata ?? {}),
-            managerMemories,
-            traderMemories,
-            riskManagerMemories,
+            managerMemories: normalize(managerMemories),
+            traderMemories: normalize(traderMemories),
+            riskManagerMemories: normalize(riskManagerMemories),
             invest_round: 0,
             risk_round: 0,
         },
@@ -171,26 +201,40 @@ const loadMemoriesNode = async (state) => {
 };
 const analystsNode = async (state) => {
     emitStage(state, 'analysts', 'Running analyst stage');
-    const { reports, conversationLog } = await runAnalystStage(state.symbol, state.tradeDate, state.context);
+    const modelId = resolveModelId(state);
+    const enabledAnalysts = resolveEnabledAnalysts(state);
+    const { reports, conversationLog, toolCalls } = await runAnalystStage(state.symbol, state.tradeDate, state.context, {
+        modelId,
+        enabledAnalysts,
+    });
+    await logToolCalls({
+        symbol: state.symbol,
+        tradeDate: state.tradeDate,
+        context: state.context,
+        modelId,
+        analysts: enabledAnalysts,
+    }, toolCalls ?? []);
     return {
         reports,
         conversationLog,
     };
 };
 const bearNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createBearDebateRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.invest_round ?? 0) + 1;
     emitStage(state, 'investment_debate', 'Investment debate', `Bear vs Bull round ${round}`, round);
     const history = state.debate?.investment ?? '';
     const opponentArgument = state.debate?.bull ?? '';
+    const situationSummary = buildSituationSummary(context);
     const input = {
         context,
         symbol: state.symbol,
         tradeDate: state.tradeDate,
         history,
         opponentArgument,
+        reflections: await fetchPersonaMemories('bear', state.symbol, situationSummary, 2),
     };
     const userMessage = buildBearUserMessage(input);
     const output = await runnable.invoke(input);
@@ -209,19 +253,21 @@ const bearNode = async (state) => {
     };
 };
 const bullNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createBullDebateRunnable(llm);
     const context = buildDebateContext(state);
     const completedRounds = Number(state.metadata?.invest_round ?? 0);
     const round = completedRounds + 1;
     const history = state.debate?.investment ?? '';
     const opponentArgument = state.debate?.bear ?? '';
+    const situationSummary = buildSituationSummary(context);
     const input = {
         context,
         symbol: state.symbol,
         tradeDate: state.tradeDate,
         history,
         opponentArgument,
+        reflections: await fetchPersonaMemories('bull', state.symbol, situationSummary, 2),
     };
     const userMessage = buildBullUserMessage(input);
     const output = await runnable.invoke(input);
@@ -244,7 +290,7 @@ const bullNode = async (state) => {
     };
 };
 const researchManagerNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createResearchManagerRunnable(llm);
     const managerMemories = state.metadata?.managerMemories ?? '';
     const debateHistory = state.debate?.investment ?? '';
@@ -275,7 +321,7 @@ const researchManagerNode = async (state) => {
     };
 };
 const traderNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createTraderRunnable(llm);
     const traderMemories = state.metadata?.traderMemories ?? '';
     const marketReport = coalesceReport(state.reports, 'market', state.context.market_technical_report);
@@ -307,7 +353,7 @@ const traderNode = async (state) => {
     };
 };
 const riskyNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createRiskyAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.risk_round ?? 0) + 1;
@@ -341,7 +387,7 @@ const riskyNode = async (state) => {
     };
 };
 const safeNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createSafeAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.risk_round ?? 0) + 1;
@@ -374,7 +420,7 @@ const safeNode = async (state) => {
     };
 };
 const neutralNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createNeutralAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const completedRounds = Number(state.metadata?.risk_round ?? 0);
@@ -412,7 +458,7 @@ const neutralNode = async (state) => {
     };
 };
 const riskManagerNode = async (state) => {
-    const llm = createChatModel();
+    const llm = createChatModel(resolveModelId(state));
     const runnable = createRiskManagerRunnable(llm);
     const riskMemories = state.metadata?.riskManagerMemories ?? '';
     emitStage(state, 'risk_manager', 'Risk manager verdict');
@@ -450,31 +496,35 @@ const riskManagerNode = async (state) => {
 const persistMemoriesNode = async (state) => {
     const date = state.tradeDate || new Date().toISOString().slice(0, 10);
     const symbol = state.symbol;
+    const contextSummary = buildSituationSummary(buildDebateContext(state));
     emitStage(state, 'finalizing', 'Finalizing decision outputs');
     const tasks = [];
     if (state.investmentPlan) {
-        tasks.push(appendMemory({
+        tasks.push(recordPersonaMemory({
+            persona: 'research_manager',
             symbol,
             date,
-            role: 'manager',
-            summary: `Plan: ${truncate(state.investmentPlan)}`,
+            situation: contextSummary,
+            recommendation: `Plan: ${truncate(state.investmentPlan)}`,
         }));
     }
     if (state.traderPlan) {
-        tasks.push(appendMemory({
+        tasks.push(recordPersonaMemory({
+            persona: 'trader',
             symbol,
             date,
-            role: 'trader',
-            summary: `Trader: ${truncate(state.traderPlan)}`,
+            situation: contextSummary,
+            recommendation: `Trader: ${truncate(state.traderPlan)}`,
         }));
     }
     if (state.finalDecision) {
         const decisionToken = state.metadata?.decision_token ?? normalizeDecision(state.finalDecision);
-        tasks.push(appendMemory({
+        tasks.push(recordPersonaMemory({
+            persona: 'risk_manager',
             symbol,
             date,
-            role: 'riskManager',
-            summary: `Risk: ${truncate(state.finalDecision)} | Decision: ${decisionToken}`,
+            situation: contextSummary,
+            recommendation: `Risk: ${truncate(state.finalDecision)} | Decision: ${decisionToken}`,
         }));
     }
     if (tasks.length) {
@@ -485,6 +535,9 @@ const persistMemoriesNode = async (state) => {
 const finalizeNode = async (state) => {
     const decisionToken = state.metadata?.decision_token ??
         normalizeDecision(state.finalDecision);
+    const modelId = resolveModelId(state);
+    const enabledAnalysts = resolveEnabledAnalysts(state);
+    const enabledSet = new Set(enabledAnalysts);
     const decision = {
         symbol: state.symbol,
         tradeDate: state.tradeDate,
@@ -494,16 +547,31 @@ const finalizeNode = async (state) => {
         traderPlan: state.traderPlan ?? null,
         investmentJudge: state.investmentPlan ?? null,
         riskJudge: state.finalDecision ?? null,
-        marketReport: coalesceReport(state.reports, 'market', state.context.market_technical_report) || null,
-        sentimentReport: coalesceReport(state.reports, 'social', state.context.social_reddit_summary) || null,
-        newsReport: coalesceReport(state.reports, 'news', state.context.news_company) || null,
-        fundamentalsReport: coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null,
+        modelId,
+        analysts: enabledAnalysts,
         debugPrompt: '',
     };
+    if (enabledSet.has('market')) {
+        decision.marketReport =
+            coalesceReport(state.reports, 'market', state.context.market_technical_report) || null;
+    }
+    if (enabledSet.has('social')) {
+        decision.sentimentReport =
+            coalesceReport(state.reports, 'social', state.context.social_reddit_summary) || null;
+    }
+    if (enabledSet.has('news')) {
+        decision.newsReport = coalesceReport(state.reports, 'news', state.context.news_company) || null;
+    }
+    if (enabledSet.has('fundamental')) {
+        decision.fundamentalsReport =
+            coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null;
+    }
     const payload = {
         symbol: state.symbol,
         tradeDate: state.tradeDate,
         context: state.context,
+        modelId,
+        analysts: enabledAnalysts,
     };
     let promptsLogPath = null;
     try {
@@ -531,10 +599,13 @@ const finalizeNode = async (state) => {
     }
     // Best-effort DB persistence of decision for analytics / memory
     try {
+        const runId = typeof state.metadata?.progressRunId === 'string' ? state.metadata.progressRunId : undefined;
         await insertTaDecision({
             decision,
             payload,
-            model: env.openAiModel,
+            ...(runId ? { runId } : {}),
+            model: modelId,
+            analysts: enabledAnalysts,
             orchestratorVersion: 'langgraph',
             logsPath: evalLogPath ?? promptsLogPath ?? null,
             rawText: null,
@@ -593,31 +664,60 @@ const decisionGraph = (() => {
     return graph.compile();
 })();
 export const runDecisionGraph = async (payload, options) => {
+    const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.openAiModel)?.trim() ?? env.openAiModel;
+    const normalizedAnalysts = options?.analysts && options.analysts.length > 0
+        ? options.analysts
+        : payload.analysts && payload.analysts.length > 0
+            ? payload.analysts
+            : [...DEFAULT_TRADING_ANALYSTS];
+    const normalizedPayload = {
+        ...payload,
+        modelId: normalizedModelId,
+        analysts: normalizedAnalysts,
+    };
     const initialState = {
-        ...createInitialState(payload.symbol, payload.tradeDate, payload.context),
+        ...createInitialState(normalizedPayload.symbol, normalizedPayload.tradeDate, normalizedPayload.context),
         metadata: {
-            payload,
+            payload: normalizedPayload,
             progressRunId: options?.runId,
+            modelId: normalizedModelId,
+            enabledAnalysts: normalizedAnalysts,
         },
     };
     try {
         const finalState = await decisionGraph.invoke(initialState);
         if (!finalState.result) {
-            return {
-                symbol: payload.symbol,
-                tradeDate: payload.tradeDate,
+            const enabledSet = new Set(normalizedAnalysts);
+            const fallback = {
+                symbol: normalizedPayload.symbol,
+                tradeDate: normalizedPayload.tradeDate,
                 decision: 'NO DECISION',
                 finalTradeDecision: 'NO DECISION',
                 investmentPlan: finalState.investmentPlan ?? null,
                 traderPlan: finalState.traderPlan ?? null,
                 investmentJudge: finalState.investmentPlan ?? null,
                 riskJudge: finalState.finalDecision ?? null,
-                marketReport: coalesceReport(finalState.reports, 'market', payload.context.market_technical_report) || null,
-                sentimentReport: coalesceReport(finalState.reports, 'social', payload.context.social_reddit_summary) || null,
-                newsReport: coalesceReport(finalState.reports, 'news', payload.context.news_company) || null,
-                fundamentalsReport: coalesceReport(finalState.reports, 'fundamentals', payload.context.fundamentals_summary) || null,
+                modelId: normalizedModelId,
+                analysts: normalizedAnalysts,
                 debugPrompt: '',
             };
+            if (enabledSet.has('market')) {
+                fallback.marketReport =
+                    coalesceReport(finalState.reports, 'market', normalizedPayload.context.market_technical_report) || null;
+            }
+            if (enabledSet.has('social')) {
+                fallback.sentimentReport =
+                    coalesceReport(finalState.reports, 'social', normalizedPayload.context.social_reddit_summary) || null;
+            }
+            if (enabledSet.has('news')) {
+                fallback.newsReport =
+                    coalesceReport(finalState.reports, 'news', normalizedPayload.context.news_company) || null;
+            }
+            if (enabledSet.has('fundamental')) {
+                fallback.fundamentalsReport =
+                    coalesceReport(finalState.reports, 'fundamentals', normalizedPayload.context.fundamentals_summary) || null;
+            }
+            return fallback;
         }
         return finalState.result;
     }
@@ -630,6 +730,8 @@ export const runDecisionGraph = async (payload, options) => {
                 label: 'Workflow error',
                 percent: stagePercents.finalizing,
                 message: error instanceof Error ? error.message : 'Unknown error',
+                modelId: normalizedModelId,
+                analysts: normalizedAnalysts,
             });
         }
         throw error;

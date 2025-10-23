@@ -19,6 +19,7 @@ import {
   createInitialState,
   type AnalystReports,
   type DebateHistory,
+  type GraphMetadata,
   type GraphState,
 } from './types.js';
 import {
@@ -58,6 +59,14 @@ import {
   RISK_MANAGER_SYSTEM_PROMPT,
   buildRiskManagerUserMessage,
 } from '../langchain/risk/riskManagerRunnable.js';
+import {
+  canContinueInvestment,
+  canContinueRisk,
+  createDebateRoundEntry,
+  createRiskDebateRoundEntry,
+  withIncrementedInvestRound,
+  withIncrementedRiskRound,
+} from './stateUtils.js';
 
 type ConversationLogEntry = GraphState['conversationLog'][number];
 
@@ -89,9 +98,20 @@ const StateAnnotation = Annotation.Root({
     reducer: (left, right) => ({ ...left, ...right }),
     default: () => ({}),
   }),
-  metadata: Annotation<Record<string, unknown>>({
+  debateHistory: Annotation<GraphState['debateHistory']>({
+    reducer: (left, right) => left.concat(right),
+    default: () => [],
+  }),
+  riskDebateHistory: Annotation<GraphState['riskDebateHistory']>({
+    reducer: (left, right) => left.concat(right),
+    default: () => [],
+  }),
+  metadata: Annotation<GraphMetadata>({
     reducer: (left, right) => ({ ...left, ...right }),
-    default: () => ({}),
+    default: () => ({
+      invest_continue: true,
+      risk_continue: true,
+    }),
   }),
   result: Annotation<TradingAgentsDecision | undefined>({
     reducer: (_, right) => right,
@@ -266,14 +286,20 @@ const loadMemoriesNode = async (state: State) => {
   if (!normalize(traderMemories)) traderMemories = normalize(traderVector);
   if (!normalize(riskManagerMemories)) riskManagerMemories = normalize(riskVector);
 
+  const existingMetadata = (state.metadata ?? {}) as GraphMetadata;
+
   return {
     metadata: {
-      ...(state.metadata ?? {}),
+      ...existingMetadata,
       managerMemories: normalize(managerMemories),
       traderMemories: normalize(traderMemories),
       riskManagerMemories: normalize(riskManagerMemories),
-      invest_round: 0,
-      risk_round: 0,
+      invest_round: typeof existingMetadata.invest_round === 'number' ? existingMetadata.invest_round : 0,
+      risk_round: typeof existingMetadata.risk_round === 'number' ? existingMetadata.risk_round : 0,
+      invest_continue:
+        existingMetadata.invest_continue === undefined ? true : existingMetadata.invest_continue,
+      risk_continue:
+        existingMetadata.risk_continue === undefined ? true : existingMetadata.risk_continue,
     },
   };
 };
@@ -324,6 +350,7 @@ const bearNode = async (state: State) => {
     history,
     opponentArgument,
     reflections: await fetchPersonaMemories('bear', state.symbol, situationSummary, 2),
+    rounds: state.debateHistory ?? [],
   };
   const userMessage = buildBearUserMessage(input);
   const output = await runnable.invoke(input);
@@ -333,6 +360,7 @@ const bearNode = async (state: State) => {
       bear: output,
       investment: appendHistory(history, `Bear Analyst (Round ${round})`, output),
     },
+    debateHistory: [createDebateRoundEntry('bear', round, output)],
     conversationLog: [
       {
         roleLabel: 'Bear Analyst',
@@ -360,6 +388,7 @@ const bullNode = async (state: State) => {
     history,
     opponentArgument,
     reflections: await fetchPersonaMemories('bull', state.symbol, situationSummary, 2),
+    rounds: state.debateHistory ?? [],
   };
   const userMessage = buildBullUserMessage(input);
   const output = await runnable.invoke(input);
@@ -369,6 +398,7 @@ const bullNode = async (state: State) => {
       bull: output,
       investment: appendHistory(history, `Bull Analyst (Round ${round})`, output),
     },
+    debateHistory: [createDebateRoundEntry('bull', round, output)],
     conversationLog: [
       {
         roleLabel: 'Bull Analyst',
@@ -376,10 +406,7 @@ const bullNode = async (state: State) => {
         user: userMessage,
       },
     ],
-    metadata: {
-      ...(state.metadata ?? {}),
-      invest_round: round,
-    },
+    metadata: withIncrementedInvestRound((state.metadata ?? {}) as GraphMetadata, round),
   };
 };
 
@@ -478,6 +505,7 @@ const riskyNode = async (state: State) => {
     context,
     traderPlan: state.traderPlan ?? '',
     history,
+    rounds: state.riskDebateHistory ?? [],
   };
   if (state.debate?.risky) input.lastRisky = state.debate.risky;
   if (state.debate?.safe) input.lastSafe = state.debate.safe;
@@ -490,6 +518,7 @@ const riskyNode = async (state: State) => {
       risky: output,
       risk: appendHistory(history, `Risky Analyst (Round ${round})`, output),
     },
+    riskDebateHistory: [createRiskDebateRoundEntry('risky', round, output)],
     conversationLog: [
       {
         roleLabel: 'Risky Analyst',
@@ -511,6 +540,7 @@ const safeNode = async (state: State) => {
     context,
     traderPlan: state.traderPlan ?? '',
     history,
+    rounds: state.riskDebateHistory ?? [],
   };
   if (state.debate?.risky) input.lastRisky = state.debate.risky;
   if (state.debate?.safe) input.lastSafe = state.debate.safe;
@@ -523,6 +553,7 @@ const safeNode = async (state: State) => {
       safe: output,
       risk: appendHistory(history, `Safe Analyst (Round ${round})`, output),
     },
+    riskDebateHistory: [createRiskDebateRoundEntry('safe', round, output)],
     conversationLog: [
       {
         roleLabel: 'Safe Analyst',
@@ -545,6 +576,7 @@ const neutralNode = async (state: State) => {
     context,
     traderPlan: state.traderPlan ?? '',
     history,
+    rounds: state.riskDebateHistory ?? [],
   };
   if (state.debate?.risky) input.lastRisky = state.debate.risky;
   if (state.debate?.safe) input.lastSafe = state.debate.safe;
@@ -557,6 +589,7 @@ const neutralNode = async (state: State) => {
       neutral: output,
       risk: appendHistory(history, `Neutral Analyst (Round ${round})`, output),
     },
+    riskDebateHistory: [createRiskDebateRoundEntry('neutral', round, output)],
     conversationLog: [
       {
         roleLabel: 'Neutral Analyst',
@@ -564,10 +597,7 @@ const neutralNode = async (state: State) => {
         user: userMessage,
       },
     ],
-    metadata: {
-      ...(state.metadata ?? {}),
-      risk_round: round,
-    },
+    metadata: withIncrementedRiskRound((state.metadata ?? {}) as GraphMetadata, round),
   };
 };
 
@@ -727,9 +757,11 @@ const finalizeNode = async (state: State) => {
   try {
     evalLogPath = await writeEvalSummary(payload, decision, {
       investmentDebateHistory: state.debate?.investment ?? '',
+      investmentDebateRounds: state.debateHistory ?? [],
       bullArg: state.debate?.bull ?? null,
       bearArg: state.debate?.bear ?? null,
       riskDebateHistory: state.debate?.risk ?? '',
+      riskDebateRounds: state.riskDebateHistory ?? [],
       riskyOut: state.debate?.risky ?? null,
       safeOut: state.debate?.safe ?? null,
       neutralOut: state.debate?.neutral ?? null,
@@ -762,14 +794,30 @@ const finalizeNode = async (state: State) => {
 
 const investmentShouldContinue = (state: State): 'continue' | 'stop' => {
   const maxRounds = Math.max(1, env.investDebateRounds ?? 1);
-  const completed = Number(state.metadata?.invest_round ?? 0);
-  return completed < maxRounds ? 'continue' : 'stop';
+  const shouldContinue = canContinueInvestment(state.metadata, maxRounds);
+  if (process.env.DEBUG_LANGGRAPH === '1') {
+    console.debug('[DecisionGraph] investmentShouldContinue', {
+      invest_round: state.metadata?.invest_round,
+      invest_continue: state.metadata?.invest_continue,
+      maxRounds,
+      decision: shouldContinue ? 'continue' : 'stop',
+    });
+  }
+  return shouldContinue ? 'continue' : 'stop';
 };
 
 const riskShouldContinue = (state: State): 'continue' | 'stop' => {
   const maxRounds = Math.max(1, env.riskDebateRounds ?? 1);
-  const completed = Number(state.metadata?.risk_round ?? 0);
-  return completed < maxRounds ? 'continue' : 'stop';
+  const shouldContinue = canContinueRisk(state.metadata, maxRounds);
+  if (process.env.DEBUG_LANGGRAPH === '1') {
+    console.debug('[DecisionGraph] riskShouldContinue', {
+      risk_round: state.metadata?.risk_round,
+      risk_continue: state.metadata?.risk_continue,
+      maxRounds,
+      decision: shouldContinue ? 'continue' : 'stop',
+    });
+  }
+  return shouldContinue ? 'continue' : 'stop';
 };
 
 const decisionGraph = (() => {
@@ -827,18 +875,31 @@ export const runDecisionGraph = async (
     analysts: normalizedAnalysts,
   };
 
+  const baseState = createInitialState(
+    normalizedPayload.symbol,
+    normalizedPayload.tradeDate,
+    normalizedPayload.context,
+  );
+
+  const metadata: GraphMetadata = {
+    ...baseState.metadata,
+    payload: normalizedPayload,
+    modelId: normalizedModelId,
+    enabledAnalysts: normalizedAnalysts,
+  };
+  if (options?.runId) {
+    metadata.progressRunId = options.runId;
+  }
+
   const initialState: GraphState = {
-    ...createInitialState(normalizedPayload.symbol, normalizedPayload.tradeDate, normalizedPayload.context),
-    metadata: {
-      payload: normalizedPayload,
-      progressRunId: options?.runId,
-      modelId: normalizedModelId,
-      enabledAnalysts: normalizedAnalysts,
-    },
+    ...baseState,
+    metadata,
   };
 
   try {
-    const finalState = await decisionGraph.invoke(initialState);
+    const finalState = await decisionGraph.invoke(initialState, {
+      recursionLimit: env.maxRecursionLimit,
+    });
     if (!finalState.result) {
       const enabledSet = new Set(normalizedAnalysts);
       const fallback: TradingAgentsDecision = {

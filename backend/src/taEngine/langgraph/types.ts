@@ -28,6 +28,39 @@ export type AnalystToolCall = ToolCallRecord & {
   persona: string;
 };
 
+export type InvestmentDebatePersona = 'bull' | 'bear';
+
+export interface DebateRoundEntry {
+  persona: InvestmentDebatePersona;
+  round: number;
+  content: string;
+  timestamp: string;
+}
+
+export type RiskDebatePersona = 'risky' | 'safe' | 'neutral';
+
+export interface RiskDebateRoundEntry {
+  persona: RiskDebatePersona;
+  round: number;
+  content: string;
+  timestamp: string;
+}
+
+export interface GraphMetadata extends Record<string, unknown> {
+  invest_round?: number;
+  invest_continue?: boolean;
+  risk_round?: number;
+  risk_continue?: boolean;
+  progressRunId?: string;
+  managerMemories?: string;
+  traderMemories?: string;
+  riskManagerMemories?: string;
+  decision_token?: string;
+  payload?: unknown;
+  modelId?: string;
+  enabledAnalysts?: string[];
+}
+
 export interface GraphState {
   symbol: string;
   tradeDate: string;
@@ -38,7 +71,9 @@ export interface GraphState {
   finalDecision?: string | null;
   conversationLog: ConversationLogEntry[];
   debate: DebateHistory;
-  metadata: Record<string, unknown>;
+  debateHistory: DebateRoundEntry[];
+  riskDebateHistory: RiskDebateRoundEntry[];
+  metadata: GraphMetadata;
   result?: import('../types.js').TradingAgentsDecision;
   toolCalls: AnalystToolCall[];
 }
@@ -57,6 +92,11 @@ export const createInitialState = (
   finalDecision: null,
   conversationLog: [],
   debate: {},
-  metadata: {},
+  debateHistory: [],
+  riskDebateHistory: [],
+  metadata: {
+    invest_continue: true,
+    risk_continue: true,
+  },
   toolCalls: [],
 });

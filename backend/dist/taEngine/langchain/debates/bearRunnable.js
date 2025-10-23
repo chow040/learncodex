@@ -8,6 +8,8 @@ export const buildBearUserMessage = (input) => {
         `Market research report:\n${input.context.market_technical_report}`,
         `Social media sentiment report:\n${input.context.social_reddit_summary}`,
         `Latest world affairs/news:\n${input.context.news_global}`,
+        `Fundamentals summary:\n${input.context.fundamentals_summary || 'No fundamentals summary provided.'}`,
+        `Past reflections:\n${input.reflections || '(none)'}`,
         `Conversation history:\n${input.history || '(none)'}`,
         `Last bull argument:\n${input.opponentArgument || '(none)'}`,
         'Deliver a compelling bear argument and directly refute the bull’s points.',

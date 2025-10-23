@@ -67,7 +67,7 @@ export const env = {
   chartDebateLogDir: process.env.CHART_DEBATE_LOG_DIR ?? undefined,
   // LangGraph-style limits (restored reasonable limits with longer timeouts)
   maxToolSteps: Number.parseInt(process.env.MAX_TOOL_STEPS ?? '5', 10),
-  maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '15', 10),
+  maxRecursionLimit: Number.parseInt(process.env.MAX_RECURSION_LIMIT ?? '100', 10),
   // Past results integration
   useDbMemories:
     (process.env.USE_DB_MEMORIES ?? '').toLowerCase() === 'false'

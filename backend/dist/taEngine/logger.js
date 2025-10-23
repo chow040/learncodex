@@ -84,6 +84,57 @@ const formatFilename = (prefix, payload, extension = 'json') => {
     const safeSymbol = (payload.symbol || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
     return `${prefix}_${ts}_${safeSymbol}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
 };
+const serializeForLog = (value) => {
+    if (value === undefined)
+        return null;
+    if (value === null)
+        return null;
+    if (value instanceof Date)
+        return value.toISOString();
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => serializeForLog(item));
+    }
+    if (typeof value === 'object') {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        }
+        catch {
+            return String(value);
+        }
+    }
+    return String(value);
+};
+export async function logToolCalls(payload, entries) {
+    const logsDir = resolveTaLogsDir();
+    await fs.mkdir(logsDir, { recursive: true }).catch(() => { });
+    const filename = formatFilename('ta_toolcalls', payload);
+    const filePath = path.join(logsDir, filename);
+    const serializableEntries = entries.map((entry, index) => ({
+        id: index + 1,
+        persona: entry.persona ?? null,
+        name: entry.name,
+        input: serializeForLog(entry.input),
+        output: serializeForLog(entry.output),
+        error: entry.error ?? null,
+        startedAt: entry.startedAt?.toISOString?.() ?? null,
+        finishedAt: entry.finishedAt?.toISOString?.() ?? null,
+        durationMs: entry.durationMs ?? null,
+    }));
+    const payloadSummary = {
+        createdAt: new Date().toISOString(),
+        symbol: payload.symbol,
+        tradeDate: payload.tradeDate,
+        entries: serializableEntries,
+        summary: {
+            totalCalls: serializableEntries.length,
+        },
+    };
+    await fs.writeFile(filePath, JSON.stringify(payloadSummary, null, 2), 'utf8');
+    return filePath;
+}
 export async function logFundamentalsToolCalls(payload, entries) {
     if (!entries.length)
         return null;

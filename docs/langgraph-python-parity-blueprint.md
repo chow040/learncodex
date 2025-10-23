@@ -4,7 +4,7 @@ Goal: align the TypeScript backend (`backend/src/taEngine`) with the richer Pyth
 
 ## 1. Analyst & Debate Flow Enhancements
 
-- [ ] **Persona Memories**  
+- [x] **Persona Memories**  
   - Python uses `FinancialSituationMemory` to inject past lessons; TS currently skips this.  
   - Actions: Implement Drizzle-backed Postgres storage (e.g., pgvector or JSON embeddings) for reflections, add embedding support in TS, and extend `buildBullUserMessage` / `buildBearUserMessage` to pull matching reflections.  
   - Ensure retrieved reflections are written to the prompt log (e.g., via `logAgentPrompts`) so persona memory context is auditable.
@@ -29,7 +29,7 @@ Goal: align the TypeScript backend (`backend/src/taEngine`) with the richer Pyth
   - Define schema for situations + recommendations, add embedding service (OpenAI or local) and Supabase client in TS.  
   - Hook memory writes into the research manager node so future runs have reflections.
 
-- [ ] **Reflection Hooks**  
+- [x] **Reflection Hooks**  
   - Python’s `_log_state` / `reflect_and_remember` update memories post-run. Add similar reflection/feedback loops in TS so the new memory store accumulates decisions.
 
 ## 4. Logging & Eval Outputs

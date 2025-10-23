@@ -37,6 +37,10 @@ export const createAnalystRunnable = (id, options) => {
     if (options.runLogger) {
         context.runLogger = options.runLogger;
     }
-    return registration.createRunnable(context);
+    const runnable = registration.createRunnable(context);
+    return {
+        runnable,
+        tools,
+    };
 };
 //# sourceMappingURL=index.js.map

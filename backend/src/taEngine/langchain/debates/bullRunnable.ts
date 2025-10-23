@@ -5,8 +5,16 @@ import { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
 import type { DebateInput } from './bearRunnable.js';
+import type { DebateRoundEntry } from '../../langgraph/types.js';
 
 export const BULL_SYSTEM_PROMPT = `You are a Bull Analyst advocating for investing in the stock. Build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive indicators. Engage with and rebut the bear's latest argument. Be conversational, no special formatting.`;
+
+const formatDebateRounds = (rounds?: DebateRoundEntry[]): string => {
+  if (!rounds || rounds.length === 0) return '(none)';
+  return rounds
+    .map((round) => `${round.round}. ${round.persona.toUpperCase()}: ${round.content}`)
+    .join('\n');
+};
 
 export const buildBullUserMessage = (input: DebateInput): string => {
   const lines = [
@@ -17,6 +25,7 @@ export const buildBullUserMessage = (input: DebateInput): string => {
     `Fundamentals summary:\n${input.context.fundamentals_summary || 'No fundamentals summary provided.'}`,
     `Past reflections:\n${input.reflections || '(none)'}`,
     `Conversation history:\n${input.history || '(none)'}`,
+    `Round transcripts:\n${formatDebateRounds(input.rounds)}`,
     `Last bear argument:\n${input.opponentArgument || '(none)'}`,
     'Deliver a compelling bull argument and directly refute the bear’s points.',
   ];
