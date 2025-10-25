@@ -25,6 +25,7 @@ export interface InsertTaDecisionInput {
   logsPath?: string | null;
   rawText?: string | null;
   analysts?: TradingAnalystId[];
+  executionMs?: number | null;
 }
 
 export interface TradingAssessmentSummaryRow {
@@ -36,6 +37,7 @@ export interface TradingAssessmentSummaryRow {
   analysts?: TradingAnalystId[];
   createdAt: string;
   orchestratorVersion: string | null;
+  executionMs: number | null;
 }
 
 export interface TradingAssessmentDetailRow extends TradingAssessmentSummaryRow {
@@ -43,6 +45,9 @@ export interface TradingAssessmentDetailRow extends TradingAssessmentSummaryRow 
   rawText: string | null;
   promptHash: string | null;
   logsPath: string | null;
+  traderPlan: string | null;
+  investmentPlan: string | null;
+  riskJudge: string | null;
 }
 
 export interface FetchTradingAssessmentsOptions {
@@ -129,12 +134,17 @@ export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<vo
   }
 
   // Insert into ta_decisions (required for this feature)
+  const executionMs =
+    typeof input.executionMs === 'number' && Number.isFinite(input.executionMs)
+      ? Math.trunc(input.executionMs)
+      : null;
+
   try {
     await pg.query(
       `INSERT INTO ta_decisions (
          run_id, symbol, trade_date, decision_token,
-         investment_plan, trader_plan, risk_judge, payload, raw_text, model, analysts, prompt_hash, orchestrator_version
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+         investment_plan, trader_plan, risk_judge, payload, raw_text, model, analysts, execution_ms, prompt_hash, orchestrator_version
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         runId,
         input.decision.symbol,
@@ -147,6 +157,7 @@ export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<vo
         input.rawText ?? null,
         input.model ?? null,
         input.analysts ? JSON.stringify(input.analysts) : null,
+        executionMs,
         input.promptHash ?? null,
         input.orchestratorVersion ?? null,
       ],
@@ -184,7 +195,7 @@ export const fetchTradingAssessmentsBySymbol = async (
   const limitParamIndex = params.length;
 
   const query = `
-    SELECT run_id, symbol, trade_date, decision_token, model, analysts, created_at, orchestrator_version
+    SELECT run_id, symbol, trade_date, decision_token, model, analysts, created_at, orchestrator_version, execution_ms
     FROM ta_decisions
     WHERE symbol = $1
       AND run_id IS NOT NULL
@@ -198,6 +209,9 @@ export const fetchTradingAssessmentsBySymbol = async (
 
   for (const row of rows.slice(0, limit)) {
     const analysts = parseAnalystsColumn(row.analysts);
+    const executionRaw =
+      typeof row.execution_ms === 'number' ? row.execution_ms : Number(row.execution_ms ?? Number.NaN);
+    const executionMs = Number.isFinite(executionRaw) ? Math.trunc(executionRaw) : null;
     const summary: TradingAssessmentSummaryRow = {
       runId: row.run_id,
       symbol: row.symbol,
@@ -206,6 +220,7 @@ export const fetchTradingAssessmentsBySymbol = async (
       modelId: row.model ?? null,
       createdAt: toIsoTimestamp(row.created_at),
       orchestratorVersion: row.orchestrator_version ?? null,
+      executionMs,
       ...(analysts ? { analysts } : {}),
     };
     summaries.push(summary);
@@ -236,9 +251,13 @@ export const fetchTradingAssessmentByRunId = async (
       d.analysts,
       d.payload,
       d.raw_text,
+      d.trader_plan,
+      d.investment_plan,
+      d.risk_judge,
       d.created_at,
       d.orchestrator_version,
       d.prompt_hash,
+      d.execution_ms,
       r.logs_path,
       COALESCE(r.orchestrator_version, d.orchestrator_version) AS combined_orchestrator_version
     FROM ta_decisions d
@@ -255,6 +274,13 @@ export const fetchTradingAssessmentByRunId = async (
 
   const row = rows[0];
   const analysts = parseAnalystsColumn(row.analysts);
+  const executionRaw =
+    typeof row.execution_ms === 'number'
+      ? row.execution_ms
+      : row.execution_ms == null
+        ? Number.NaN
+        : Number(row.execution_ms);
+  const executionMs = Number.isFinite(executionRaw) ? Math.trunc(executionRaw) : null;
   return {
     runId: row.run_id,
     symbol: row.symbol,
@@ -267,6 +293,10 @@ export const fetchTradingAssessmentByRunId = async (
     rawText: row.raw_text ?? null,
     promptHash: row.prompt_hash ?? null,
     logsPath: row.logs_path ?? null,
+    executionMs,
+    traderPlan: row.trader_plan ?? null,
+    investmentPlan: row.investment_plan ?? null,
+    riskJudge: row.risk_judge ?? null,
     ...(analysts ? { analysts } : {}),
   };
 };

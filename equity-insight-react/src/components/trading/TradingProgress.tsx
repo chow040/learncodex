@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Loader2, CheckCircle2, Circle, AlertCircle, Dot } from 'lucide-react'
 
 import { Progress } from '../ui/progress'
@@ -107,6 +107,62 @@ export const TradingProgress = memo(function TradingProgress<Result>({
       ? state.message
       : null
 
+  const [now, setNow] = useState(() => Date.now())
+  const isActive = state.status === 'connecting' || state.status === 'streaming'
+
+  useEffect(() => {
+    if (!isActive || typeof window === 'undefined') {
+      return undefined
+    }
+    const interval = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [isActive])
+
+  useEffect(() => {
+    if (!isActive) {
+      setNow(Date.now())
+    }
+  }, [isActive])
+
+  const startTimestamp = useMemo(() => {
+    if (typeof state.startedAt === 'number') return state.startedAt
+    const firstEventTimestamp = state.events.at(0)?.timestamp
+    return typeof firstEventTimestamp === 'number' ? firstEventTimestamp : null
+  }, [state.events, state.startedAt])
+
+  const latestEventTimestamp = state.events.length > 0 ? state.events[state.events.length - 1]?.timestamp : null
+
+  const resultExecutionMs = useMemo(() => {
+    if (!state.result) return null
+    const candidate = (state.result as { executionMs?: unknown }).executionMs
+    return typeof candidate === 'number' && Number.isFinite(candidate) ? Math.trunc(candidate) : null
+  }, [state.result])
+
+  const elapsedMs = useMemo(() => {
+    if (!startTimestamp) return null
+    if (state.status === 'complete') {
+      if (typeof state.durationMs === 'number') return state.durationMs
+      if (resultExecutionMs !== null) return resultExecutionMs
+      if (typeof latestEventTimestamp === 'number') {
+        return Math.max(0, latestEventTimestamp - startTimestamp)
+      }
+      return Math.max(0, Date.now() - startTimestamp)
+    }
+    if (state.status === 'error') {
+      const reference = typeof latestEventTimestamp === 'number' ? latestEventTimestamp : now
+      return Math.max(0, reference - startTimestamp)
+    }
+    return Math.max(0, now - startTimestamp)
+  }, [latestEventTimestamp, now, resultExecutionMs, startTimestamp, state.durationMs, state.status])
+
+  const elapsedLabel = useMemo(() => {
+    if (elapsedMs === null) return '—'
+    const minutes = elapsedMs / 60000
+    return `${minutes.toFixed(1)} min`
+  }, [elapsedMs])
+
   return (
     <div
       className={cn(
@@ -137,6 +193,7 @@ export const TradingProgress = memo(function TradingProgress<Result>({
         <div className="flex items-center gap-3">
           <Progress value={percent} className="h-2 flex-1" />
           <span className="text-sm font-semibold text-foreground tabular-nums">{percent}%</span>
+          <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground tabular-nums">{elapsedLabel}</span>
         </div>
         {state.modelId || (state.analysts?.length ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/40 bg-background/40 px-4 py-2 text-xs uppercase tracking-[0.25em] text-muted-foreground/80">

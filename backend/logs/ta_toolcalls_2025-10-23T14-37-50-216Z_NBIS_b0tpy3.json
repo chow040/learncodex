@@ -1,0 +1,157 @@
+{
+  "createdAt": "2025-10-23T14:37:50.217Z",
+  "symbol": "NBIS",
+  "tradeDate": "2025-10-23",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "NBIS",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "No balance sheet data available for NBIS (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-23T14:35:31.653Z",
+      "finishedAt": "2025-10-23T14:35:32.773Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "NBIS",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "No cash flow data available for NBIS (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-23T14:35:32.773Z",
+      "finishedAt": "2025-10-23T14:35:33.280Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "NBIS",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "No income statement data available for NBIS (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-23T14:35:33.280Z",
+      "finishedAt": "2025-10-23T14:35:33.814Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "NBIS",
+        "lookback_days": 7,
+        "limit": 15
+      },
+      "output": "No insider transactions recorded in the requested window.",
+      "error": null,
+      "startedAt": "2025-10-23T14:35:33.814Z",
+      "finishedAt": "2025-10-23T14:35:34.305Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "NBIS",
+        "lookback_months": 6
+      },
+      "output": "No insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-23T14:35:34.305Z",
+      "finishedAt": "2025-10-23T14:35:34.709Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "NBIS",
+        "lookback_days": 7,
+        "limit": 5
+      },
+      "output": "Finnhub company news for NBIS:\n\n### IREN Vs. Nebius: Why The Latter Is A Better AI Play\n- Source: SeekingAlpha | Date: 2025-10-22\nIn this article, I'm comparing Nebius Group (NBIS) to IREN Limited (IREN) in order to find a better AI infrastructure play for growth investors.\nhttps://finnhub.io/api/news?id=dfd5e62833cf43c312f05d6aeb0926a97d1155613f59f4dda2f0468db7a47973\n\n### Microsoft: Very Bullish Into Upcoming Earnings\n- Source: SeekingAlpha | Date: 2025-10-20\nMicrosoft's diversified AI strategy and strong partnerships drive innovation and growth. Valuation is reasonable at 33x forward EPS. See ore on MSFT here.\nhttps://finnhub.io/api/news?id=8b46d84837cf965296c62a052f68c2fec616dbc4d4cddb42c6d2a36437a35436\n\n### Nebius Stock: Why I'm Finally Buying In\n- Source: SeekingAlpha | Date: 2025-10-17\nNebius Group N.V. has continued to rise, up 70% since announcing a deal with Microsoft. Click here to read why NBIS stock is a Buy.\nhttps://finnhub.io/api/news?id=f31d2dd8631ca69f40455b4ebdc1562fda368b35a71a205abeb0baa3f44d140e\n\n### Nebius: Why Microsoft's Deal Makes It Far More Valuable Than Most Realize\n- Source: SeekingAlpha | Date: 2025-10-16\nNebius Group lands a $20B GPU deal with Microsoft, boosting AI infrastructure credibility and revenue. See here for more on NBIS stock.\nhttps://finnhub.io/api/news?id=82bdb7be651fb194c29be39d02c1a9094ed11ef6d3c34d185b62fbb2d515c085",
+      "error": null,
+      "startedAt": "2025-10-23T14:36:06.667Z",
+      "finishedAt": "2025-10-23T14:36:07.076Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "NBIS",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for NBIS (query: NBIS stock)\n- Total posts (7d): 5\n- Total upvotes: 535\n- Average comments per post: 54.8\n\nTop subreddits:\n• r/NBIS_Stock: 2 mentions\n• r/wallstreetbets: 1 mentions\n• r/investing: 1 mentions\n• r/irenstocks: 1 mentions\n\nTrending posts:\n• f*** you NBIS pos meme stock — Score 422 | Comments 238\n  https://i.redd.it/s4m0kko4uhwf1.png\n• Which growth stock has the best risk/reward right now: NBIS, RKLB, ASTS? — Score 10 | Comments 15\n  https://www.reddit.com/r/investing/comments/1odxiok/which_growth_stock_has_the_best_riskreward_right/\n• Article from seeking alpha: “Why I am finally buying into NBIS stock — Score 79 | Comments 6\n  https://www.reddit.com/r/NBIS_Stock/comments/1o9dzyw/article_from_seeking_alpha_why_i_am_finally/\n• NBIS observations — Score 21 | Comments 14\n  https://www.reddit.com/r/NBIS_Stock/comments/1odlyfd/nbis_observations/\n• $IREN PRICE MOVEMENT 1 DAY BEFORE v AFTER EARNINGS ANNOUNCEMENT SINCE Q2 2022. — Score 3 | Comments 1\n  https://i.redd.it/11quefnqwuwf1.jpeg\n",
+      "error": null,
+      "startedAt": "2025-10-23T14:36:07.076Z",
+      "finishedAt": "2025-10-23T14:36:08.226Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "global macroeconomic news",
+        "lookback_days": 7,
+        "limit": 5
+      },
+      "output": "No Google News articles found for \"global macroeconomic news\".",
+      "error": null,
+      "startedAt": "2025-10-23T14:36:08.226Z",
+      "finishedAt": "2025-10-23T14:36:08.541Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "Social Analyst",
+      "name": "get_stock_news_openai",
+      "input": {
+        "query": "NBIS",
+        "lookback_days": 7,
+        "focus": "recent company news, social media commentary from last week for NeuroBo Pharmaceuticals"
+      },
+      "output": null,
+      "error": "Tool invocation failed: OpenAI social news tool returned an empty response.",
+      "startedAt": "2025-10-23T14:36:23.476Z",
+      "finishedAt": "2025-10-23T14:37:28.074Z",
+      "durationMs": 0
+    },
+    {
+      "id": 10,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "NBIS",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for NBIS (query: NBIS stock)\n- Total posts (7d): 10\n- Total upvotes: 756\n- Average comments per post: 35.7\n\nTop subreddits:\n• r/NBIS_Stock: 4 mentions\n• r/wallstreetbets: 2 mentions\n• r/investing: 1 mentions\n• r/irenstocks: 1 mentions\n• r/TheRaceTo10Million: 1 mentions\n\nTrending posts:\n• f*** you NBIS pos meme stock — Score 420 | Comments 238\n  https://i.redd.it/s4m0kko4uhwf1.png\n• Which growth stock has the best risk/reward right now: NBIS, RKLB, ASTS? — Score 7 | Comments 15\n  https://www.reddit.com/r/investing/comments/1odxiok/which_growth_stock_has_the_best_riskreward_right/\n• Article from seeking alpha: “Why I am finally buying into NBIS stock — Score 78 | Comments 6\n  https://www.reddit.com/r/NBIS_Stock/comments/1o9dzyw/article_from_seeking_alpha_why_i_am_finally/\n• NBIS observations — Score 21 | Comments 14\n  https://www.reddit.com/r/NBIS_Stock/comments/1odlyfd/nbis_observations/\n• $IREN PRICE MOVEMENT 1 DAY BEFORE v AFTER EARNINGS ANNOUNCEMENT SINCE Q2 2022. — Score 4 | Comments 1\n  https://i.redd.it/11quefnqwuwf1.jpeg\n• Nebius is playing out exactly how institutions wanted — Score 165 | Comments 31\n  https://i.redd.it/4e0nt81iokwf1.jpeg\n• 110k life savings + 40k on margin 🫡 — Score 51 | Comments 22\n  https://i.redd.it/uxm0mpq3rqwf1.jpeg\n• I'v don 500k whith NBIS ,now i 'd like new ideas — Score 2 | Comments 2\n  https://www.reddit.com/r/TheRaceTo10Million/comments/1odr96n/iv_don_500k_whith_nbis_now_i_d_like_new_ideas/\n• I’m going Short 📉 Update day 3 — Score 1 | Comments 21\n  https://www.reddit.com/gallery/1odi7cg\n• Option interest and chatGPT — Score 7 | Comments 7\n  https://www.reddit.com/r/NBIS_Stock/comments/1ocdjqm/option_interest_and_chatgpt/\n",
+      "error": null,
+      "startedAt": "2025-10-23T14:37:28.075Z",
+      "finishedAt": "2025-10-23T14:37:31.056Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 10
+  }
+}

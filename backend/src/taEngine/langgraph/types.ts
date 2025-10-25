@@ -56,6 +56,9 @@ export interface GraphMetadata extends Record<string, unknown> {
   traderMemories?: string;
   riskManagerMemories?: string;
   decision_token?: string;
+  runStartedAt?: number;
+  runCompletedAt?: number;
+  executionMs?: number;
   payload?: unknown;
   modelId?: string;
   enabledAnalysts?: string[];

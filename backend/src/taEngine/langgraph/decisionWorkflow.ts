@@ -1,5 +1,6 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 import { env } from '../../config/env.js';
 import { logAgentPrompts, writeEvalSummary, logToolCalls } from '../logger.js';
@@ -121,19 +122,50 @@ const StateAnnotation = Annotation.Root({
 
 type State = typeof StateAnnotation.State;
 
-const createChatModel = (modelOverride?: string): ChatOpenAI => {
+const createChatModel = (modelOverride?: string, temperature = 1): ChatOpenAI => {
   if (!env.openAiApiKey) {
     throw new Error('OPENAI_API_KEY is not configured.');
   }
   const options: Record<string, unknown> = {
     openAIApiKey: env.openAiApiKey,
     model: modelOverride ?? env.openAiModel,
-    temperature: 1,
+    temperature,
   };
   if (env.openAiBaseUrl) {
     options.configuration = { baseURL: env.openAiBaseUrl };
   }
   return new ChatOpenAI(options);
+};
+
+const DECISION_PARSER_SYSTEM_PROMPT =
+  'You are an efficient assistant that reads analyst reports. Extract the explicit investment verdict (SELL, BUY, or HOLD) and reply with only that single word. Do not include any other words or punctuation.';
+
+const extractDecisionToken = async (text: string, modelId: string): Promise<string | null> => {
+  const trimmed = text?.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parser = createChatModel(modelId, 0);
+    const response = await parser.invoke([
+      new SystemMessage(DECISION_PARSER_SYSTEM_PROMPT),
+      new HumanMessage(trimmed),
+    ]);
+    const raw = response?.content;
+    const content =
+      typeof raw === 'string'
+        ? raw
+        : Array.isArray(raw)
+          ? raw.map((chunk: unknown) => (typeof chunk === 'string' ? chunk : JSON.stringify(chunk))).join('')
+          : '';
+    const token = content.trim().toUpperCase();
+    if (token === 'BUY' || token === 'SELL' || token === 'HOLD') {
+      return token;
+    }
+  } catch (error) {
+    console.warn('[DecisionGraph] Failed to extract decision token via LLM', error);
+  }
+
+  return null;
 };
 
 const appendHistory = (history: string | undefined, label: string, content: string): string => {
@@ -602,7 +634,8 @@ const neutralNode = async (state: State) => {
 };
 
 const riskManagerNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
+  const modelId = resolveModelId(state);
+  const llm = createChatModel(modelId);
   const runnable = createRiskManagerRunnable(llm);
   const riskMemories = (state.metadata?.riskManagerMemories as string) ?? '';
 
@@ -628,7 +661,8 @@ const riskManagerNode = async (state: State) => {
   };
   const userMessage = buildRiskManagerUserMessage(input);
   const output = await runnable.invoke(input);
-  const decisionToken = normalizeDecision(output);
+  const decisionToken =
+    (await extractDecisionToken(output, modelId)) ?? normalizeDecision(output);
 
   return {
     finalDecision: output,
@@ -706,6 +740,13 @@ const finalizeNode = async (state: State) => {
   const enabledAnalysts = resolveEnabledAnalysts(state);
   const enabledSet = new Set(enabledAnalysts);
 
+  const runCompletedAt = Date.now();
+  const runStartedAt =
+    typeof state.metadata?.runStartedAt === 'number' && Number.isFinite(state.metadata.runStartedAt)
+      ? state.metadata.runStartedAt
+      : null;
+  const executionMs = runStartedAt !== null ? Math.max(0, runCompletedAt - runStartedAt) : null;
+
   const decision: TradingAgentsDecision = {
     symbol: state.symbol,
     tradeDate: state.tradeDate,
@@ -719,6 +760,10 @@ const finalizeNode = async (state: State) => {
     analysts: enabledAnalysts,
     debugPrompt: '',
   };
+
+  if (executionMs !== null) {
+    decision.executionMs = executionMs;
+  }
 
   if (enabledSet.has('market')) {
     decision.marketReport =
@@ -782,6 +827,7 @@ const finalizeNode = async (state: State) => {
       orchestratorVersion: 'langgraph',
       logsPath: evalLogPath ?? promptsLogPath ?? null,
       rawText: null,
+      executionMs,
     });
   } catch (error) {
     console.error('[DecisionGraph] Failed to persist decision to DB', error);
@@ -789,6 +835,11 @@ const finalizeNode = async (state: State) => {
 
   return {
     result: decision,
+    metadata: {
+      ...(state.metadata ?? {}),
+      runCompletedAt,
+      ...(executionMs !== null ? { executionMs } : {}),
+    },
   };
 };
 
@@ -875,6 +926,8 @@ export const runDecisionGraph = async (
     analysts: normalizedAnalysts,
   };
 
+  const runStartedAt = Date.now();
+
   const baseState = createInitialState(
     normalizedPayload.symbol,
     normalizedPayload.tradeDate,
@@ -886,6 +939,7 @@ export const runDecisionGraph = async (
     payload: normalizedPayload,
     modelId: normalizedModelId,
     enabledAnalysts: normalizedAnalysts,
+    runStartedAt,
   };
   if (options?.runId) {
     metadata.progressRunId = options.runId;
@@ -900,6 +954,10 @@ export const runDecisionGraph = async (
     const finalState = await decisionGraph.invoke(initialState, {
       recursionLimit: env.maxRecursionLimit,
     });
+    const executionMs =
+      typeof finalState.metadata?.executionMs === 'number' && Number.isFinite(finalState.metadata.executionMs)
+        ? finalState.metadata.executionMs
+        : undefined;
     if (!finalState.result) {
       const enabledSet = new Set(normalizedAnalysts);
       const fallback: TradingAgentsDecision = {
@@ -915,6 +973,16 @@ export const runDecisionGraph = async (
         analysts: normalizedAnalysts,
         debugPrompt: '',
       };
+      if (executionMs !== undefined) {
+        fallback.executionMs = executionMs;
+      } else if (
+        typeof finalState.metadata?.runStartedAt === 'number' &&
+        Number.isFinite(finalState.metadata.runStartedAt)
+      ) {
+        fallback.executionMs = Math.max(0, Date.now() - finalState.metadata.runStartedAt);
+      } else {
+        fallback.executionMs = null;
+      }
 
       if (enabledSet.has('market')) {
         fallback.marketReport =
@@ -934,6 +1002,9 @@ export const runDecisionGraph = async (
       }
 
       return fallback;
+    }
+    if (executionMs !== undefined && finalState.result.executionMs === undefined) {
+      finalState.result.executionMs = executionMs;
     }
     return finalState.result;
   } catch (error) {

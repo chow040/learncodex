@@ -34,6 +34,7 @@ export interface TradingAgentsDecision {
   tradeDate: string;
   decision: string | null;
   finalTradeDecision?: string | null;
+  executionMs?: number | null;
   investmentPlan?: string | null;
   traderPlan?: string | null;
   investmentJudge?: string | null;

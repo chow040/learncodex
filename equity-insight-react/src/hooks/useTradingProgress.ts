@@ -46,6 +46,8 @@ export interface TradingProgressState<Result = unknown> {
   result: Result | null
   modelId: string | null
   analysts: string[]
+  startedAt: number | null
+  durationMs: number | null
 }
 
 export interface UseTradingProgressOptions<Result = unknown> {
@@ -93,7 +95,9 @@ const createInitialState = <Result,>(): TradingProgressState<Result> => ({
   error: null,
   result: null,
   modelId: null,
-  analysts: []
+  analysts: [],
+  startedAt: null,
+  durationMs: null
 })
 
 const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Result>): TradingProgressState<Result> => {
@@ -104,11 +108,19 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
       return {
         ...createInitialState<Result>(),
         runId: action.runId,
-        status: 'connecting'
+        status: 'connecting',
+        startedAt: Date.now()
       }
     case 'progress': {
       const nextPercent = action.event.percent ?? (STAGE_FALLBACK_PERCENT[action.event.stage] ?? state.percent)
       const analysts = action.event.analysts ?? state.analysts
+      const eventTimestamp = action.event.timestamp
+      const startedAt =
+        typeof state.startedAt === 'number'
+          ? Math.min(state.startedAt, eventTimestamp)
+          : typeof eventTimestamp === 'number'
+            ? eventTimestamp
+            : Date.now()
       return {
         ...state,
         status: state.status === 'idle' ? 'streaming' : 'streaming',
@@ -118,7 +130,9 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         currentLabel: action.event.label,
         message: action.event.message ?? state.message,
         modelId: action.event.modelId ?? state.modelId,
-        analysts: Array.isArray(analysts) ? analysts : state.analysts
+        analysts: Array.isArray(analysts) ? analysts : state.analysts,
+        startedAt,
+        durationMs: state.durationMs
       }
     }
     case 'complete': {
@@ -127,6 +141,14 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
       const resultAnalysts = Array.isArray(resultRecord?.analysts)
         ? ([...(resultRecord.analysts as string[])] as string[])
         : undefined
+      const resultExecutionMs =
+        typeof resultRecord?.executionMs === 'number' && Number.isFinite(resultRecord.executionMs)
+          ? Math.max(0, Math.trunc(resultRecord.executionMs))
+          : null
+      const startedAt = state.startedAt ?? state.events.at(0)?.timestamp ?? null
+      const computedDuration =
+        resultExecutionMs ??
+        (startedAt ? Math.max(0, Date.now() - startedAt) : null)
       return {
         ...state,
         status: 'complete',
@@ -134,7 +156,9 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         percent: Math.max(state.percent, 100),
         error: null,
         modelId: state.modelId ?? resultModelId ?? null,
-        analysts: state.analysts.length > 0 ? state.analysts : resultAnalysts ?? []
+        analysts: state.analysts.length > 0 ? state.analysts : resultAnalysts ?? [],
+        durationMs: computedDuration,
+        startedAt
       }
     }
     case 'error':
@@ -142,7 +166,8 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         ...state,
         status: 'error',
         error: action.payload.message,
-        message: action.payload.message
+        message: action.payload.message,
+        durationMs: state.durationMs
       }
     case 'disconnect':
       return {

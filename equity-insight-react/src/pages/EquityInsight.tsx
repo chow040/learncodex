@@ -417,7 +417,10 @@ const Placeholder = ({ text }: { text: string }) => (
 type SnapshotView = 'fundamental' | 'technical'
 
 const EquityInsight = () => {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
   const navigate = useNavigate()
 
   const [tickerInput, setTickerInput] = useState('')

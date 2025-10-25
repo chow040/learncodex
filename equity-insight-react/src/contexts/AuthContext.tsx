@@ -36,12 +36,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [error, setError] = useState<AuthError | null>(null)
 
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
+
   // Initialize auth state on component mount
   useEffect(() => {
     checkAuthStatus()
   }, [])
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
 
   const checkAuthStatus = async () => {
     try {

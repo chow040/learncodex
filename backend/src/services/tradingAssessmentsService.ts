@@ -23,6 +23,7 @@ export interface TradingAssessmentSummary {
   analysts: TradingAnalystId[];
   createdAt: string;
   orchestratorVersion: string | null;
+  executionMs: number | null;
 }
 
 export interface TradingAssessmentsResult {
@@ -35,6 +36,9 @@ export interface TradingAssessmentDetail extends TradingAssessmentSummary {
   rawText: string | null;
   promptHash: string | null;
   logsPath: string | null;
+  traderPlan: string | null;
+  investmentPlan: string | null;
+  riskJudge: string | null;
 }
 
 const normalizeLimit = (limit?: number): number => {
@@ -59,6 +63,7 @@ const mapSummaryRow = (row: TradingAssessmentSummaryRow): TradingAssessmentSumma
   analysts: normalizeAnalysts(row.analysts),
   createdAt: row.createdAt,
   orchestratorVersion: row.orchestratorVersion ?? null,
+  executionMs: row.executionMs ?? null,
 });
 
 const mapDetailRow = (row: TradingAssessmentDetailRow): TradingAssessmentDetail => ({
@@ -67,6 +72,9 @@ const mapDetailRow = (row: TradingAssessmentDetailRow): TradingAssessmentDetail 
   rawText: row.rawText,
   promptHash: row.promptHash,
   logsPath: row.logsPath,
+  traderPlan: row.traderPlan,
+  investmentPlan: row.investmentPlan,
+  riskJudge: row.riskJudge,
 });
 
 export const getTradingAssessments = async (

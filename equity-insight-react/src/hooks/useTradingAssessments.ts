@@ -11,6 +11,7 @@ export interface TradingAssessmentSummary {
   analysts: TradingAnalystId[]
   createdAt: string
   orchestratorVersion: string | null
+  executionMs: number | null
 }
 
 export interface TradingAssessmentsPage {
@@ -20,7 +21,7 @@ export interface TradingAssessmentsPage {
 
 export interface UseTradingAssessmentsOptions {
   /**
-   * Optional API base URL. Defaults to `VITE_API_BASE_URL` or `http://localhost:4000`.
+   * Optional API base URL. Defaults to `VITE_API_BASE_URL`.
    */
   apiBaseUrl?: string
   /**
@@ -43,6 +44,7 @@ interface TradingAssessmentsApiResponse {
     analysts?: string[] | null
     createdAt: string
     orchestratorVersion?: string | null
+    executionMs?: number | null
   }>
   nextCursor?: string
 }
@@ -78,13 +80,20 @@ const mapSummary = (input: TradingAssessmentsApiResponse['items'][number]): Trad
   modelId: input.modelId ?? null,
   analysts: sanitizeAnalysts(input.analysts),
   createdAt: input.createdAt,
-  orchestratorVersion: input.orchestratorVersion ?? null
+  orchestratorVersion: input.orchestratorVersion ?? null,
+  executionMs:
+    typeof input.executionMs === 'number' && Number.isFinite(input.executionMs)
+      ? Math.trunc(input.executionMs)
+      : null
 })
 
 const resolveBaseUrl = (input?: string): string => {
-  const fallback = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'
-  const fromEnv = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? fallback
-  const raw = input && input.trim().length > 0 ? input : fromEnv
+  const provided = typeof input === 'string' && input.trim().length > 0 ? input.trim() : undefined
+  const envValue = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.trim()
+  const raw = provided ?? envValue
+  if (!raw) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
   return raw.replace(/\/+$/, '')
 }
 

@@ -1,0 +1,142 @@
+{
+  "createdAt": "2025-10-25T02:06:56.021Z",
+  "symbol": "HROW",
+  "tradeDate": "2025-10-25",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Balance Sheet (10-Q � 2025 � 2025-08-11)\n- Cash and cash equivalents: 52,963,000 usd\n- Accounts receivable, net: 78,822,000 usd\n- Inventories: 11,552,000 usd\n- Prepaid expenses and other current assets: 11,553,000 usd\n- Total current assets: 154,890,000 usd\n- Property, plant and equipment, net: 3,512,000 usd\n- Capitalized software costs, net: 1,478,000 usd\n- Operating lease right-of-use assets, net: 8,155,000 usd\n- Intangible assets, net: 176,666,000 usd\n- Goodwill: 332,000 usd\n- � 18 additional rows truncated\n\n### Balance Sheet (10-Q � 2025 � 2025-05-08)\n- Cash and cash equivalents: 66,726,000 usd\n- Accounts receivable, net: 77,063,000 usd\n- Inventories: 10,716,000 usd\n- Prepaid expenses and other current assets: 15,030,000 usd\n- Total current assets: 169,535,000 usd\n- Property, plant and equipment, net: 3,568,000 usd\n- Capitalized software costs, net: 1,627,000 usd\n- Operating lease right-of-use assets, net: 8,337,000 usd\n- Intangible assets, net: 180,765,000 usd\n- Goodwill: 332,000 usd\n- � 18 additional rows truncated\n\n### Balance Sheet (10-Q � 2024 � 2024-11-14)\n- Cash and cash equivalents: 72,601,000 usd\n- Accounts receivable, net: 53,734,000 usd\n- Inventories: 10,156,000 usd\n- Prepaid expenses and other current assets: 10,571,000 usd\n- Total current assets: 147,062,000 usd\n- Property, plant and equipment, net: 3,625,000 usd\n- Capitalized software costs, net: 1,869,000 usd\n- Operating lease right-of-use assets, net: 9,379,000 usd\n- Intangible assets, net: 189,272,000 usd\n- Goodwill: 332,000 usd\n- � 20 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:05:51.871Z",
+      "finishedAt": "2025-10-25T02:05:52.554Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Cash Flow Statement (10-Q � 2025 � 2025-08-11)\n- Net income (loss): -12,785,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 961,000 usd\n- Amortization of intangible assets: 8,452,000 usd\n- Amortization of operating lease right-of-use assets: 399,000 usd\n- Provision for (recovery of) credit losses: 340,000 usd\n- Amortization of debt issuance costs and debt discount: 2,564,000 usd\n- Stock-based compensation: 5,431,000 usd\n- Accounts receivable: -37,211,000 usd\n- Inventories: 850,000 usd\n- Prepaid expenses and other current assets: -3,776,000 usd\n- � 14 additional rows truncated\n\n### Cash Flow Statement (10-Q � 2025 � 2025-05-08)\n- Net loss: -17,780,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 465,000 usd\n- Amortization of intangible assets: 4,226,000 usd\n- Amortization of operating lease right-of-use assets: 217,000 usd\n- Provision (recovery of) for credit losses: 114,000 usd\n- Amortization of debt issuance costs and debt discount: 1,275,000 usd\n- Stock-based compensation: 4,556,000 usd\n- Accounts receivable: -39,196,000 usd\n- Inventories: 14,000 usd\n- Prepaid expenses and other current assets: -299,000 usd\n- � 13 additional rows truncated\n\n### Cash Flow Statement (10-Q � 2024 � 2024-11-14)\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Net loss: -24,258,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 1,382,000 usd\n- Amortization of intangible assets: 7,708,000 usd\n- Amortization of operating lease right-of-use assets: 636,000 usd\n- (Recovery of) provision for credit losses: -20,000 usd\n- Amortization of debt issuance costs and debt discount: 2,985,000 usd\n- Stock-based compensation: 12,825,000 usd\n- Deferred income tax: 643,000 usd\n- Accounts receivable: 17,453,000 usd\n- � 19 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:05:52.555Z",
+      "finishedAt": "2025-10-25T02:05:53.151Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Income Statement (10-Q � 2025 � 2025-08-11)\n- Total revenues: 111,573,000 usd\n- Cost of sales: 31,754,000 usd\n- Gross profit: 79,819,000 usd\n- Selling, general and administrative: 73,748,000 usd\n- Research and development: 5,894,000 usd\n- Total operating expenses: 79,642,000 usd\n- Income (loss) from operations: 177,000 usd\n- Interest expense, net: 12,956,000 usd\n- Other (expense) income, net: -6,000 usd\n- Total other expense, net: -12,962,000 usd\n- � 6 additional rows truncated\n\n### Income Statement (10-Q � 2025 � 2025-05-08)\n- Total revenues: 47,831,000 usd\n- Cost of sales: 15,524,000 usd\n- Gross profit: 32,307,000 usd\n- Selling, general and administrative: 40,513,000 usd\n- Research and development: 3,026,000 usd\n- Total operating expenses: 43,539,000 usd\n- Loss from operations: -11,232,000 usd\n- Interest expense, net: 6,548,000 usd\n- Total other expense, net: -6,548,000 usd\n- Net loss: -17,780,000 usd\n- � 4 additional rows truncated\n\n### Income Statement (10-Q � 2024 � 2024-11-14)\n- Total revenues: 132,783,000 usd\n- Cost of sales: 35,110,000 usd\n- Gross profit: 97,673,000 usd\n- Selling, general and administrative: 94,275,000 usd\n- Research and development: 7,475,000 usd\n- Total operating expenses: 101,750,000 usd\n- Income (loss) from operations: -4,077,000 usd\n- Interest expense, net: 16,411,000 usd\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Other income (expenses), net: 76,000 usd\n- � 8 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:05:53.151Z",
+      "finishedAt": "2025-10-25T02:05:54.277Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 90,
+        "limit": 10
+      },
+      "output": "Recent insider transactions (1 records fetched).\n\n• 2025-09-01: Pollard Randall E. (A) @ $0.00 | Change 30,000 | Shares 30,000",
+      "error": null,
+      "startedAt": "2025-10-25T02:05:54.277Z",
+      "finishedAt": "2025-10-25T02:05:54.679Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "HROW",
+        "lookback_months": 6
+      },
+      "output": "No insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T02:05:54.679Z",
+      "finishedAt": "2025-10-25T02:05:54.987Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Finnhub company news retrieved for HROW.",
+      "error": null,
+      "startedAt": "2025-10-25T02:06:26.038Z",
+      "finishedAt": "2025-10-25T02:06:26.938Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "global macroeconomic news",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"global macroeconomic news\".",
+      "error": null,
+      "startedAt": "2025-10-25T02:06:26.938Z",
+      "finishedAt": "2025-10-25T02:06:27.315Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:06:27.315Z",
+      "finishedAt": "2025-10-25T02:06:28.187Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:06:43.219Z",
+      "finishedAt": "2025-10-25T02:06:43.831Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 9
+  }
+}

@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ScrollArea } from '../components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useToast } from '../components/ui/use-toast'
 import { cn } from '../lib/utils'
 import { useTradingAssessmentDetail } from '../hooks/useTradingAssessmentDetail'
@@ -43,6 +44,14 @@ const formatDateTime = (value: string | null | undefined, fallback = 'Unreported
   })
 }
 
+const formatDuration = (value: number | null | undefined, fallback = '—'): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback
+  }
+  const minutes = value / 60000
+  return `${minutes.toFixed(1)} min`
+}
+
 const decisionToneClasses = (decision: string | null): string => {
   switch ((decision ?? '').toUpperCase()) {
     case 'BUY':
@@ -56,8 +65,61 @@ const decisionToneClasses = (decision: string | null): string => {
   }
 }
 
+const AgentTextBlock = ({ text, emptyLabel = 'No output provided yet.' }: { text?: string | null; emptyLabel?: string }) => {
+  if (!text || typeof text !== 'string') {
+    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+  }
+
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const blocks: React.ReactNode[] = []
+
+  const isBullet = (line: string) => /^\s*[-*]\s+/.test(line)
+  const isNumbered = (line: string) => /^\s*\d+[.)]\s+/.test(line)
+
+  for (let i = 0; i < lines.length; ) {
+    const line = lines[i]
+    if (!line.trim()) {
+      i++
+      continue
+    }
+
+    if (isBullet(line) || isNumbered(line)) {
+      const items: string[] = []
+      const matcher = isBullet(line) ? isBullet : isNumbered
+      while (i < lines.length && matcher(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*]\s+/, '').replace(/^\s*\d+[.)]\s+/, '').trim())
+        i++
+      }
+      blocks.push(
+        <ul key={`ul-${i}`} className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          {items.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      )
+      continue
+    }
+
+    const paragraphLines: string[] = []
+    while (i < lines.length && lines[i].trim() && !isBullet(lines[i]) && !isNumbered(lines[i])) {
+      paragraphLines.push(lines[i])
+      i++
+    }
+    blocks.push(
+      <p key={`p-${i}`} className="text-sm leading-6 text-muted-foreground">
+        {paragraphLines.join(' ').trim()}
+      </p>
+    )
+  }
+
+  return <div className="space-y-3">{blocks}</div>
+}
+
 const TradingAgentsHistoryDetail = () => {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
   const { runId = '' } = useParams<{ runId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -197,6 +259,10 @@ const TradingAgentsHistoryDetail = () => {
           <div className="space-y-1">
             <dt className="text-xs uppercase tracking-[0.3em] text-muted-foreground/70">Trade date</dt>
             <dd>{formatDateTime(data.tradeDate)}</dd>
+          </div>
+          <div className="space-y-1">
+            <dt className="text-xs uppercase tracking-[0.3em] text-muted-foreground/70">Execution time</dt>
+            <dd className="tabular-nums">{formatDuration(data.executionMs)}</dd>
           </div>
           <div className="space-y-1">
             <dt className="text-xs uppercase tracking-[0.3em] text-muted-foreground/70">Decision</dt>
@@ -340,6 +406,56 @@ const TradingAgentsHistoryDetail = () => {
     )
   }
 
+  const renderDecisionPanels = () => {
+    if (!data) return null
+    const personaPanels: Array<{ key: string; label: string; value?: string | null; fallback: string }> = [
+      { key: 'trader-plan', label: 'Trader (Execution)', value: data.traderPlan, fallback: 'Trader plan unavailable.' },
+      { key: 'investment-plan', label: 'Research Manager', value: data.investmentPlan, fallback: 'Research manager plan unavailable.' },
+      { key: 'risk-judge', label: 'Risk Manager', value: data.riskJudge, fallback: 'Risk manager commentary unavailable.' }
+    ]
+
+    const defaultPersona =
+      personaPanels.find((panel) => panel.value && panel.value.trim())?.key ?? personaPanels[0]?.key ?? ''
+
+    return (
+      <Card className="border border-border/60 bg-card/80">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Decision outputs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {personaPanels.length > 0 ? (
+            <Tabs
+              key={`history-persona-tabs-${data.runId}`}
+              defaultValue={defaultPersona}
+              className="space-y-4"
+            >
+              <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                {personaPanels.map((panel) => (
+                  <TabsTrigger
+                    key={panel.key}
+                    value={panel.key}
+                    className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                  >
+                    {panel.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {personaPanels.map((panel) => (
+                <TabsContent key={panel.key} value={panel.key} className="rounded-2xl border border-border/60 bg-background/40 p-6">
+                  <AgentTextBlock text={panel.value ?? undefined} emptyLabel={panel.fallback} />
+                </TabsContent>
+              ))}
+            </Tabs>
+          ) : (
+            <div className="rounded-2xl border border-border/60 bg-background/40 p-6 text-sm text-muted-foreground">
+              No persona outputs recorded for this run.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
   const mainContent = (
     <div className="space-y-6">
       {isLoading ? (
@@ -376,6 +492,7 @@ const TradingAgentsHistoryDetail = () => {
               </p>
             </CardContent>
           </Card>
+          {renderDecisionPanels()}
           {renderAnalysts()}
           {renderPayload()}
           {renderRawText()}

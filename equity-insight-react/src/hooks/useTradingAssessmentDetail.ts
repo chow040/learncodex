@@ -15,6 +15,10 @@ export interface TradingAssessmentDetail {
   rawText: string | null
   promptHash: string | null
   logsPath: string | null
+  executionMs: number | null
+  traderPlan: string | null
+  investmentPlan: string | null
+  riskJudge: string | null
 }
 
 export interface UseTradingAssessmentDetailOptions {
@@ -35,6 +39,10 @@ interface TradingAssessmentDetailApiResponse {
   rawText?: string | null
   promptHash?: string | null
   logsPath?: string | null
+  executionMs?: number | null
+  traderPlan?: string | null
+  investmentPlan?: string | null
+  riskJudge?: string | null
 }
 
 const DEFAULT_ANALYSTS: TradingAnalystId[] = ['fundamental', 'market', 'news', 'social']
@@ -49,9 +57,12 @@ const sanitizeAnalysts = (value: unknown): TradingAnalystId[] => {
 }
 
 const resolveBaseUrl = (input?: string): string => {
-  const fallback = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'
-  const envBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? fallback
-  const raw = input && input.trim().length > 0 ? input : envBase
+  const provided = typeof input === 'string' && input.trim().length > 0 ? input.trim() : undefined
+  const envBase = (import.meta.env?.VITE_API_BASE_URL as string | undefined)?.trim()
+  const raw = provided ?? envBase
+  if (!raw) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
   return raw.replace(/\/+$/, '')
 }
 
@@ -88,7 +99,14 @@ const fetchTradingAssessmentDetail = async (
     payload: payload.payload ?? null,
     rawText: payload.rawText ?? null,
     promptHash: payload.promptHash ?? null,
-    logsPath: payload.logsPath ?? null
+    logsPath: payload.logsPath ?? null,
+    executionMs:
+      typeof payload.executionMs === 'number' && Number.isFinite(payload.executionMs)
+        ? Math.trunc(payload.executionMs)
+        : null,
+    traderPlan: typeof payload.traderPlan === 'string' ? payload.traderPlan : null,
+    investmentPlan: typeof payload.investmentPlan === 'string' ? payload.investmentPlan : null,
+    riskJudge: typeof payload.riskJudge === 'string' ? payload.riskJudge : null
   }
 }
 

@@ -1,24 +1,15 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react"
 import { captureScreenshot, shareScreenshot } from "../utils/screenshot"
+import { useNavigate } from "react-router-dom"
+import { Button } from "../components/ui/button"
+import { ArrowLeft } from "lucide-react"
 
 const API_BASE_URL = (() => {
-  const envValue = import.meta.env.VITE_API_BASE_URL
-  if (typeof envValue === 'string' && envValue.trim().length > 0) {
-    return envValue.trim().replace(/\/$/, '')
+  const envValue = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (!envValue) {
+    throw new Error('VITE_API_BASE_URL is not configured')
   }
-
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    const { hostname, port, origin } = window.location
-
-    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1'
-    const devPorts = new Set(['5173', '4173', '3000'])
-
-    if (!isLocalHost || (port && !devPorts.has(port))) {
-      return origin.replace(/\/$/, '')
-    }
-  }
-
-  return 'http://localhost:4000'
+  return envValue.replace(/\/$/, '')
 })()
 const DEFAULT_TRADE_ID = "workspace"
 
@@ -113,6 +104,7 @@ const DEBATE_PROGRESS_FLOW: Array<{ step: string; label: string }> = [
 ]
 
 const TradeIdeas = () => {
+  const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -673,6 +665,15 @@ const TradeIdeas = () => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(56,189,248,0.16),transparent_55%),radial-gradient(circle_at_90%_10%,rgba(59,130,246,0.15),transparent_55%),radial-gradient(circle_at_15%_90%,rgba(236,72,153,0.12),transparent_60%),linear-gradient(155deg,rgba(2,6,23,0.88),rgba(15,23,42,0.95))]" />
       </div>
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-200"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back
+        </Button>
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Pattern Lab</p>

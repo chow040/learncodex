@@ -1,0 +1,172 @@
+{
+  "createdAt": "2025-10-25T02:04:31.391Z",
+  "symbol": "HROW",
+  "tradeDate": "2025-10-25",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 60
+      },
+      "output": "### Balance Sheet (10-Q � 2025 � 2025-08-11)\n- Cash and cash equivalents: 52,963,000 usd\n- Accounts receivable, net: 78,822,000 usd\n- Inventories: 11,552,000 usd\n- Prepaid expenses and other current assets: 11,553,000 usd\n- Total current assets: 154,890,000 usd\n- Property, plant and equipment, net: 3,512,000 usd\n- Capitalized software costs, net: 1,478,000 usd\n- Operating lease right-of-use assets, net: 8,155,000 usd\n- Intangible assets, net: 176,666,000 usd\n- Goodwill: 332,000 usd\n- TOTAL ASSETS: 345,033,000 usd\n- Accounts payable and accrued expenses: 25,414,000 usd\n- Accrued rebates and copay assistance: 32,154,000 usd\n- Accrued payroll and related liabilities: 6,824,000 usd\n- Deferred revenue and customer deposits: 91,000 usd\n- Current portion of notes payable, net of unamortized debt discount: 183,619,000 usd\n- Current portion of operating lease obligations: 782,000 usd\n- Total current liabilities: 248,884,000 usd\n- Operating lease obligations, net of current portion: 8,366,000 usd\n- Notes payable, net of unamortized debt discount and current portion: 38,484,000 usd\n- TOTAL LIABILITIES: 295,734,000 usd\n- Common stock, $0.001 par value, 50,000,000 shares authorized, 36,714,679 and 35,622,214 shares issued and outstanding at June 30, 2025 and December 31, 2024, respectively: 36,000 usd\n- Additional paid-in capital: 213,788,000 usd\n- Accumulated deficit: -164,170,000 usd\n- TOTAL HARROW, INC. STOCKHOLDERS’ EQUITY: 49,654,000 usd\n- Noncontrolling interests: -355,000 usd\n- TOTAL STOCKHOLDERS’ EQUITY: 49,299,000 usd\n- TOTAL LIABILITIES AND STOCKHOLDERS’ EQUITY: 345,033,000 usd\n\n### Balance Sheet (10-Q � 2025 � 2025-05-08)\n- Cash and cash equivalents: 66,726,000 usd\n- Accounts receivable, net: 77,063,000 usd\n- Inventories: 10,716,000 usd\n- Prepaid expenses and other current assets: 15,030,000 usd\n- Total current assets: 169,535,000 usd\n- Property, plant and equipment, net: 3,568,000 usd\n- Capitalized software costs, net: 1,627,000 usd\n- Operating lease right-of-use assets, net: 8,337,000 usd\n- Intangible assets, net: 180,765,000 usd\n- Goodwill: 332,000 usd\n- TOTAL ASSETS: 364,164,000 usd\n- Accounts payable and accrued expenses: 39,159,000 usd\n- Accrued rebates and copay assistance: 31,153,000 usd\n- Accrued payroll and related liabilities: 7,605,000 usd\n- Deferred revenue and customer deposits: 145,000 usd\n- Current portion of notes payable, net of unamortized debt discount: 108,313,000 usd\n- Current portion of operating lease obligations: 611,000 usd\n- Total current liabilities: 186,986,000 usd\n- Operating lease obligations, net of current portion: 8,581,000 usd\n- Notes payable, net of unamortized debt discount and current portion: 112,501,000 usd\n- TOTAL LIABILITIES: 308,068,000 usd\n- Common stock, $0.001 par value, 50,000,000 shares authorized, 35,654,171 and 35,622,214 shares issued and outstanding at March 31, 2025 and December 31, 2024, respectively: 35,000 usd\n- Additional paid-in capital: 225,581,000 usd\n- Accumulated deficit: -169,165,000 usd\n- TOTAL HARROW, INC. STOCKHOLDERS’ EQUITY: 56,451,000 usd\n- Noncontrolling interests: -355,000 usd\n- TOTAL STOCKHOLDERS’ EQUITY: 56,096,000 usd\n- TOTAL LIABILITIES AND STOCKHOLDERS’ EQUITY: 364,164,000 usd\n\n### Balance Sheet (10-Q � 2024 � 2024-11-14)\n- Cash and cash equivalents: 72,601,000 usd\n- Accounts receivable, net: 53,734,000 usd\n- Inventories: 10,156,000 usd\n- Prepaid expenses and other current assets: 10,571,000 usd\n- Total current assets: 147,062,000 usd\n- Property, plant and equipment, net: 3,625,000 usd\n- Capitalized software costs, net: 1,869,000 usd\n- Operating lease right-of-use assets, net: 9,379,000 usd\n- Intangible assets, net: 189,272,000 usd\n- Goodwill: 332,000 usd\n- TOTAL ASSETS: 351,539,000 usd\n- Accounts payable and accrued expenses: 25,277,000 usd\n- Contingent consideration payable: 37,000,000 usd\n- Accrued rebates and copay assistance: 24,899,000 usd\n- Accrued payroll and related liabilities: 7,185,000 usd\n- Deferred revenue and customer deposits: 137,000 usd\n- Current portion of operating lease obligations: 507,000 usd\n- Total current liabilities: 95,005,000 usd\n- Operating lease obligations, net of current portion: 9,500,000 usd\n- Accrued expenses, net of current portion: 2,713,000 usd\n- Deferred tax liability: 643,000 usd\n- Notes payable, net of unamortized debt discounts: 186,057,000 usd\n- TOTAL LIABILITIES: 293,918,000 usd\n- Common stock, $0.001 par value, 50,000,000 shares authorized, 35,611,365 and 35,168,260 shares issued and outstanding at September 30, 2024 and December 31, 2023, respectively: 35,000 usd\n- Additional paid-in capital: 216,103,000 usd\n- Accumulated deficit: -158,162,000 usd\n- TOTAL HARROW, INC. STOCKHOLDERS’ EQUITY: 57,976,000 usd\n- Noncontrolling interests: -355,000 usd\n- TOTAL STOCKHOLDERS’ EQUITY: 57,621,000 usd\n- TOTAL LIABILITIES AND STOCKHOLDERS’ EQUITY: 351,539,000 usd",
+      "error": null,
+      "startedAt": "2025-10-25T02:03:30.621Z",
+      "finishedAt": "2025-10-25T02:03:31.368Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 60
+      },
+      "output": "### Cash Flow Statement (10-Q � 2025 � 2025-08-11)\n- Net income (loss): -12,785,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 961,000 usd\n- Amortization of intangible assets: 8,452,000 usd\n- Amortization of operating lease right-of-use assets: 399,000 usd\n- Provision for (recovery of) credit losses: 340,000 usd\n- Amortization of debt issuance costs and debt discount: 2,564,000 usd\n- Stock-based compensation: 5,431,000 usd\n- Accounts receivable: -37,211,000 usd\n- Inventories: 850,000 usd\n- Prepaid expenses and other current assets: -3,776,000 usd\n- Accounts payable, accrued expenses, accrued rebates and copay assistance: -24,009,000 usd\n- Accrued payroll and related liabilities: -2,672,000 usd\n- Deferred revenue and customer deposits: 47,000 usd\n- NET CASH PROVIDED BY (USED IN) OPERATING ACTIVITIES: 18,865,000 usd\n- Investment in patent and trademark assets: 169,000 usd\n- Purchases of property, plant and equipment: 336,000 usd\n- NET CASH (USED IN) PROVIDED BY INVESTING ACTIVITIES: -505,000 usd\n- Payment of payroll taxes upon vesting of PSUs, RSUs and exercise of stock options: 12,769,000 usd\n- Proceeds from exercise of stock options: 125,000 usd\n- NET CASH USED IN FINANCING ACTIVITIES: -12,644,000 usd\n- NET CHANGE IN CASH AND CASH EQUIVALENTS: 5,716,000 usd\n- Cash paid for income taxes: 38,000 usd\n- Cash paid for interest: 12,180,000 usd\n- Purchase of property, plant and equipment included in accounts payable and accrued expenses: 130,000 usd\n\n### Cash Flow Statement (10-Q � 2025 � 2025-05-08)\n- Net loss: -17,780,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 465,000 usd\n- Amortization of intangible assets: 4,226,000 usd\n- Amortization of operating lease right-of-use assets: 217,000 usd\n- Provision (recovery of) for credit losses: 114,000 usd\n- Amortization of debt issuance costs and debt discount: 1,275,000 usd\n- Stock-based compensation: 4,556,000 usd\n- Accounts receivable: -39,196,000 usd\n- Inventories: 14,000 usd\n- Prepaid expenses and other current assets: -299,000 usd\n- Accounts payable, accrued expenses, accrued rebates and copay assistance: -11,096,000 usd\n- Accrued payroll and related liabilities: -1,891,000 usd\n- Deferred revenue and customer deposits: 101,000 usd\n- NET CASH PROVIDED BY (USED IN) OPERATING ACTIVITIES: 19,668,000 usd\n- Investment in patent and trademark assets: 42,000 usd\n- Purchases of property, plant and equipment: 170,000 usd\n- NET CASH USED IN INVESTING ACTIVITIES: -212,000 usd\n- Proceeds from exercise of stock options: 23,000 usd\n- NET CASH PROVIDED BY (USED IN) FINANCING ACTIVITIES: 23,000 usd\n- NET CHANGE IN CASH AND CASH EQUIVALENTS: 19,479,000 usd\n- Cash paid for income taxes: 38,000 usd\n- Cash paid for interest: 6,392,000 usd\n- Purchase of property, plant and equipment included in accounts payable and accrued expenses: 5,000 usd\n\n### Cash Flow Statement (10-Q � 2024 � 2024-11-14)\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Net loss: -24,258,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 1,382,000 usd\n- Amortization of intangible assets: 7,708,000 usd\n- Amortization of operating lease right-of-use assets: 636,000 usd\n- (Recovery of) provision for credit losses: -20,000 usd\n- Amortization of debt issuance costs and debt discount: 2,985,000 usd\n- Stock-based compensation: 12,825,000 usd\n- Deferred income tax: 643,000 usd\n- Accounts receivable: 17,453,000 usd\n- Inventories: -711,000 usd\n- Prepaid expenses and other current assets: 983,000 usd\n- Accounts payable, accrued expenses, accrued rebates and copay assistance: 6,433,000 usd\n- Accrued payroll and related liabilities: 1,735,000 usd\n- Deferred revenue and customer deposits: 62,000 usd\n- NET CASH USED IN OPERATING ACTIVITIES: -4,423,000 usd\n- Net proceeds from sale of investment in Eton Pharmaceuticals: 5,510,000 usd\n- Investment in patent and trademark assets: 74,000 usd\n- Purchases of property, plant and equipment: 1,040,000 usd\n- NET CASH PROVIDED BY (USED IN) INVESTING ACTIVITIES: 4,396,000 usd\n- Payment of debt issuance costs: 100,000 usd\n- Payment of payroll taxes upon vesting of PSUs, RSUs and exercise of stock options: 2,362,000 usd\n- Proceeds from exercise of stock options: 1,005,000 usd\n- NET CASH (USED IN) PROVIDED BY FINANCING ACTIVITIES: -1,457,000 usd\n- NET CHANGE IN CASH AND CASH EQUIVALENTS: -1,484,000 usd\n- Cash paid for interest: 15,553,000 usd\n- Purchase of product NDAs associated with contingent consideration payable: 37,000,000 usd\n- Purchase of property, plant and equipment included in accounts payable and accrued expenses: 177,000 usd\n- Right-of-use assets obtained in exchange for new operating lease obligations: 3,230,000 usd",
+      "error": null,
+      "startedAt": "2025-10-25T02:03:31.368Z",
+      "finishedAt": "2025-10-25T02:03:31.780Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 60
+      },
+      "output": "### Income Statement (10-Q � 2025 � 2025-08-11)\n- Total revenues: 111,573,000 usd\n- Cost of sales: 31,754,000 usd\n- Gross profit: 79,819,000 usd\n- Selling, general and administrative: 73,748,000 usd\n- Research and development: 5,894,000 usd\n- Total operating expenses: 79,642,000 usd\n- Income (loss) from operations: 177,000 usd\n- Interest expense, net: 12,956,000 usd\n- Other (expense) income, net: -6,000 usd\n- Total other expense, net: -12,962,000 usd\n- Income (loss) before income taxes: -12,785,000 usd\n- Net income (loss): -12,785,000 usd\n- Basic net income (loss) per share of common stock: -0 usdpshares\n- Diluted net income (loss) per share of common stock: 0 usdpshares\n- Weighted average number of shares of common stock outstanding, basic: 36,304,787 shares\n- Weighted average number of shares of common stock outstanding, diluted: 36,304,787 shares\n\n### Income Statement (10-Q � 2025 � 2025-05-08)\n- Total revenues: 47,831,000 usd\n- Cost of sales: 15,524,000 usd\n- Gross profit: 32,307,000 usd\n- Selling, general and administrative: 40,513,000 usd\n- Research and development: 3,026,000 usd\n- Total operating expenses: 43,539,000 usd\n- Loss from operations: -11,232,000 usd\n- Interest expense, net: 6,548,000 usd\n- Total other expense, net: -6,548,000 usd\n- Net loss: -17,780,000 usd\n- Basic net loss per share of common stock: -1 usdpshares\n- Diluted net loss per share of common stock: -1 usdpshares\n- Weighted average number of shares of common stock outstanding, basic: 35,826,452 shares\n- Weighted average number of shares of common stock outstanding, diluted: 35,826,452 shares\n\n### Income Statement (10-Q � 2024 � 2024-11-14)\n- Total revenues: 132,783,000 usd\n- Cost of sales: 35,110,000 usd\n- Gross profit: 97,673,000 usd\n- Selling, general and administrative: 94,275,000 usd\n- Research and development: 7,475,000 usd\n- Total operating expenses: 101,750,000 usd\n- Income (loss) from operations: -4,077,000 usd\n- Interest expense, net: 16,411,000 usd\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Other income (expenses), net: 76,000 usd\n- Total other expense, net: -19,506,000 usd\n- Loss before income taxes: -23,583,000 usd\n- Provision for income taxes: 675,000 usd\n- Net loss: -24,258,000 usd\n- Basic net loss per share of common stock: -1 usdpshares\n- Diluted net loss per share of common stock: -1 usdpshares\n- Weighted average number of shares of common stock outstanding, basic: 35,597,409 shares\n- Weighted average number of shares of common stock outstanding, diluted: 35,597,409 shares",
+      "error": null,
+      "startedAt": "2025-10-25T02:03:31.780Z",
+      "finishedAt": "2025-10-25T02:03:32.154Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 7,
+        "limit": 15
+      },
+      "output": "No insider transactions recorded in the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T02:03:32.154Z",
+      "finishedAt": "2025-10-25T02:03:32.439Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "HROW",
+        "lookback_months": 6
+      },
+      "output": "No insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T02:03:32.439Z",
+      "finishedAt": "2025-10-25T02:03:32.718Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Finnhub company news retrieved for HROW.",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:06.674Z",
+      "finishedAt": "2025-10-25T02:04:07.159Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "global macroeconomics news",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"global macroeconomics news\".",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:07.159Z",
+      "finishedAt": "2025-10-25T02:04:07.588Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 30,
+        "limit": 10
+      },
+      "output": "Finnhub company news for HROW:\n\n### Harrow: Positive And Negative Adjustments After Investor Day Offset Each Other\n- Source: SeekingAlpha | Date: 2025-10-15\nHarrow is a small biotech company focused on acquiring and commercializing ophthalmic pharmaceutical products in the US. Check out HROW stock's bullish thesis here.\nhttps://finnhub.io/api/news?id=9a15ba44ee1552c0ba53d69b47ee5f90d45cd47041432aa6769f4a67eaed3366\n\n### Harrow, Inc. (HROW): A Bull Case Theory\n- Source: Yahoo | Date: 2025-10-08\nWe came across a bullish thesis on Harrow, Inc. on Make Money, Make Time’s Substack by Oliver | MMMT Wealth. In this article, we will summarize the bulls’ thesis on HROW. Harrow, Inc.’s share was trading at $47.88 as of September 24th. HROW’s trailing and forward P/E were 9.64 and 51.55 respectively according to Yahoo Finance. Harrow […]\nhttps://finnhub.io/api/news?id=d1b7828543e4c4747b15d13548d7ab0bb6934bd8b1e17cfec3e04c16a696a264\n\n### Could Harrow’s (HROW) New Pricing Program Redefine Its Patient Access Advantage?\n- Source: Yahoo | Date: 2025-10-07\nIn late September 2025, Harrow, Inc. launched the Harrow Access for All (HAFA) program, expanding affordable and predictable pricing for its full portfolio of branded, generic, and compounded ophthalmic medications, with out-of-pocket costs capped and a streamlined prescribing portal for physicians and patients. This initiative, which builds on earlier access programs, aims to set a new standard for medication affordability while positioning Harrow as a leader in patient-centric access in...\nhttps://finnhub.io/api/news?id=b5276628551c4ec24db8f8c921395315a7c4f2709e59eff3171dacfa5b224b38\n\n### ImprimisRx Announces Leadership Changes\n- Source: Yahoo | Date: 2025-10-06\nFrank Mullery Appointed Chief Executive Officer of ImprimisRx Bridseida Cruz Appointed Head of Quality of ImprimisRx NASHVILLE, Tenn., Oct. 06, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced leadership changes at its wholly-owned subsidiary, ImprimisRx. Frank Mullery has been appointed as Chief Executive Officer and Bridseida Cruz has been appointed as Head of Quality of ImprimisRx. Mr. Mullery is a\nhttps://finnhub.io/api/news?id=fea9af08d5e63d3ce338c7bde1bdfea3807ae6b0ba2a03e559f71050be2cdc76\n\n### Harrow, Inc. (HROW) Analyst/Investor Day Transcript\n- Source: SeekingAlpha | Date: 2025-09-27\nHarrow, Inc. (NASDAQ:HROW) Analyst/Investor Day September 26, 2025 11:30 AM EDTCompany ParticipantsMichael Biega - Vice President of Investor Relations...\nhttps://finnhub.io/api/news?id=ddbf80dfcca96f9179acfd999661544de660995871b5df288f4c5c9241238750\n\n### Could Harrow's New Sedation Pill Change Millions Of Medical Procedures Forever?\n- Source: Yahoo | Date: 2025-09-26\nHarrow, Inc. (NASDAQ: HROW), a U.S.-based provider of ophthalmic disease management solutions, announced on Friday that it has agreed to acquire Melt Pharmaceuticals, Inc., a clinical-stage company developing non-opioid, non-IV sedation therapies for hospitals and outpatient care. The company noted that this acquisition is viewed as another important step in the mission to deliver innovative, patient-focused ophthalmic disease management solutions that extend beyond the limitations of traditiona\nhttps://finnhub.io/api/news?id=354347ebc1d418b1a4e03afc81de93d3444a9f69d9c2794e416783d418ac94f7\n\n### Harrow to Acquire Melt Pharmaceuticals\n- Source: Yahoo | Date: 2025-09-26\nNASHVILLE, Tenn., Sept. 26, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced that it has entered into an agreement to acquire Melt Pharmaceuticals, Inc., a clinical-stage pharmaceutical company pioneering non-opioid, non-IV therapies for sedation for medical procedures in the hospital, outpatient, and in-office settings. The closing of this acquisition is subject to customary closing conditions, includ\nhttps://finnhub.io/api/news?id=d93ef9eb1f9f2ac2aab80ecb5369005280d63d1ed59042138a930992089ed8c5\n\n### Harrow Launches Harrow Access for All (HAFA)\n- Source: Yahoo | Date: 2025-09-25\nHAFA to Expand Harrow’s Innovative Market Access Model Across Ophthalmic Portfolio Program will be available in late 2025 through the HarrowAccess.com Portal NASHVILLE, Tenn., Sept. 25, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced the launch of Harrow Access for All (“HAFA”), expanding Harrow’s commitment to make it easier and more affordable for patients to access Harrow’s full range of branded, g\nhttps://finnhub.io/api/news?id=a496a52103cdf1ace7206fba42ba5ba19af8b3afa7430a717bfe97952462ac5c",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:09.008Z",
+      "finishedAt": "2025-10-25T02:04:09.466Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "economic news",
+        "lookback_days": 30,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"economic news\".",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:09.466Z",
+      "finishedAt": "2025-10-25T02:04:09.665Z",
+      "durationMs": null
+    },
+    {
+      "id": 10,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:20.372Z",
+      "finishedAt": "2025-10-25T02:04:21.407Z",
+      "durationMs": null
+    },
+    {
+      "id": 11,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:04:22.161Z",
+      "finishedAt": "2025-10-25T02:04:22.826Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 11
+  }
+}

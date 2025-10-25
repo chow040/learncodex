@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowUpRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { TradingAgentsLayout } from '../components/trading/TradingAgentsLayout'
 import { TradingProgress } from '../components/trading/TradingProgress'
@@ -15,27 +15,13 @@ import { useToast } from '../components/ui/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ScrollArea } from '../components/ui/scroll-area'
-import { useTradingProgress } from '../hooks/useTradingProgress'
 import { useTradingAssessments } from '../hooks/useTradingAssessments'
 import type { TradingAssessmentSummary } from '../hooks/useTradingAssessments'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { cn } from '../lib/utils'
 import { sendAnalyticsEvent } from '../lib/analytics'
-
-type TradingAgentsDecision = {
-  symbol: string
-  decision?: string
-  finalTradeDecision?: string
-  tradeDate?: string
-  traderPlan?: string
-  investmentPlan?: string
-  investmentJudge?: string
-  riskJudge?: string
-  rawJson?: unknown
-  modelId?: string | null
-  analysts?: string[]
-  runId?: string
-}
+import type { TradingAgentsDecision } from '../types/tradingAgents'
+import { useTradingProgressContext } from '../contexts/TradingProgressContext'
 
 type AnalystOption = {
   id: string
@@ -83,7 +69,7 @@ const MODEL_OPTIONS = [
 const DEFAULT_ANALYST_SELECTION = ANALYST_OPTIONS.map((analyst) => analyst.id)
 
 type AgentTextBlockProps = {
-  text?: string
+  text?: string | null
   emptyLabel?: string
 }
 
@@ -138,7 +124,10 @@ const AgentTextBlock = ({ text, emptyLabel = 'No output provided yet.' }: AgentT
 }
 
 const TradingAgents = () => {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (!API_BASE_URL) {
+    throw new Error('VITE_API_BASE_URL is not configured')
+  }
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -148,23 +137,15 @@ const TradingAgents = () => {
   const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
   const [tradingError, setTradingError] = useState<string | null>(null)
   const [isTradingLoading, setIsTradingLoading] = useState(false)
-  const [progressRunId, setProgressRunId] = useState<string | null>(null)
 
-  const { state: progressState, disconnect: disconnectProgress } = useTradingProgress<TradingAgentsDecision>(
-    progressRunId,
-    {
-      apiBaseUrl: API_BASE_URL,
-      parseResult: (input) => input as TradingAgentsDecision,
-      enabled: Boolean(progressRunId)
-    }
-  )
+  const { activeRun, progressState, startTracking, clearActiveRun } = useTradingProgressContext()
 
   const tradingRequestController = useRef<AbortController | null>(null)
   const tradingCancelPending = useRef(false)
 
   const {
     assessments: tradingHistory,
-    query: tradingHistoryQuery
+    query: { refetch: refetchHistory, ...tradingHistoryQuery }
   } = useTradingAssessments(ticker, {
     apiBaseUrl: API_BASE_URL
   })
@@ -207,7 +188,7 @@ const TradingAgents = () => {
   }, [tradingDecision?.analysts, selectedAnalysts])
 
   const showTradingProgress =
-    progressState.runId !== null &&
+    Boolean(activeRun) &&
     (progressState.status === 'connecting' || progressState.status === 'streaming')
 
   const handleAnalystToggle = (analystId: string) => {
@@ -242,7 +223,13 @@ const TradingAgents = () => {
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2, 10)
 
-    setProgressRunId(runId)
+    startTracking({
+      runId,
+      symbol,
+      modelId,
+      analysts: selectedAnalysts,
+      startedAt: Date.now()
+    })
 
     const fallbackMessage = 'Trading agents decision is unavailable right now.'
 
@@ -259,8 +246,7 @@ const TradingAgents = () => {
         setTradingDecision(data)
         setTradingError(null)
       } else {
-        setProgressRunId(null)
-        disconnectProgress()
+        clearActiveRun()
         const rawBody = await response.text()
         let message = fallbackMessage
         if (rawBody) {
@@ -298,8 +284,7 @@ const TradingAgents = () => {
         }
       } else {
         console.error(error)
-        setProgressRunId(null)
-        disconnectProgress()
+        clearActiveRun()
         const message = error instanceof Error ? `Trading agents error: ${error.message}` : fallbackMessage
         setTradingDecision(null)
         setTradingError(message)
@@ -325,8 +310,7 @@ const TradingAgents = () => {
     tradingCancelPending.current = true
     tradingRequestController.current?.abort()
     tradingRequestController.current = null
-    disconnectProgress()
-    setProgressRunId(null)
+    clearActiveRun()
     setIsTradingLoading(false)
     setTradingDecision(null)
     setTradingError(null)
@@ -344,43 +328,40 @@ const TradingAgents = () => {
       setTradingDecision(result)
       setTradingError(null)
       setIsTradingLoading(false)
-      void tradingHistoryQuery.refetch()
+      void refetchHistory()
       toast({
         title: 'Trading agents complete',
         description: `${result.symbol} decision ready: ${
           result.decision ?? result.finalTradeDecision ?? 'Review the output.'
         }`
       })
-      disconnectProgress()
-      setProgressRunId(null)
+      clearActiveRun()
     } else if (progressState.status === 'error' && progressState.error) {
       const message = progressState.error
       setTradingDecision(null)
       setTradingError(message)
       setIsTradingLoading(false)
-      void tradingHistoryQuery.refetch()
+      void refetchHistory()
       toast({
         title: 'Trading agents error',
         description: message,
         variant: 'destructive'
       })
-      disconnectProgress()
-      setProgressRunId(null)
+      clearActiveRun()
     }
-  }, [progressState, disconnectProgress, toast])
+  }, [progressState, clearActiveRun, toast, refetchHistory])
 
   useEffect(() => {
     return () => {
       tradingRequestController.current?.abort()
-      disconnectProgress()
     }
-  }, [disconnectProgress])
+  }, [])
 
   useEffect(() => {
     if (tradingDecision?.runId) {
-      void tradingHistoryQuery.refetch()
+      void refetchHistory()
     }
-  }, [tradingDecision?.runId, tradingHistoryQuery])
+  }, [tradingDecision?.runId, refetchHistory])
 
   const normalizedTicker = ticker.trim().toUpperCase()
   const hasHistory = tradingHistory.length > 0
@@ -442,6 +423,14 @@ const TradingAgents = () => {
     })
   }
 
+  const formatDurationMs = (value: number | null | undefined): string => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return '—'
+    }
+    const minutes = value / 60000
+    return `${minutes.toFixed(1)} min`
+  }
+
   const isDefaultAnalystCohort = (analysts: string[]): boolean => {
     if (analysts.length !== DEFAULT_ANALYST_SELECTION.length) return false
     const sorted = [...analysts].sort()
@@ -468,7 +457,7 @@ const TradingAgents = () => {
     }
   }
 
-  const logHistoryRowOpened = (assessment: TradingAssessmentSummary, source: 'row' | 'button' | 'keyboard') => {
+  const logHistoryRowOpened = (assessment: TradingAssessmentSummary, source: 'row' | 'keyboard') => {
     sendAnalyticsEvent('trading_history_row_opened', {
       runId: assessment.runId,
       symbol: assessment.symbol,
@@ -482,7 +471,7 @@ const TradingAgents = () => {
 
   const openHistoryDetail = (
     assessment: TradingAssessmentSummary,
-    source: 'row' | 'button' | 'keyboard'
+    source: 'row' | 'keyboard'
   ) => {
     if (!assessment.runId) return
     logHistoryRowOpened(assessment, source)
@@ -607,6 +596,18 @@ const TradingAgents = () => {
     const resolvedModelLabel = resolvedModelId
       ? MODEL_OPTIONS.find((option) => option.id === resolvedModelId)?.label ?? resolvedModelId
       : 'Unspecified'
+    const personaPanels: Array<{
+      key: string
+      label: string
+      value?: string | null
+      fallback: string
+    }> = [
+      { key: 'trader-plan', label: 'Trader (Execution)', value: decision.traderPlan, fallback: 'Trader plan unavailable.' },
+      { key: 'investment-plan', label: 'Research Manager', value: decision.investmentPlan, fallback: 'Research manager plan unavailable.' },
+      { key: 'risk-judge', label: 'Risk Manager', value: decision.riskJudge, fallback: 'Risk manager commentary unavailable.' }
+    ]
+    const defaultPersonaPanel =
+      personaPanels.find((panel) => panel.value && panel.value.trim())?.key ?? personaPanels[0]?.key ?? ''
 
     return (
       <div className="space-y-6">
@@ -639,41 +640,35 @@ const TradingAgents = () => {
             <TabsTrigger value="analysts">Analysts</TabsTrigger>
             <TabsTrigger value="json">Raw JSON</TabsTrigger>
           </TabsList>
-          <TabsContent value="summary" className="mt-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="border border-border/60 bg-card/80">
-                <CardHeader>
-                  <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Trader Plan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AgentTextBlock text={decision.traderPlan} emptyLabel="Trader plan unavailable." />
-                </CardContent>
-              </Card>
-              <Card className="border border-border/60 bg-card/80">
-                <CardHeader>
-                  <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Investment Plan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AgentTextBlock text={decision.investmentPlan} emptyLabel="Investment plan unavailable." />
-                </CardContent>
-              </Card>
-              <Card className="border border-border/60 bg-card/80">
-                <CardHeader>
-                  <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Investment Judge</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AgentTextBlock text={decision.investmentJudge} emptyLabel="Judge commentary unavailable." />
-                </CardContent>
-              </Card>
-              <Card className="border border-border/60 bg-card/80">
-                <CardHeader>
-                  <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Risk Judge</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AgentTextBlock text={decision.riskJudge} emptyLabel="Risk commentary unavailable." />
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="summary" className="mt-4 space-y-4">
+            {personaPanels.length > 0 ? (
+              <Tabs
+                key={`persona-tabs-${decision.runId ?? decision.symbol ?? 'current'}`}
+                defaultValue={defaultPersonaPanel}
+                className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6"
+              >
+                <TabsList className="w-full max-w-[220px] flex flex-col gap-2 rounded-2xl border border-border/60 bg-background/40 p-2 text-xs uppercase tracking-[0.25em] text-muted-foreground md:sticky md:top-0">
+                  {personaPanels.map((panel) => (
+                    <TabsTrigger
+                      key={panel.key}
+                      value={panel.key}
+                      className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                    >
+                      {panel.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {personaPanels.map((panel) => (
+                  <TabsContent key={panel.key} value={panel.key} className="rounded-2xl border border-border/60 bg-card/80 p-6">
+                    <AgentTextBlock text={panel.value} emptyLabel={panel.fallback} />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            ) : (
+              <div className="rounded-2xl border border-border/60 bg-card/80 p-6 text-sm text-muted-foreground">
+                No persona outputs recorded for this decision.
+              </div>
+            )}
           </TabsContent>
           <TabsContent value="analysts" className="mt-4">
             <div className="rounded-2xl border border-border/60 bg-card/80 p-6">
@@ -757,8 +752,8 @@ const TradingAgents = () => {
                 <TableHead className="w-[120px] uppercase tracking-[0.25em]">Decision</TableHead>
                 <TableHead className="uppercase tracking-[0.25em]">Model</TableHead>
                 <TableHead className="uppercase tracking-[0.25em]">Analysts</TableHead>
+                <TableHead className="uppercase tracking-[0.25em]">Duration</TableHead>
                 <TableHead className="w-[180px] uppercase tracking-[0.25em]">Run ID</TableHead>
-                <TableHead aria-label="actions" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -768,6 +763,7 @@ const TradingAgents = () => {
                 const customModel = assessment.modelId ? assessment.modelId !== MODEL_OPTIONS[0]?.id : false
                 const defaultCohort = isDefaultAnalystCohort(analystsDisplay)
                 const runRecordedAt = formatRunTimestamp(assessment.createdAt)
+                const durationLabel = formatDurationMs(assessment.executionMs)
                 return (
                   <TableRow
                     key={assessment.runId}
@@ -839,22 +835,11 @@ const TradingAgents = () => {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell className="text-xs uppercase tracking-[0.3em] text-muted-foreground tabular-nums">
+                      {durationLabel}
+                    </TableCell>
                     <TableCell className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">
                       {assessment.runId}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em]"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          openHistoryDetail(assessment, 'button')
-                        }}
-                      >
-                        View detail
-                        <ArrowUpRight className="h-4 w-4" aria-hidden />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 )
