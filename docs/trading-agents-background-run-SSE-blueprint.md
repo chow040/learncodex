@@ -76,17 +76,23 @@ We already have durability and replay; the missing pieces are cross-page listene
 ## Implementation Checklist
 
 ### Frontend
-- [x] Create `contexts/ProgressContext.tsx` (provider + hook) — currently tracks a single active run.
+- [x] Create `contexts/ProgressContext.tsx` (provider + hook) — now tracks a small map of active runs (max 5) and exposes shared helpers.
 - [x] Refactor `TradingAgents.tsx` to consume context instead of calling `useTradingProgress` directly.
-- [x] Persist active run IDs in `localStorage` (`tradingAgents.activeRuns_v1`) — stored as single active run record; multi-run list still TODO.
-- [x] On provider mount, rehydrate IDs and call `subscribe(runId)` — limited to single run.
-- [ ] Add optional global banner component (`components/nav/ActiveRunBanner.tsx`).
-- [ ] Expose helper `useActiveRuns()` hook for other pages.
+- [x] Persist active run IDs in `localStorage` (`tradingAgents.activeRuns_v2`) with basic run metadata for recovery on refresh.
+- [x] On provider mount, rehydrate IDs and call `subscribe(runId)` for the highlighted run.
+- [x] Add optional global banner component (`components/nav/ActiveRunBanner.tsx`) — surfaces the most recent in-flight run with CTA.
+- [x] Expose helper `useActiveRuns()` hook for other pages.
 
 ### Backend (optional touch-ups)
 - [ ] Include `startedAt` & `executionMs` in SSE payload (progress metadata already carries `timestamp`; ensure `runStartedAt` set in metadata—done in `decisionWorkflow`).
 - [ ] Document run retention (how long `tradingProgressService` keeps events; consider TTL).
 - [ ] Add `/api/trading/assessments/:runId` to Postman collection / API docs.
+
+### Development Mock Mode
+- Set `TRADING_AGENTS_USE_MOCK=true` to bypass OpenAI and serve deterministic responses.
+- Optional: point `TRADING_AGENTS_MOCK_FIXTURE=fixtures/tradingAgentsDecision.mock.json` to load the canned payload added in `backend/fixtures/`. When unset, the backend generates a generic mock plan.
+- Adjust total runtime with `TRADING_AGENTS_MOCK_DURATION_MS` (default 20000) to better mimic live latency; the mock stream distributes progress events across that window.
+- Frontend honours `VITE_TRADING_AGENTS_USE_MOCK` for the initial toggle state; the response source switch can still override per run.
 
 ### QA
 - [ ] Launch run, navigate Home → banner shows status, return to page → progress preserved.

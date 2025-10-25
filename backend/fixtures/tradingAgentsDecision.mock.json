@@ -1,0 +1,18 @@
+{
+  "symbol": "AMZN",
+  "tradeDate": "2025-10-25",
+  "decision": "BUY",
+  "finalTradeDecision": "BUY",
+  "executionMs": 41250,
+  "modelId": "gpt-4o-mini",
+  "analysts": ["fundamental", "market", "news", "social"],
+  "investmentPlan": "### Research Manager Summary (AMZN)\nAmazon's core commerce and AWS flywheel continues to re-accelerate alongside disciplined cost management. Top-line growth is re-basing higher as advertising mix improves and international losses narrow. Macro signals—including resilient U.S. retail spending and stabilizing freight costs—support a constructive bias. Key focus: sustain double-digit AWS growth while protecting margins via reserved-instance incentives.\n\n### Scenario Framing\n- **Base Case (60%)**: Gradual multiple expansion as operating margins climb above 10% in FY26.\n- **Bull Case (25%)**: AI-centric workloads accelerate AWS growth >20% YoY, lifting shares toward recent highs.\n- **Bear Case (15%)**: Consumer softness returns and FX headwinds reappear, capping upside.\n\n### Positioning Guidance\nDeploy risk capital in staged entries, aligning with trader execution below.",
+  "traderPlan": "### Execution Plan\n- **Entry**: Scale in between $172-$175 after confirmation of 10-day EMA support.\n- **Stop**: Hard stop at $166 (3.2% risk) beneath 50-day SMA confluence.\n- **Targets**:\n  - T1: $184 to reduce half size and move stop to breakeven.\n  - T2: $192 with trailing stop using 5-day EMA close.\n- **Sizing**: 70 bps of book, respecting desk max drawdown constraints.\n- **Notes**: Monitor AWS datapoints and macro prints (ISM, CPI).",
+  "investmentJudge": "Consensus leans BUY. Thesis holds provided AWS growth outpaces Azure trendlines and consumer discretionary spending remains solid.",
+  "riskJudge": "### Risk Manager Commentary\nVolatility is contained (ATR compressing) but headline risk around antitrust rulings persists. Maintain disciplined stop; hedge beta via QQQ puts if VIX punches through 22.",
+  "marketReport": "### Market Structure Snapshot\nMomentum tilts bullish with 10 EMA > 50 SMA and rising OBV. Breadth within discretionary sector is improving, while AMZN outperforms XLY on a 3-month basis. Watch for MACD histogram inflection supporting the breakout attempt.",
+  "sentimentReport": "### Sentiment & Social Pulse\nRetail chatter on /r/stocks and FinTwit pivots back to AI infrastructure demand. Options flow shows steady call buying at $180-$185 strikes with moderate IV expansion.",
+  "newsReport": "### Catalyst Tape\n- AWS launches new GenAI inference bundles targeting enterprise cost reduction.\n- FTC litigation timeline slips into Q2, lowering near-term overhang.\n- Logistics division expands same-day coverage to 110 metros, reinforcing moat.",
+  "fundamentalsReport": "### Fundamental Snapshot\nRevenue YoY +12% with AWS +17%. Operating cash flow +31% YoY as capex normalizes. Net debt trending lower; interest coverage a healthy 12x. Forward EV/EBITDA at 16.4x vs historical 18-22x range.",
+  "debugPrompt": null
+}

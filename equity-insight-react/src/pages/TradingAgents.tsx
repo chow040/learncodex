@@ -18,6 +18,7 @@ import { ScrollArea } from '../components/ui/scroll-area'
 import { useTradingAssessments } from '../hooks/useTradingAssessments'
 import type { TradingAssessmentSummary } from '../hooks/useTradingAssessments'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { Switch } from '../components/ui/switch'
 import { cn } from '../lib/utils'
 import { sendAnalyticsEvent } from '../lib/analytics'
 import type { TradingAgentsDecision } from '../types/tradingAgents'
@@ -67,6 +68,15 @@ const MODEL_OPTIONS = [
 ]
 
 const DEFAULT_ANALYST_SELECTION = ANALYST_OPTIONS.map((analyst) => analyst.id)
+
+const parseMockEnvFlag = (value: string | undefined): boolean => {
+  if (!value) return false
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return false
+  return ['1', 'true', 'yes', 'y', 'on', 'mock', 'enabled'].includes(normalized)
+}
+
+const DEFAULT_USE_MOCK_DATA = parseMockEnvFlag(import.meta.env.VITE_TRADING_AGENTS_USE_MOCK as string | undefined)
 
 type AgentTextBlockProps = {
   text?: string | null
@@ -133,6 +143,7 @@ const TradingAgents = () => {
 
   const [ticker, setTicker] = useState('')
   const [modelId, setModelId] = useState(MODEL_OPTIONS[0]?.id ?? '')
+  const [useMockData, setUseMockData] = useState(DEFAULT_USE_MOCK_DATA)
   const [selectedAnalysts, setSelectedAnalysts] = useState<string[]>(DEFAULT_ANALYST_SELECTION)
   const [tradingDecision, setTradingDecision] = useState<TradingAgentsDecision | null>(null)
   const [tradingError, setTradingError] = useState<string | null>(null)
@@ -228,6 +239,7 @@ const TradingAgents = () => {
       symbol,
       modelId,
       analysts: selectedAnalysts,
+      mode: useMockData ? 'mock' : 'live',
       startedAt: Date.now()
     })
 
@@ -237,7 +249,7 @@ const TradingAgents = () => {
       const response = await fetch(`${API_BASE_URL}/api/trading/decision/internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, runId, modelId, analysts: selectedAnalysts }),
+        body: JSON.stringify({ symbol, runId, modelId, analysts: selectedAnalysts, useMockData }),
         signal: controller.signal
       })
 
@@ -350,12 +362,6 @@ const TradingAgents = () => {
       clearActiveRun()
     }
   }, [progressState, clearActiveRun, toast, refetchHistory])
-
-  useEffect(() => {
-    return () => {
-      tradingRequestController.current?.abort()
-    }
-  }, [])
 
   useEffect(() => {
     if (tradingDecision?.runId) {
@@ -537,7 +543,26 @@ const TradingAgents = () => {
           <p className="text-xs text-muted-foreground/80">We honor this selection on the backend and fall back to the default env model when omitted.</p>
         </div>
 
-        <div className="lg:col-span-2" />
+        <div className="space-y-2 lg:col-span-2">
+          <Label className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Response Source</Label>
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/50 bg-background/40 px-4 py-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                {useMockData ? 'Mock responses' : 'Live model responses'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {useMockData
+                  ? 'Serve deterministic mock outputs to avoid OpenAI costs during local development.'
+                  : 'Execute the full workflow against live OpenAI models.'}
+              </p>
+            </div>
+            <Switch
+              checked={useMockData}
+              onCheckedChange={(checked) => setUseMockData(Boolean(checked))}
+              aria-label="Toggle mock responses"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -645,9 +670,9 @@ const TradingAgents = () => {
               <Tabs
                 key={`persona-tabs-${decision.runId ?? decision.symbol ?? 'current'}`}
                 defaultValue={defaultPersonaPanel}
-                className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6"
+                className="space-y-4"
               >
-                <TabsList className="w-full max-w-[220px] flex flex-col gap-2 rounded-2xl border border-border/60 bg-background/40 p-2 text-xs uppercase tracking-[0.25em] text-muted-foreground md:sticky md:top-0">
+                <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
                   {personaPanels.map((panel) => (
                     <TabsTrigger
                       key={panel.key}

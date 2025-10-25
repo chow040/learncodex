@@ -1,0 +1,142 @@
+{
+  "createdAt": "2025-10-25T02:16:32.742Z",
+  "symbol": "CRWV",
+  "tradeDate": "2025-10-25",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "CRWV",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Balance Sheet (10-Q � 2025 � 2025-08-13)\n- Cash and cash equivalents: 1,152,883,000 usd\n- Restricted cash and cash equivalents, current: 560,173,000 usd\n- Accounts receivable, net: 1,933,698,000 usd\n- Prepaid expenses and other current assets: 299,229,000 usd\n- Total current assets: 3,945,983,000 usd\n- Restricted cash and cash equivalents, non-current: 340,527,000 usd\n- Restricted marketable securities, non-current: 0 usd\n- Property and equipment, net: 16,631,510,000 usd\n- Operating lease right-of-use assets: 3,380,201,000 usd\n- Intangible assets, net: 205,895,000 usd\n- � 28 additional rows truncated\n\n### Balance Sheet (10-Q � 2025 � 2025-05-15)\n- Cash and cash equivalents: 1,276,456,000 usd\n- Restricted cash and cash equivalents, current: 624,250,000 usd\n- Accounts receivable, net: 1,055,208,000 usd\n- Prepaid expenses and other current assets: 146,733,000 usd\n- Total current assets: 3,102,647,000 usd\n- Restricted cash and cash equivalents, non-current: 617,110,000 usd\n- Restricted marketable securities, non-current: 0 usd\n- Property and equipment, net: 14,210,992,000 usd\n- Operating lease right-of-use assets: 3,063,220,000 usd\n- Intangible assets, net: 4,395,000 usd\n- � 27 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:15:30.356Z",
+      "finishedAt": "2025-10-25T02:15:30.987Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "CRWV",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Cash Flow Statement (10-Q � 2025 � 2025-08-13)\n- Net loss: -605,150,000 usd\n- Depreciation and amortization: 1,002,978,000 usd\n- Non-cash lease expense: 144,113,000 usd\n- Amortization of debt discounts and issuance costs and accretion of redemption premiums: 66,727,000 usd\n- Loss (gain) on fair value adjustments: 26,837,000 usd\n- Stock-based compensation: 328,978,000 usd\n- Deferred income taxes: 90,884,000 usd\n- Other non-cash reconciling items: 40,132,000 usd\n- Accounts receivable: 1,504,696,000 usd\n- Prepaid expenses and other current assets: 120,448,000 usd\n- � 41 additional rows truncated\n\n### Cash Flow Statement (10-Q � 2025 � 2025-05-15)\n- Net loss: -314,641,000 usd\n- Depreciation and amortization: 443,497,000 usd\n- Non-cash lease expense: 66,869,000 usd\n- Amortization of debt discounts and issuance costs and accretion of redemption premiums: 37,691,000 usd\n- Loss (gain) on fair value adjustments: 26,837,000 usd\n- Stock-based compensation: 183,973,000 usd\n- Deferred income taxes: 44,617,000 usd\n- Other non-cash reconciling items: 22,723,000 usd\n- Accounts receivable: 638,750,000 usd\n- Prepaid expenses and other current assets: 9,929,000 usd\n- � 31 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:15:30.987Z",
+      "finishedAt": "2025-10-25T02:15:31.596Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "CRWV",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Income Statement (10-Q � 2025 � 2025-08-13)\n- Revenue: 2,194,420,000 usd\n- Cost of revenue: 575,061,000 usd\n- Technology and infrastructure: 1,231,315,000 usd\n- Sales and marketing: 47,348,000 usd\n- General and administrative: 348,957,000 usd\n- Total operating expenses: 2,202,681,000 usd\n- Operating income (loss): -8,261,000 usd\n- Gain (loss) on fair value adjustments: 26,837,000 usd\n- Interest expense, net: -530,801,000 usd\n- Other income (expense), net: 886,000 usd\n- � 12 additional rows truncated\n\n### Income Statement (10-Q � 2025 � 2025-05-15)\n- Revenue: 981,632,000 usd\n- Cost of revenue: 262,394,000 usd\n- Technology and infrastructure: 561,402,000 usd\n- Sales and marketing: 10,549,000 usd\n- General and administrative: 174,757,000 usd\n- Total operating expenses: 1,009,102,000 usd\n- Operating income (loss): -27,470,000 usd\n- Gain (loss) on fair value adjustments: 26,837,000 usd\n- Interest expense, net: -263,835,000 usd\n- Other income (expense), net: -4,137,000 usd\n- � 11 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T02:15:31.596Z",
+      "finishedAt": "2025-10-25T02:15:31.904Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "CRWV",
+        "lookback_days": 7,
+        "limit": 15
+      },
+      "output": "Recent insider transactions (25 records fetched).\n\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -224 | Shares 902,638\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -313 | Shares 902,862\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -1,083 | Shares 3,175,552\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -1,491 | Shares 3,176,635\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -1,344 | Shares 3,444,606\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -1,851 | Shares 3,445,950\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -2,183 | Shares 9,016,478\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -3,003 | Shares 9,018,661\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -582 | Shares 1,300,176\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -798 | Shares 1,300,758\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -2,046 | Shares 6,637,588\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -2,816 | Shares 6,639,634\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -1,502 | Shares 5,322,192\n• 2025-10-20: Magnetar Financial LLC (S) @ $135.62 | Change -2,051 | Shares 5,323,694\n• 2025-10-20: Magnetar Financial LLC (S) @ $138.26 | Change -72 | Shares 314,405\n\n… 10 additional transactions truncated.",
+      "error": null,
+      "startedAt": "2025-10-25T02:15:31.904Z",
+      "finishedAt": "2025-10-25T02:15:32.187Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "CRWV",
+        "lookback_months": 6
+      },
+      "output": "No insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T02:15:32.187Z",
+      "finishedAt": "2025-10-25T02:15:32.478Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "CRWV",
+        "lookback_days": 7,
+        "limit": 5
+      },
+      "output": "Finnhub company news for CRWV:\n\n### Undercovered Dozen: Antero Resources, Red Cat Holdings, CoreWeave And More\n- Source: SeekingAlpha | Date: 2025-10-24\nDiscover 12 undercovered stocks with fresh investment ideas and insights from recent Seeking Alpha articles.\nhttps://finnhub.io/api/news?id=40d7dc58c2b30aeb0dcdacf37b92cc6db12bcf86acb60b93843a022ac333b595\n\n### Meta: Ultra Bullish Heading Into Q3 Earnings, With A Likely CapEx Upward Revision At The Midpoint\n- Source: SeekingAlpha | Date: 2025-10-22\nI see a favorable Q3 2025 setup for Meta Platforms (META) driven by strong AI infrastructure execution during the quarter, as noted by the deals announced...\nhttps://finnhub.io/api/news?id=54b8a5ba53a12ebd09f17f34f5904a74c9631100caf9de3ff6649cfbab7ad954\n\n### Wall Street Lunch: Can China Keep Spending Big?\n- Source: SeekingAlpha | Date: 2025-10-21\nAs GDP weakens, luxury brands seek new inroads to Chinese customers. Warner Bros. Discovery open to a sale. Jimmy Kimmel suspension cost Disney 7 million subscribers.\nhttps://finnhub.io/api/news?id=541ddda2c9c44b14186857f08386df6703add16d0cad831421293c0d9bc50777\n\n### Microsoft: Very Bullish Into Upcoming Earnings\n- Source: SeekingAlpha | Date: 2025-10-20\nMicrosoft's diversified AI strategy and strong partnerships drive innovation and growth. Valuation is reasonable at 33x forward EPS. See ore on MSFT here.\nhttps://finnhub.io/api/news?id=8b46d84837cf965296c62a052f68c2fec616dbc4d4cddb42c6d2a36437a35436\n\n### This Unbelievably Strong Stock Market\n- Source: SeekingAlpha | Date: 2025-10-19\nEconomic Strategist Hardika Singh is shocked by how strong this market has been even though there's been so many curveballs thrown at it.\nhttps://finnhub.io/api/news?id=42cd55f266454d54be108a75365699f4f9b86b9d5a62af8a156b910ffed74c5a\n\n… 1 additional articles truncated.",
+      "error": null,
+      "startedAt": "2025-10-25T02:16:06.314Z",
+      "finishedAt": "2025-10-25T02:16:06.742Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "CRWV",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for CRWV (query: CRWV stock)\n- Total posts (7d): 5\n- Total upvotes: 142\n- Average comments per post: 58\n\nTop subreddits:\n• r/Stocktradingalerts: 2 mentions\n• r/investing: 1 mentions\n• r/StockMarket: 1 mentions\n• r/TickerTalkByLiam: 1 mentions\n\nTrending posts:\n• What is your highest conviction growth stock? — Score 97 | Comments 216\n  https://www.reddit.com/r/investing/comments/1of1b9v/what_is_your_highest_conviction_growth_stock/\n• What is your highest conviction growth stock? — Score 35 | Comments 73\n  https://www.reddit.com/r/StockMarket/comments/1of19x8/what_is_your_highest_conviction_growth_stock/\n• $SCNX who made $10,000?!?  Bank with our trading A. I.😎😎📈🚀 — Score 2 | Comments 0\n  https://www.reddit.com/gallery/1oenqzp\n• Stock Alerts Catching Dip Perfectly! 🚨🚀📈 IBIO — Score 4 | Comments 0\n  https://www.reddit.com/gallery/1odq5cb\n• The Calm Before the Storm? Something Is Happening. — Score 4 | Comments 1\n  https://www.reddit.com/r/TickerTalkByLiam/comments/1oey2g9/the_calm_before_the_storm_something_is_happening/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:16:06.742Z",
+      "finishedAt": "2025-10-25T02:16:07.781Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "macro economic trends",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"macro economic trends\".",
+      "error": null,
+      "startedAt": "2025-10-25T02:16:07.781Z",
+      "finishedAt": "2025-10-25T02:16:08.226Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "CRWV",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for CRWV (query: CRWV stock)\n- Total posts (7d): 10\n- Total upvotes: 175\n- Average comments per post: 29.7\n\nTop subreddits:\n• r/Stocktradingalerts: 4 mentions\n• r/GreenWicks: 2 mentions\n• r/investing: 1 mentions\n• r/StockMarket: 1 mentions\n• r/TickerTalkByLiam: 1 mentions\n\nTrending posts:\n• What is your highest conviction growth stock? — Score 98 | Comments 216\n  https://www.reddit.com/r/investing/comments/1of1b9v/what_is_your_highest_conviction_growth_stock/\n• What is your highest conviction growth stock? — Score 33 | Comments 73\n  https://www.reddit.com/r/StockMarket/comments/1of19x8/what_is_your_highest_conviction_growth_stock/\n• $SCNX who made $10,000?!?  Bank with our trading A. I.😎😎📈🚀 — Score 2 | Comments 0\n  https://www.reddit.com/gallery/1oenqzp\n• Stock Alerts Catching Dip Perfectly! 🚨🚀📈 IBIO — Score 3 | Comments 0\n  https://www.reddit.com/gallery/1odq5cb\n• The Calm Before the Storm? Something Is Happening. — Score 2 | Comments 1\n  https://www.reddit.com/r/TickerTalkByLiam/comments/1oey2g9/the_calm_before_the_storm_something_is_happening/\n• $ARMP AI volume alerts with Resistance Levels! 🚨🚀📈 — Score 2 | Comments 0\n  https://www.reddit.com/gallery/1odq5zn\n• ULTY/SLTY Update (10/24): -$43M outflow, $2M in net options premium, close above $5 — Score 17 | Comments 4\n  https://www.reddit.com/r/YieldMaxETFs/comments/1ofethh/ultyslty_update_1024_43m_outflow_2m_in_net/\n• Forget the Hype: Check This Energy Stock That Just Fuels the Action — Score 12 | Comments 0\n  https://www.reddit.com/r/GreenWicks/comments/1oe49l5/forget_the_hype_check_this_energy_stock_that_just/\n• Premarket Runs Easy Catch with our Stock AI Alerts🚨🚀📈 $AREB — Score 2 | Comments 0\n  https://www.reddit.com/gallery/1odq6mt\n• This Stock Just Won't Stay Down — Score 4 | Comments 3\n  https://www.reddit.com/r/GreenWicks/comments/1oeyb9e/this_stock_just_wont_stay_down/\n",
+      "error": null,
+      "startedAt": "2025-10-25T02:16:16.450Z",
+      "finishedAt": "2025-10-25T02:16:17.681Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 9
+  }
+}

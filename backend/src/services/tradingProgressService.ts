@@ -24,6 +24,7 @@ export interface ProgressEvent {
   timestamp: number;
   modelId?: string;
   analysts?: TradingAnalystId[];
+  mode?: 'mock' | 'live';
 }
 
 interface ProgressState {

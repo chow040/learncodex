@@ -20,6 +20,22 @@ const parseCsvList = (input: string | undefined): string[] => {
     .filter((value) => value.length > 0);
 };
 
+const parseBoolean = (input: string | undefined): boolean => {
+  if (!input) return false;
+  const normalized = input.trim().toLowerCase();
+  if (!normalized) return false;
+  return ['1', 'true', 'yes', 'y', 'on', 'enabled'].includes(normalized);
+};
+
+const parsePositiveInt = (input: string | undefined, fallback: number): number => {
+  if (!input) return fallback;
+  const parsed = Number.parseInt(input, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+};
+
 const DEFAULT_TRADING_MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
@@ -79,4 +95,10 @@ export const env = {
   pastResultsMaxEntries: Number.parseInt(process.env.PAST_RESULTS_MAX_ENTRIES ?? '5', 10),
   tradingAssessmentHistoryEnabled:
     (process.env.TRADING_ASSESSMENT_HISTORY_ENABLED ?? 'false').toLowerCase() === 'true',
+  tradingAgentsMockMode: parseBoolean(process.env.TRADING_AGENTS_USE_MOCK),
+  tradingAgentsMockFixture: process.env.TRADING_AGENTS_MOCK_FIXTURE ?? undefined,
+  tradingAgentsMockDurationMs: Math.max(
+    parsePositiveInt(process.env.TRADING_AGENTS_MOCK_DURATION_MS, 20_000),
+    1_000,
+  ),
 } as const;

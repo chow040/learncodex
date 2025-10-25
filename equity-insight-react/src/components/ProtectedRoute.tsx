@@ -1,6 +1,8 @@
-import { useAuth } from '../contexts/AuthContext'
-import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
+
+import { useAuth } from '../contexts/AuthContext'
+import { ActiveRunBanner } from './nav/ActiveRunBanner'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -23,5 +25,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/" replace state={{ from: location }} />
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <ActiveRunBanner />
+      {children}
+    </>
+  )
 }

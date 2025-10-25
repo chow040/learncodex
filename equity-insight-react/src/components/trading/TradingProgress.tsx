@@ -201,6 +201,7 @@ export const TradingProgress = memo(function TradingProgress<Result>({
             {state.analysts && state.analysts.length > 0 ? (
               <span>Analysts: {analystDisplay?.join(', ')}</span>
             ) : null}
+            {state.mode ? <span>Mode: {state.mode}</span> : null}
           </div>
         ) : null}
         <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">

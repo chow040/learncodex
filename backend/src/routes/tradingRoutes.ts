@@ -175,6 +175,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
   let modelId: string;
   let analysts: TradingAnalystId[];
   let symbol: string;
+  let useMockData: boolean;
 
   try {
     const requestInput: TradingAgentsRequestInput = {
@@ -182,6 +183,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
       runId: req.body?.runId,
       modelId: req.body?.modelId,
       analysts: normalizeAnalystsInput(req.body?.analysts),
+      useMockData: req.body?.useMockData ?? req.body?.mode,
     };
     const validated = validateTradingAgentsRequest(requestInput, {
       allowedModels: env.tradingAllowedModels,
@@ -191,6 +193,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
     modelId = validated.modelId;
     analysts = validated.analysts;
     runId = validated.runId ?? generateRunId();
+    useMockData = validated.useMockData ?? env.tradingAgentsMockMode;
   } catch (error) {
     if (error instanceof TradingAgentsValidationError) {
       return res.status(400).json({ error: error.message, field: error.field });
@@ -206,6 +209,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
     percent: 0,
     modelId,
     analysts,
+    mode: useMockData ? 'mock' : 'live',
   });
 
   try {
@@ -213,6 +217,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
       runId,
       modelId,
       analysts,
+      useMockData,
     });
     publishCompletion(runId, decision);
     res.json({ runId, ...decision });
@@ -338,6 +343,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
   let modelId: string;
   let analysts: TradingAnalystId[];
   let symbol: string;
+  let useMockData: boolean;
 
   try {
     const requestInput: TradingAgentsRequestInput = {
@@ -345,6 +351,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
       runId: req.query?.runId,
       modelId: req.query?.modelId,
       analysts: normalizeAnalystsInput(req.query?.analysts),
+      useMockData: req.query?.useMockData ?? req.query?.mode,
     };
     const validated = validateTradingAgentsRequest(requestInput, {
       allowedModels: env.tradingAllowedModels,
@@ -354,6 +361,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
     modelId = validated.modelId;
     analysts = validated.analysts;
     runId = validated.runId ?? generateRunId();
+    useMockData = validated.useMockData ?? env.tradingAgentsMockMode;
   } catch (error) {
     if (error instanceof TradingAgentsValidationError) {
       return res.status(400).json({ error: error.message, field: error.field });
@@ -369,6 +377,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
     percent: 0,
     modelId,
     analysts,
+    mode: useMockData ? 'mock' : 'live',
   });
 
   try {
@@ -376,6 +385,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
       runId,
       modelId,
       analysts,
+      useMockData,
     });
     publishCompletion(runId, decision);
     res.json({ runId, ...decision });

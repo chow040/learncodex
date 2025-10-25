@@ -22,6 +22,7 @@ export interface TradingProgressEvent {
   timestamp: number
   modelId?: string
   analysts?: string[]
+  mode?: 'mock' | 'live'
 }
 
 export interface TradingProgressCompletePayload<Result = unknown> {
@@ -48,6 +49,7 @@ export interface TradingProgressState<Result = unknown> {
   analysts: string[]
   startedAt: number | null
   durationMs: number | null
+  mode: 'mock' | 'live' | null
 }
 
 export interface UseTradingProgressOptions<Result = unknown> {
@@ -97,7 +99,8 @@ const createInitialState = <Result,>(): TradingProgressState<Result> => ({
   modelId: null,
   analysts: [],
   startedAt: null,
-  durationMs: null
+  durationMs: null,
+  mode: null
 })
 
 const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Result>): TradingProgressState<Result> => {
@@ -121,6 +124,7 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
           : typeof eventTimestamp === 'number'
             ? eventTimestamp
             : Date.now()
+      const mode = action.event.mode ?? state.mode
       return {
         ...state,
         status: state.status === 'idle' ? 'streaming' : 'streaming',
@@ -132,7 +136,8 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         modelId: action.event.modelId ?? state.modelId,
         analysts: Array.isArray(analysts) ? analysts : state.analysts,
         startedAt,
-        durationMs: state.durationMs
+        durationMs: state.durationMs,
+        mode
       }
     }
     case 'complete': {
@@ -158,7 +163,8 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         modelId: state.modelId ?? resultModelId ?? null,
         analysts: state.analysts.length > 0 ? state.analysts : resultAnalysts ?? [],
         durationMs: computedDuration,
-        startedAt
+        startedAt,
+        mode: state.mode
       }
     }
     case 'error':
@@ -167,7 +173,8 @@ const reducer = <Result,>(state: TradingProgressState<Result>, action: Action<Re
         status: 'error',
         error: action.payload.message,
         message: action.payload.message,
-        durationMs: state.durationMs
+        durationMs: state.durationMs,
+        mode: state.mode
       }
     case 'disconnect':
       return {

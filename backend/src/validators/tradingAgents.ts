@@ -17,6 +17,8 @@ export interface TradingAgentsRequestInput {
   runId?: unknown;
   modelId?: unknown;
   analysts?: unknown;
+  useMockData?: unknown;
+  mode?: unknown;
 }
 
 export interface ValidateTradingAgentsRequestOptions {
@@ -29,6 +31,7 @@ export interface TradingAgentsRequestPayload {
   runId?: string;
   modelId: string;
   analysts: TradingAnalystId[];
+  useMockData?: boolean;
 }
 
 const normalizeRunId = (value: unknown): string | undefined => {
@@ -94,6 +97,26 @@ const normalizeAnalysts = (value: unknown): TradingAnalystId[] => {
   return DEFAULT_TRADING_ANALYSTS.filter((id) => seen.has(id));
 };
 
+const normalizeMockFlag = (value: unknown): boolean | undefined => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (['mock', 'true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['live', 'false', '0', 'no', 'n', 'off', 'real'].includes(normalized)) {
+      return false;
+    }
+  }
+  return undefined;
+};
+
 export const validateTradingAgentsRequest = (
   input: TradingAgentsRequestInput,
   options: ValidateTradingAgentsRequestOptions,
@@ -112,11 +135,13 @@ export const validateTradingAgentsRequest = (
   const modelId = normalizeModelId(input.modelId, options);
   const analysts = normalizeAnalysts(input.analysts);
   const runId = normalizeRunId(input.runId);
+  const useMockData = normalizeMockFlag(input.useMockData ?? input.mode);
 
   return {
     symbol: symbolRaw,
     modelId,
     analysts,
     ...(runId ? { runId } : {}),
+    ...(useMockData !== undefined ? { useMockData } : {}),
   };
 };

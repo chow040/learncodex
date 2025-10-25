@@ -1,0 +1,186 @@
+{
+  "createdAt": "2025-10-25T03:41:02.585Z",
+  "symbol": "HROW",
+  "tradeDate": "2025-10-25",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Balance Sheet (10-Q � 2025 � 2025-08-11)\n- Cash and cash equivalents: 52,963,000 usd\n- Accounts receivable, net: 78,822,000 usd\n- Inventories: 11,552,000 usd\n- Prepaid expenses and other current assets: 11,553,000 usd\n- Total current assets: 154,890,000 usd\n- Property, plant and equipment, net: 3,512,000 usd\n- Capitalized software costs, net: 1,478,000 usd\n- Operating lease right-of-use assets, net: 8,155,000 usd\n- Intangible assets, net: 176,666,000 usd\n- Goodwill: 332,000 usd\n- � 18 additional rows truncated\n\n### Balance Sheet (10-Q � 2025 � 2025-05-08)\n- Cash and cash equivalents: 66,726,000 usd\n- Accounts receivable, net: 77,063,000 usd\n- Inventories: 10,716,000 usd\n- Prepaid expenses and other current assets: 15,030,000 usd\n- Total current assets: 169,535,000 usd\n- Property, plant and equipment, net: 3,568,000 usd\n- Capitalized software costs, net: 1,627,000 usd\n- Operating lease right-of-use assets, net: 8,337,000 usd\n- Intangible assets, net: 180,765,000 usd\n- Goodwill: 332,000 usd\n- � 18 additional rows truncated\n\n### Balance Sheet (10-Q � 2024 � 2024-11-14)\n- Cash and cash equivalents: 72,601,000 usd\n- Accounts receivable, net: 53,734,000 usd\n- Inventories: 10,156,000 usd\n- Prepaid expenses and other current assets: 10,571,000 usd\n- Total current assets: 147,062,000 usd\n- Property, plant and equipment, net: 3,625,000 usd\n- Capitalized software costs, net: 1,869,000 usd\n- Operating lease right-of-use assets, net: 9,379,000 usd\n- Intangible assets, net: 189,272,000 usd\n- Goodwill: 332,000 usd\n- � 20 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T03:39:37.744Z",
+      "finishedAt": "2025-10-25T03:39:38.442Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Cash Flow Statement (10-Q � 2025 � 2025-08-11)\n- Net income (loss): -12,785,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 961,000 usd\n- Amortization of intangible assets: 8,452,000 usd\n- Amortization of operating lease right-of-use assets: 399,000 usd\n- Provision for (recovery of) credit losses: 340,000 usd\n- Amortization of debt issuance costs and debt discount: 2,564,000 usd\n- Stock-based compensation: 5,431,000 usd\n- Accounts receivable: -37,211,000 usd\n- Inventories: 850,000 usd\n- Prepaid expenses and other current assets: -3,776,000 usd\n- � 14 additional rows truncated\n\n### Cash Flow Statement (10-Q � 2025 � 2025-05-08)\n- Net loss: -17,780,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 465,000 usd\n- Amortization of intangible assets: 4,226,000 usd\n- Amortization of operating lease right-of-use assets: 217,000 usd\n- Provision (recovery of) for credit losses: 114,000 usd\n- Amortization of debt issuance costs and debt discount: 1,275,000 usd\n- Stock-based compensation: 4,556,000 usd\n- Accounts receivable: -39,196,000 usd\n- Inventories: 14,000 usd\n- Prepaid expenses and other current assets: -299,000 usd\n- � 13 additional rows truncated\n\n### Cash Flow Statement (10-Q � 2024 � 2024-11-14)\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Net loss: -24,258,000 usd\n- Depreciation and amortization of property, plant and equipment and software development costs: 1,382,000 usd\n- Amortization of intangible assets: 7,708,000 usd\n- Amortization of operating lease right-of-use assets: 636,000 usd\n- (Recovery of) provision for credit losses: -20,000 usd\n- Amortization of debt issuance costs and debt discount: 2,985,000 usd\n- Stock-based compensation: 12,825,000 usd\n- Deferred income tax: 643,000 usd\n- Accounts receivable: 17,453,000 usd\n- � 19 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T03:39:38.442Z",
+      "finishedAt": "2025-10-25T03:39:39.149Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "HROW",
+        "freq": "quarterly",
+        "limit": 10
+      },
+      "output": "### Income Statement (10-Q � 2025 � 2025-08-11)\n- Total revenues: 111,573,000 usd\n- Cost of sales: 31,754,000 usd\n- Gross profit: 79,819,000 usd\n- Selling, general and administrative: 73,748,000 usd\n- Research and development: 5,894,000 usd\n- Total operating expenses: 79,642,000 usd\n- Income (loss) from operations: 177,000 usd\n- Interest expense, net: 12,956,000 usd\n- Other (expense) income, net: -6,000 usd\n- Total other expense, net: -12,962,000 usd\n- � 6 additional rows truncated\n\n### Income Statement (10-Q � 2025 � 2025-05-08)\n- Total revenues: 47,831,000 usd\n- Cost of sales: 15,524,000 usd\n- Gross profit: 32,307,000 usd\n- Selling, general and administrative: 40,513,000 usd\n- Research and development: 3,026,000 usd\n- Total operating expenses: 43,539,000 usd\n- Loss from operations: -11,232,000 usd\n- Interest expense, net: 6,548,000 usd\n- Total other expense, net: -6,548,000 usd\n- Net loss: -17,780,000 usd\n- � 4 additional rows truncated\n\n### Income Statement (10-Q � 2024 � 2024-11-14)\n- Total revenues: 132,783,000 usd\n- Cost of sales: 35,110,000 usd\n- Gross profit: 97,673,000 usd\n- Selling, general and administrative: 94,275,000 usd\n- Research and development: 7,475,000 usd\n- Total operating expenses: 101,750,000 usd\n- Income (loss) from operations: -4,077,000 usd\n- Interest expense, net: 16,411,000 usd\n- Investment (loss) gain from Eton Pharmaceuticals: -3,171,000 usd\n- Other income (expenses), net: 76,000 usd\n- � 8 additional rows truncated",
+      "error": null,
+      "startedAt": "2025-10-25T03:39:39.150Z",
+      "finishedAt": "2025-10-25T03:39:40.666Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No insider transactions recorded in the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T03:39:40.666Z",
+      "finishedAt": "2025-10-25T03:39:40.984Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "HROW",
+        "lookback_months": 6
+      },
+      "output": "No insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T03:39:40.984Z",
+      "finishedAt": "2025-10-25T03:39:41.753Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Finnhub company news retrieved for HROW.",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:19.895Z",
+      "finishedAt": "2025-10-25T03:40:20.508Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:20.508Z",
+      "finishedAt": "2025-10-25T03:40:22.351Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "global economy news",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"global economy news\".",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:22.351Z",
+      "finishedAt": "2025-10-25T03:40:22.794Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "HROW",
+        "lookback_days": 30,
+        "limit": 10
+      },
+      "output": "Finnhub company news for HROW:\n\n### Harrow: Positive And Negative Adjustments After Investor Day Offset Each Other\n- Source: SeekingAlpha | Date: 2025-10-15\nHarrow is a small biotech company focused on acquiring and commercializing ophthalmic pharmaceutical products in the US. Check out HROW stock's bullish thesis here.\nhttps://finnhub.io/api/news?id=9a15ba44ee1552c0ba53d69b47ee5f90d45cd47041432aa6769f4a67eaed3366\n\n### Harrow, Inc. (HROW): A Bull Case Theory\n- Source: Yahoo | Date: 2025-10-08\nWe came across a bullish thesis on Harrow, Inc. on Make Money, Make Time’s Substack by Oliver | MMMT Wealth. In this article, we will summarize the bulls’ thesis on HROW. Harrow, Inc.’s share was trading at $47.88 as of September 24th. HROW’s trailing and forward P/E were 9.64 and 51.55 respectively according to Yahoo Finance. Harrow […]\nhttps://finnhub.io/api/news?id=d1b7828543e4c4747b15d13548d7ab0bb6934bd8b1e17cfec3e04c16a696a264\n\n### Could Harrow’s (HROW) New Pricing Program Redefine Its Patient Access Advantage?\n- Source: Yahoo | Date: 2025-10-07\nIn late September 2025, Harrow, Inc. launched the Harrow Access for All (HAFA) program, expanding affordable and predictable pricing for its full portfolio of branded, generic, and compounded ophthalmic medications, with out-of-pocket costs capped and a streamlined prescribing portal for physicians and patients. This initiative, which builds on earlier access programs, aims to set a new standard for medication affordability while positioning Harrow as a leader in patient-centric access in...\nhttps://finnhub.io/api/news?id=b5276628551c4ec24db8f8c921395315a7c4f2709e59eff3171dacfa5b224b38\n\n### ImprimisRx Announces Leadership Changes\n- Source: Yahoo | Date: 2025-10-06\nFrank Mullery Appointed Chief Executive Officer of ImprimisRx Bridseida Cruz Appointed Head of Quality of ImprimisRx NASHVILLE, Tenn., Oct. 06, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced leadership changes at its wholly-owned subsidiary, ImprimisRx. Frank Mullery has been appointed as Chief Executive Officer and Bridseida Cruz has been appointed as Head of Quality of ImprimisRx. Mr. Mullery is a\nhttps://finnhub.io/api/news?id=fea9af08d5e63d3ce338c7bde1bdfea3807ae6b0ba2a03e559f71050be2cdc76\n\n### Harrow, Inc. (HROW) Analyst/Investor Day Transcript\n- Source: SeekingAlpha | Date: 2025-09-27\nHarrow, Inc. (NASDAQ:HROW) Analyst/Investor Day September 26, 2025 11:30 AM EDTCompany ParticipantsMichael Biega - Vice President of Investor Relations...\nhttps://finnhub.io/api/news?id=ddbf80dfcca96f9179acfd999661544de660995871b5df288f4c5c9241238750\n\n### Could Harrow's New Sedation Pill Change Millions Of Medical Procedures Forever?\n- Source: Yahoo | Date: 2025-09-26\nHarrow, Inc. (NASDAQ: HROW), a U.S.-based provider of ophthalmic disease management solutions, announced on Friday that it has agreed to acquire Melt Pharmaceuticals, Inc., a clinical-stage company developing non-opioid, non-IV sedation therapies for hospitals and outpatient care. The company noted that this acquisition is viewed as another important step in the mission to deliver innovative, patient-focused ophthalmic disease management solutions that extend beyond the limitations of traditiona\nhttps://finnhub.io/api/news?id=354347ebc1d418b1a4e03afc81de93d3444a9f69d9c2794e416783d418ac94f7\n\n### Harrow to Acquire Melt Pharmaceuticals\n- Source: Yahoo | Date: 2025-09-26\nNASHVILLE, Tenn., Sept. 26, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced that it has entered into an agreement to acquire Melt Pharmaceuticals, Inc., a clinical-stage pharmaceutical company pioneering non-opioid, non-IV therapies for sedation for medical procedures in the hospital, outpatient, and in-office settings. The closing of this acquisition is subject to customary closing conditions, includ\nhttps://finnhub.io/api/news?id=d93ef9eb1f9f2ac2aab80ecb5369005280d63d1ed59042138a930992089ed8c5\n\n### Harrow Launches Harrow Access for All (HAFA)\n- Source: Yahoo | Date: 2025-09-25\nHAFA to Expand Harrow’s Innovative Market Access Model Across Ophthalmic Portfolio Program will be available in late 2025 through the HarrowAccess.com Portal NASHVILLE, Tenn., Sept. 25, 2025 (GLOBE NEWSWIRE) -- Harrow (Nasdaq: HROW), a leading provider of ophthalmic disease management solutions in North America, today announced the launch of Harrow Access for All (“HAFA”), expanding Harrow’s commitment to make it easier and more affordable for patients to access Harrow’s full range of branded, g\nhttps://finnhub.io/api/news?id=a496a52103cdf1ace7206fba42ba5ba19af8b3afa7430a717bfe97952462ac5c",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:25.322Z",
+      "finishedAt": "2025-10-25T03:40:25.616Z",
+      "durationMs": null
+    },
+    {
+      "id": 10,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:25.616Z",
+      "finishedAt": "2025-10-25T03:40:26.230Z",
+      "durationMs": null
+    },
+    {
+      "id": 11,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "HROW",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"HROW\".",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:26.231Z",
+      "finishedAt": "2025-10-25T03:40:26.424Z",
+      "durationMs": null
+    },
+    {
+      "id": 12,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "HROW",
+        "limit": 5
+      },
+      "output": "Reddit sentiment for HROW (query: HROW stock)\n- Total posts (7d): 1\n- Total upvotes: 3\n- Average comments per post: 3\n\nTop subreddits:\n• r/KPTI: 1 mentions\n\nTrending posts:\n• Opaleye Management Inc. Acquires Significant Stake in Karyopharm Therapeutics Inc — Score 3 | Comments 3\n  https://www.reddit.com/r/KPTI/comments/1of1aim/opaleye_management_inc_acquires_significant_stake/\n",
+      "error": null,
+      "startedAt": "2025-10-25T03:40:46.526Z",
+      "finishedAt": "2025-10-25T03:40:46.973Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 12
+  }
+}

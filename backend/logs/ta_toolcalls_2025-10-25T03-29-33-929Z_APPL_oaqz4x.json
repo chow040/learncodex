@@ -1,0 +1,142 @@
+{
+  "createdAt": "2025-10-25T03:29:33.930Z",
+  "symbol": "APPL",
+  "tradeDate": "2025-10-25",
+  "entries": [
+    {
+      "id": 1,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_balance_sheet",
+      "input": {
+        "ticker": "AAPL",
+        "freq": "quarterly",
+        "limit": 20
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo balance sheet data available for APPL (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-25T03:28:23.270Z",
+      "finishedAt": "2025-10-25T03:28:23.740Z",
+      "durationMs": null
+    },
+    {
+      "id": 2,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_cashflow",
+      "input": {
+        "ticker": "AAPL",
+        "freq": "quarterly",
+        "limit": 20
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo cash flow data available for APPL (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-25T03:28:23.740Z",
+      "finishedAt": "2025-10-25T03:28:24.037Z",
+      "durationMs": null
+    },
+    {
+      "id": 3,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_income_stmt",
+      "input": {
+        "ticker": "AAPL",
+        "freq": "quarterly",
+        "limit": 20
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo income statement data available for APPL (quarterly).",
+      "error": null,
+      "startedAt": "2025-10-25T03:28:24.037Z",
+      "finishedAt": "2025-10-25T03:28:24.366Z",
+      "durationMs": null
+    },
+    {
+      "id": 4,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_transactions",
+      "input": {
+        "ticker": "AAPL",
+        "lookback_days": 90,
+        "limit": 15
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo insider transactions recorded in the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T03:28:24.366Z",
+      "finishedAt": "2025-10-25T03:28:24.661Z",
+      "durationMs": null
+    },
+    {
+      "id": 5,
+      "persona": "Fundamentals Analyst",
+      "name": "get_finnhub_company_insider_sentiment",
+      "input": {
+        "ticker": "AAPL",
+        "lookback_months": 6
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo insider sentiment data retrieved for the requested window.",
+      "error": null,
+      "startedAt": "2025-10-25T03:28:24.661Z",
+      "finishedAt": "2025-10-25T03:28:25.093Z",
+      "durationMs": null
+    },
+    {
+      "id": 6,
+      "persona": "News Analyst",
+      "name": "get_finnhub_news",
+      "input": {
+        "ticker": "AAPL",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nNo Finnhub company news retrieved for APPL.",
+      "error": null,
+      "startedAt": "2025-10-25T03:29:05.968Z",
+      "finishedAt": "2025-10-25T03:29:06.564Z",
+      "durationMs": null
+    },
+    {
+      "id": 7,
+      "persona": "News Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "AAPL",
+        "limit": 10
+      },
+      "output": "Requested ticker AAPL does not match active symbol APPL. Using APPL instead.\n\nReddit sentiment for APPL (query: APPL stock)\n- Total posts (7d): 10\n- Total upvotes: 80\n- Average comments per post: 2.1\n\nTop subreddits:\n• r/growagarden: 10 mentions\n\nTrending posts:\n• Blood orange and poison apple in stock!!! — Score 38 | Comments 15\n  https://www.reddit.com/r/growagarden/comments/1offt0d/blood_orange_and_poison_apple_in_stock/\n• Blood orange and poison apple stocked — Score 3 | Comments 0\n  https://i.redd.it/4jx1x8f226xf1.jpeg\n• Blood orange and Poison apple IN STOCK! — Score 10 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offr22/blood_orange_and_poison_apple_in_stock/\n• Blood Orange &amp; Poison Apple In Stock!!!!! — Score 5 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offtrf/blood_orange_poison_apple_in_stock/\n• Poison Apple and Blood Orange on stock — Score 5 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offtl0/poison_apple_and_blood_orange_on_stock/\n• BLOOD ORANGE ANF POISON APPLE IN STOCK — Score 4 | Comments 0\n  https://i.redd.it/xlkj5jfx06xf1.jpeg\n• blood orange and poison apple I'm stock — Score 3 | Comments 1\n  https://i.redd.it/9tu1dxru06xf1.jpeg\n• POISON APPLE AND BLOOD ORANGE IN STOCK!!!! — Score 3 | Comments 0\n  https://www.reddit.com/r/growagarden/comments/1offrae/poison_apple_and_blood_orange_in_stock/\n• Blood orange and Poison apple in stock — Score 3 | Comments 0\n  https://www.reddit.com/r/growagarden/comments/1offsvi/blood_orange_and_poison_apple_in_stock/\n• YOOOO BLOOD ORANGE AND POISON APPLE ON STOCK — Score 6 | Comments 2\n  https://i.redd.it/wicar89r26xf1.jpeg\n",
+      "error": null,
+      "startedAt": "2025-10-25T03:29:06.564Z",
+      "finishedAt": "2025-10-25T03:29:07.816Z",
+      "durationMs": null
+    },
+    {
+      "id": 8,
+      "persona": "News Analyst",
+      "name": "get_google_news",
+      "input": {
+        "query": "global macroeconomics",
+        "lookback_days": 7,
+        "limit": 10
+      },
+      "output": "No Google News articles found for \"global macroeconomics\".",
+      "error": null,
+      "startedAt": "2025-10-25T03:29:07.816Z",
+      "finishedAt": "2025-10-25T03:29:08.248Z",
+      "durationMs": null
+    },
+    {
+      "id": 9,
+      "persona": "Social Analyst",
+      "name": "get_reddit_news",
+      "input": {
+        "ticker": "APPL",
+        "limit": 10
+      },
+      "output": "Reddit sentiment for APPL (query: APPL stock)\n- Total posts (7d): 10\n- Total upvotes: 77\n- Average comments per post: 2.1\n\nTop subreddits:\n• r/growagarden: 10 mentions\n\nTrending posts:\n• Blood orange and poison apple in stock!!! — Score 38 | Comments 15\n  https://www.reddit.com/r/growagarden/comments/1offt0d/blood_orange_and_poison_apple_in_stock/\n• Blood orange and poison apple stocked — Score 3 | Comments 0\n  https://i.redd.it/4jx1x8f226xf1.jpeg\n• Blood orange and Poison apple IN STOCK! — Score 10 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offr22/blood_orange_and_poison_apple_in_stock/\n• Blood Orange &amp; Poison Apple In Stock!!!!! — Score 4 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offtrf/blood_orange_poison_apple_in_stock/\n• Poison Apple and Blood Orange on stock — Score 3 | Comments 1\n  https://www.reddit.com/r/growagarden/comments/1offtl0/poison_apple_and_blood_orange_on_stock/\n• BLOOD ORANGE ANF POISON APPLE IN STOCK — Score 4 | Comments 0\n  https://i.redd.it/xlkj5jfx06xf1.jpeg\n• blood orange and poison apple I'm stock — Score 3 | Comments 1\n  https://i.redd.it/9tu1dxru06xf1.jpeg\n• POISON APPLE AND BLOOD ORANGE IN STOCK!!!! — Score 3 | Comments 0\n  https://www.reddit.com/r/growagarden/comments/1offrae/poison_apple_and_blood_orange_in_stock/\n• Blood orange and Poison apple in stock — Score 3 | Comments 0\n  https://www.reddit.com/r/growagarden/comments/1offsvi/blood_orange_and_poison_apple_in_stock/\n• YOOOO BLOOD ORANGE AND POISON APPLE ON STOCK — Score 6 | Comments 2\n  https://i.redd.it/wicar89r26xf1.jpeg\n",
+      "error": null,
+      "startedAt": "2025-10-25T03:29:21.615Z",
+      "finishedAt": "2025-10-25T03:29:22.227Z",
+      "durationMs": null
+    }
+  ],
+  "summary": {
+    "totalCalls": 9
+  }
+}
