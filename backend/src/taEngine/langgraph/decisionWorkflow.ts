@@ -171,8 +171,8 @@ const extractDecisionToken = async (text: string, modelId: string): Promise<stri
 const appendHistory = (history: string | undefined, label: string, content: string): string => {
   const trimmed = content?.trim() ?? '';
   if (!trimmed) return history ?? '';
-  const entry = `${label}: ${trimmed}`;
-  return history ? `${history}\n${entry}` : entry;
+  const entry = `${label}:\n${trimmed}`;
+  return history ? `${history}\n\n${entry}` : entry;
 };
 
 const coalesce = (value: string | null | undefined, fallback: string | null | undefined): string =>
@@ -389,6 +389,7 @@ const bearNode = async (state: State) => {
 
   return {
     debate: {
+      ...(state.debate ?? {}),
       bear: output,
       investment: appendHistory(history, `Bear Analyst (Round ${round})`, output),
     },
@@ -427,6 +428,7 @@ const bullNode = async (state: State) => {
 
   return {
     debate: {
+      ...(state.debate ?? {}),
       bull: output,
       investment: appendHistory(history, `Bull Analyst (Round ${round})`, output),
     },
@@ -780,6 +782,21 @@ const finalizeNode = async (state: State) => {
     decision.fundamentalsReport =
       coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null;
   }
+
+  if (state.debate?.investment) {
+    decision.investmentDebate = state.debate.investment;
+  } else if (state.debate?.bull || state.debate?.bear) {
+    const bull = state.debate?.bull?.trim();
+    const bear = state.debate?.bear?.trim();
+    const sections: string[] = [];
+    if (bull) sections.push(`### Bull Argument\n${bull}`);
+    if (bear) sections.push(`### Bear Argument\n${bear}`);
+    decision.investmentDebate = sections.length > 0 ? sections.join('\n\n') : null;
+  } else {
+    decision.investmentDebate = null;
+  }
+  decision.bullArgument = state.debate?.bull ?? null;
+  decision.bearArgument = state.debate?.bear ?? null;
 
   const payload: TradingAgentsPayload = {
     symbol: state.symbol,

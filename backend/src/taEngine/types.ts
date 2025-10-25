@@ -43,6 +43,9 @@ export interface TradingAgentsDecision {
   sentimentReport?: string | null;
   newsReport?: string | null;
   fundamentalsReport?: string | null;
+  investmentDebate?: string | null;
+  bullArgument?: string | null;
+  bearArgument?: string | null;
   modelId?: string | null;
   analysts?: TradingAnalystId[];
   debugPrompt?: string; // optional prompt preview for troubleshooting

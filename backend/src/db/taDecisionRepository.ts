@@ -48,6 +48,9 @@ export interface TradingAssessmentDetailRow extends TradingAssessmentSummaryRow 
   traderPlan: string | null;
   investmentPlan: string | null;
   riskJudge: string | null;
+  investmentDebate?: string | null;
+  bullArgument?: string | null;
+  bearArgument?: string | null;
 }
 
 export interface FetchTradingAssessmentsOptions {
@@ -86,8 +89,20 @@ const toIsoTimestamp = (value: unknown): string => {
   return '';
 };
 
-const parseDecisionPayload = (value: unknown): TradingAgentsPayload | null => {
-  if (!value) return null;
+interface StoredDecisionPayload {
+  payload: TradingAgentsPayload | null;
+  debate?: {
+    bullArgument?: string | null;
+    bearArgument?: string | null;
+    investmentDebate?: string | null;
+  } | null;
+}
+
+const parseDecisionPayload = (value: unknown): StoredDecisionPayload => {
+  if (!value) {
+    return { payload: null, debate: null };
+  }
+
   const source =
     typeof value === 'string'
       ? (() => {
@@ -98,11 +113,20 @@ const parseDecisionPayload = (value: unknown): TradingAgentsPayload | null => {
           }
         })()
       : value;
-  if (!source || typeof source !== 'object') return null;
-  if ('payload' in source && typeof (source as { payload?: unknown }).payload === 'object') {
-    return (source as { payload: TradingAgentsPayload }).payload ?? null;
+
+  if (!source || typeof source !== 'object') {
+    return { payload: null, debate: null };
   }
-  return source as TradingAgentsPayload;
+
+  if ('payload' in source && typeof (source as { payload?: unknown }).payload === 'object') {
+    const core = source as { payload?: TradingAgentsPayload; debate?: StoredDecisionPayload['debate'] };
+    return {
+      payload: core.payload ?? null,
+      debate: core.debate ?? null,
+    };
+  }
+
+  return { payload: source as TradingAgentsPayload, debate: null };
 };
 
 export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<void> => {
@@ -140,6 +164,22 @@ export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<vo
       : null;
 
   try {
+    const debateExtras = {
+      bullArgument: input.decision.bullArgument ?? null,
+      bearArgument: input.decision.bearArgument ?? null,
+      investmentDebate: input.decision.investmentDebate ?? null,
+    };
+    const hasDebateExtras = Object.values(debateExtras).some((value) => {
+      if (typeof value === 'string') {
+        return value.trim().length > 0;
+      }
+      return value !== null && value !== undefined;
+    });
+    const storedPayload: Record<string, unknown> = { payload: input.payload };
+    if (hasDebateExtras) {
+      storedPayload.debate = debateExtras;
+    }
+
     await pg.query(
       `INSERT INTO ta_decisions (
          run_id, symbol, trade_date, decision_token,
@@ -153,7 +193,7 @@ export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<vo
         input.decision.investmentPlan ?? null,
         input.decision.traderPlan ?? null,
         input.decision.riskJudge ?? null,
-        JSON.stringify({ payload: input.payload }),
+        JSON.stringify(storedPayload),
         input.rawText ?? null,
         input.model ?? null,
         input.analysts ? JSON.stringify(input.analysts) : null,
@@ -274,6 +314,7 @@ export const fetchTradingAssessmentByRunId = async (
 
   const row = rows[0];
   const analysts = parseAnalystsColumn(row.analysts);
+  const storedPayload = parseDecisionPayload(row.payload);
   const executionRaw =
     typeof row.execution_ms === 'number'
       ? row.execution_ms
@@ -289,7 +330,7 @@ export const fetchTradingAssessmentByRunId = async (
     modelId: row.model ?? null,
     createdAt: toIsoTimestamp(row.created_at),
     orchestratorVersion: row.combined_orchestrator_version ?? null,
-    payload: parseDecisionPayload(row.payload),
+    payload: storedPayload.payload,
     rawText: row.raw_text ?? null,
     promptHash: row.prompt_hash ?? null,
     logsPath: row.logs_path ?? null,
@@ -297,6 +338,9 @@ export const fetchTradingAssessmentByRunId = async (
     traderPlan: row.trader_plan ?? null,
     investmentPlan: row.investment_plan ?? null,
     riskJudge: row.risk_judge ?? null,
+    investmentDebate: storedPayload.debate?.investmentDebate ?? null,
+    bullArgument: storedPayload.debate?.bullArgument ?? null,
+    bearArgument: storedPayload.debate?.bearArgument ?? null,
     ...(analysts ? { analysts } : {}),
   };
 };

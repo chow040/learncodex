@@ -408,10 +408,21 @@ const TradingAgentsHistoryDetail = () => {
 
   const renderDecisionPanels = () => {
     if (!data) return null
+    const investmentDebateText = (() => {
+      const debate = data.investmentDebate?.trim()
+      if (debate) return debate
+      const bull = data.bullArgument?.trim()
+      const bear = data.bearArgument?.trim()
+      const sections: string[] = []
+      if (bull) sections.push(`### Bull Argument\n${bull}`)
+      if (bear) sections.push(`### Bear Argument\n${bear}`)
+      return sections.length > 0 ? sections.join('\n\n') : null
+    })()
     const personaPanels: Array<{ key: string; label: string; value?: string | null; fallback: string }> = [
       { key: 'trader-plan', label: 'Trader (Execution)', value: data.traderPlan, fallback: 'Trader plan unavailable.' },
       { key: 'investment-plan', label: 'Research Manager', value: data.investmentPlan, fallback: 'Research manager plan unavailable.' },
-      { key: 'risk-judge', label: 'Risk Manager', value: data.riskJudge, fallback: 'Risk manager commentary unavailable.' }
+      { key: 'risk-judge', label: 'Risk Manager', value: data.riskJudge, fallback: 'Risk manager commentary unavailable.' },
+      { key: 'investment-debate', label: 'Bull vs Bear Debate', value: investmentDebateText, fallback: 'Debate transcript unavailable.' }
     ]
 
     const defaultPersona =

@@ -12,6 +12,8 @@ export type TradingAgentsDecision = {
   analysts?: string[]
   runId?: string
   executionMs?: number | null
+  investmentDebate?: string | null
+  bullArgument?: string | null
+  bearArgument?: string | null
   [key: string]: unknown
 }
-

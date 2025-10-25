@@ -16,29 +16,37 @@ export interface DebateInput {
   rounds?: DebateRoundEntry[];
 }
 
-export const BEAR_SYSTEM_PROMPT = `You are a Bear Analyst making the case against investing. Emphasize risks, challenges, and negative indicators. Engage directly with the bull's latest argument. Be conversational, no special formatting.`;
-
-const formatDebateRounds = (rounds?: DebateRoundEntry[]): string => {
-  if (!rounds || rounds.length === 0) return '(none)';
-  return rounds
-    .map((round) => `${round.round}. ${round.persona.toUpperCase()}: ${round.content}`)
-    .join('\n');
-};
+export const BEAR_SYSTEM_PROMPT = '';
 
 export const buildBearUserMessage = (input: DebateInput): string => {
-  const lines = [
-    `Symbol: ${input.symbol} | Date: ${input.tradeDate}`,
-    `Market research report:\n${input.context.market_technical_report}`,
-    `Social media sentiment report:\n${input.context.social_reddit_summary}`,
-    `Latest world affairs/news:\n${input.context.news_global}`,
-    `Fundamentals summary:\n${input.context.fundamentals_summary || 'No fundamentals summary provided.'}`,
-    `Past reflections:\n${input.reflections || '(none)'}`,
-    `Conversation history:\n${input.history || '(none)'}`,
-    `Round transcripts:\n${formatDebateRounds(input.rounds)}`,
-    `Last bull argument:\n${input.opponentArgument || '(none)'}`,
-    'Deliver a compelling bear argument and directly refute the bull’s points.',
-  ];
-  return lines.join('\n\n');
+  const marketReport = input.context.market_technical_report ?? '';
+  const sentimentReport = input.context.social_reddit_summary ?? '';
+  const newsReport = input.context.news_global ?? '';
+  const fundamentalsReport = input.context.fundamentals_summary ?? '';
+  const history = input.history ?? '';
+  const lastBull = input.opponentArgument ?? '';
+  const reflections = input.reflections ?? '';
+
+  return `You are a Bear Analyst making the case against investing in the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
+
+Key points to focus on:
+
+- Risks and Challenges: Highlight factors like market saturation, financial instability, or macroeconomic threats that could hinder the stock's performance.
+- Competitive Weaknesses: Emphasize vulnerabilities such as weaker market positioning, declining innovation, or threats from competitors.
+- Negative Indicators: Use evidence from financial data, market trends, or recent adverse news to support your position.
+- Bull Counterpoints: Critically analyze the bull argument with specific data and sound reasoning, exposing weaknesses or over-optimistic assumptions.
+- Engagement: Present your argument in a conversational style, directly engaging with the bull analyst's points and debating effectively rather than simply listing facts.
+
+Resources available:
+
+Market research report: ${marketReport}
+Social media sentiment report: ${sentimentReport}
+Latest world affairs news: ${newsReport}
+Company fundamentals report: ${fundamentalsReport}
+Conversation history of the debate: ${history}
+Last bull argument: ${lastBull}
+Reflections from similar situations and lessons learned: ${reflections}
+Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.`;
 };
 
 const messageToString = (message: unknown): string => {
@@ -61,10 +69,7 @@ const messageToString = (message: unknown): string => {
 export const createBearDebateRunnable = (
   llm: RunnableInterface<any, any>,
 ): RunnableInterface<DebateInput, string> => {
-  const prompt = ChatPromptTemplate.fromMessages([
-    ['system', BEAR_SYSTEM_PROMPT],
-    ['human', '{userMessage}'],
-  ]);
+  const prompt = ChatPromptTemplate.fromMessages([['human', '{userMessage}']]);
 
   const prepareInputs = new RunnableLambda({
     func: async (input: DebateInput) => ({

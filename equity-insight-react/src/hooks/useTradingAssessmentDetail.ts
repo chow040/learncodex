@@ -19,6 +19,9 @@ export interface TradingAssessmentDetail {
   traderPlan: string | null
   investmentPlan: string | null
   riskJudge: string | null
+  investmentDebate: string | null
+  bullArgument: string | null
+  bearArgument: string | null
 }
 
 export interface UseTradingAssessmentDetailOptions {
@@ -43,6 +46,9 @@ interface TradingAssessmentDetailApiResponse {
   traderPlan?: string | null
   investmentPlan?: string | null
   riskJudge?: string | null
+  investmentDebate?: string | null
+  bullArgument?: string | null
+  bearArgument?: string | null
 }
 
 const DEFAULT_ANALYSTS: TradingAnalystId[] = ['fundamental', 'market', 'news', 'social']
@@ -106,7 +112,10 @@ const fetchTradingAssessmentDetail = async (
         : null,
     traderPlan: typeof payload.traderPlan === 'string' ? payload.traderPlan : null,
     investmentPlan: typeof payload.investmentPlan === 'string' ? payload.investmentPlan : null,
-    riskJudge: typeof payload.riskJudge === 'string' ? payload.riskJudge : null
+    riskJudge: typeof payload.riskJudge === 'string' ? payload.riskJudge : null,
+    investmentDebate: typeof payload.investmentDebate === 'string' ? payload.investmentDebate : null,
+    bullArgument: typeof payload.bullArgument === 'string' ? payload.bullArgument : null,
+    bearArgument: typeof payload.bearArgument === 'string' ? payload.bearArgument : null
   }
 }
 

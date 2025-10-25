@@ -621,6 +621,17 @@ const TradingAgents = () => {
     const resolvedModelLabel = resolvedModelId
       ? MODEL_OPTIONS.find((option) => option.id === resolvedModelId)?.label ?? resolvedModelId
       : 'Unspecified'
+    const investmentDebateText = (() => {
+      const debate = decision.investmentDebate?.trim()
+      if (debate) return debate
+      const bull = decision.bullArgument?.trim()
+      const bear = decision.bearArgument?.trim()
+      const sections: string[] = []
+      if (bull) sections.push(`### Bull Argument\n${bull}`)
+      if (bear) sections.push(`### Bear Argument\n${bear}`)
+      return sections.length > 0 ? sections.join('\n\n') : null
+    })()
+
     const personaPanels: Array<{
       key: string
       label: string
@@ -629,10 +640,62 @@ const TradingAgents = () => {
     }> = [
       { key: 'trader-plan', label: 'Trader (Execution)', value: decision.traderPlan, fallback: 'Trader plan unavailable.' },
       { key: 'investment-plan', label: 'Research Manager', value: decision.investmentPlan, fallback: 'Research manager plan unavailable.' },
-      { key: 'risk-judge', label: 'Risk Manager', value: decision.riskJudge, fallback: 'Risk manager commentary unavailable.' }
+      { key: 'risk-judge', label: 'Risk Manager', value: decision.riskJudge, fallback: 'Risk manager commentary unavailable.' },
+      {
+        key: 'investment-debate',
+        label: 'Bull vs Bear Debate',
+        value: investmentDebateText,
+        fallback: 'Debate transcript unavailable.'
+      }
     ]
+    const analystPanels: Array<{
+      key: string
+      label: string
+      value?: string | null
+      fallback: string
+    }> = ANALYST_OPTIONS.map((analyst) => {
+      switch (analyst.id) {
+        case 'fundamental':
+          return {
+            key: 'fundamental-report',
+            label: `${analyst.label} Analyst`,
+            value: decision.fundamentalsReport,
+            fallback: 'Fundamental analyst report unavailable.'
+          }
+        case 'market':
+          return {
+            key: 'market-report',
+            label: `${analyst.label} Analyst`,
+            value: decision.marketReport,
+            fallback: 'Market analyst report unavailable.'
+          }
+        case 'news':
+          return {
+            key: 'news-report',
+            label: `${analyst.label} Analyst`,
+            value: decision.newsReport,
+            fallback: 'News analyst report unavailable.'
+          }
+        case 'social':
+          return {
+            key: 'social-report',
+            label: `${analyst.label} Analyst`,
+            value: decision.sentimentReport,
+            fallback: 'Social analyst report unavailable.'
+          }
+        default:
+          return {
+            key: analyst.id,
+            label: analyst.label,
+            value: undefined,
+            fallback: `${analyst.label} output unavailable.`
+          }
+      }
+    })
     const defaultPersonaPanel =
       personaPanels.find((panel) => panel.value && panel.value.trim())?.key ?? personaPanels[0]?.key ?? ''
+    const defaultAnalystPanel =
+      analystPanels.find((panel) => panel.value && panel.value.trim())?.key ?? analystPanels[0]?.key ?? ''
 
     return (
       <div className="space-y-6">
@@ -696,27 +759,62 @@ const TradingAgents = () => {
             )}
           </TabsContent>
           <TabsContent value="analysts" className="mt-4">
-            <div className="rounded-2xl border border-border/60 bg-card/80 p-6">
-              <p className="text-sm text-muted-foreground">
-                Analyst coverage is currently informational. The backend will soon respect persona filtering.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {selectedAnalystDetails.length === 0 ? (
-                  <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground/80">
-                    No analysts ran for this decision.
-                  </span>
-                ) : (
-                  selectedAnalystDetails.map((analyst) => (
-                    <Badge
-                      key={analyst.id}
-                      variant="outline"
-                      className="border-cyan-400/60 bg-cyan-500/10 text-xs font-medium uppercase tracking-[0.25em] text-cyan-100"
-                    >
-                      {analyst.label}
-                    </Badge>
-                  ))
-                )}
+            <div className="space-y-4 rounded-2xl border border-border/60 bg-card/80 p-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Analyst personas contributing to this decision.</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {selectedAnalystDetails.length === 0 ? (
+                    <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground/80">
+                      No analysts ran for this decision.
+                    </span>
+                  ) : (
+                    selectedAnalystDetails.map((analyst) => (
+                      <Badge
+                        key={analyst.id}
+                        variant="outline"
+                        className={cn(
+                          'rounded-full border border-border/60 bg-background/60 text-[0.65rem] uppercase tracking-[0.3em]',
+                          analyst.accent
+                        )}
+                      >
+                        {analyst.label}
+                      </Badge>
+                    ))
+                  )}
+                </div>
               </div>
+              {analystPanels.length > 0 ? (
+                <Tabs
+                  key={`analyst-panels-${decision.runId ?? decision.symbol ?? 'current'}`}
+                  defaultValue={defaultAnalystPanel}
+                  className="space-y-4"
+                >
+                  <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    {analystPanels.map((panel) => (
+                      <TabsTrigger
+                        key={panel.key}
+                        value={panel.key}
+                        className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                      >
+                        {panel.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {analystPanels.map((panel) => (
+                    <TabsContent
+                      key={panel.key}
+                      value={panel.key}
+                      className="rounded-2xl border border-border/60 bg-background/40 p-6"
+                    >
+                      <AgentTextBlock text={panel.value} emptyLabel={panel.fallback} />
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              ) : (
+                <div className="rounded-2xl border border-border/60 bg-background/40 p-6 text-sm text-muted-foreground">
+                  No analyst reports captured for this decision.
+                </div>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="json" className="mt-4">
