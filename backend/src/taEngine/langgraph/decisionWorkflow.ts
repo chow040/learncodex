@@ -71,6 +71,19 @@ import {
 
 type ConversationLogEntry = GraphState['conversationLog'][number];
 
+/**
+ * Determines the provider (openai or grok) for a given model ID.
+ * Grok models typically start with 'grok-' prefix.
+ * Supports region-specific models like: grok-4-fast-reasoning-us-east-1
+ */
+const resolveProvider = (modelId: string): 'openai' | 'grok' => {
+  const normalized = (modelId ?? '').trim().toLowerCase();
+  if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
+    return 'grok';
+  }
+  return 'openai';
+};
+
 const StateAnnotation = Annotation.Root({
   symbol: Annotation<string>(),
   tradeDate: Annotation<string>(),
@@ -123,18 +136,30 @@ const StateAnnotation = Annotation.Root({
 type State = typeof StateAnnotation.State;
 
 const createChatModel = (modelOverride?: string, temperature = 1): ChatOpenAI => {
+  const modelId = modelOverride ?? env.defaultTradingModel;
+  const provider = resolveProvider(modelId);
+
+  if (provider === 'grok') {
+    if (!env.grokApiKey) {
+      throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
+    }
+    return new ChatOpenAI({
+      apiKey: env.grokApiKey,
+      model: modelId,
+      temperature,
+      configuration: { baseURL: env.grokBaseUrl },
+    });
+  }
+
   if (!env.openAiApiKey) {
     throw new Error('OPENAI_API_KEY is not configured.');
   }
-  const options: Record<string, unknown> = {
-    openAIApiKey: env.openAiApiKey,
-    model: modelOverride ?? env.openAiModel,
+  return new ChatOpenAI({
+    apiKey: env.openAiApiKey,
+    model: modelId,
     temperature,
-  };
-  if (env.openAiBaseUrl) {
-    options.configuration = { baseURL: env.openAiBaseUrl };
-  }
-  return new ChatOpenAI(options);
+    ...(env.openAiBaseUrl ? { configuration: { baseURL: env.openAiBaseUrl } } : {}),
+  });
 };
 
 const DECISION_PARSER_SYSTEM_PROMPT =
@@ -198,7 +223,7 @@ const stagePercents: Record<ProgressStage, number> = {
 const resolveModelId = (state: State): string => {
   const raw = (state.metadata?.modelId as string | undefined) ?? '';
   const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : env.openAiModel;
+  return trimmed.length > 0 ? trimmed : env.defaultTradingModel;
 };
 
 const resolveEnabledAnalysts = (state: State): TradingAnalystId[] => {
@@ -951,7 +976,7 @@ export const runDecisionGraph = async (
   payload: TradingAgentsPayload,
   options?: { runId?: string; modelId?: string; analysts?: TradingAnalystId[] },
 ): Promise<TradingAgentsDecision> => {
-  const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.openAiModel)?.trim() ?? env.openAiModel;
+  const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.defaultTradingModel)?.trim() ?? env.defaultTradingModel;
   const normalizedAnalysts = options?.analysts && options.analysts.length > 0
     ? options.analysts
     : payload.analysts && payload.analysts.length > 0

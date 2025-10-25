@@ -187,7 +187,7 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
     };
     const validated = validateTradingAgentsRequest(requestInput, {
       allowedModels: env.tradingAllowedModels,
-      defaultModel: env.openAiModel,
+      defaultModel: env.defaultTradingModel,
     });
     symbol = validated.symbol;
     modelId = validated.modelId;
@@ -355,7 +355,7 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
     };
     const validated = validateTradingAgentsRequest(requestInput, {
       allowedModels: env.tradingAllowedModels,
-      defaultModel: env.openAiModel,
+      defaultModel: env.defaultTradingModel,
     });
     symbol = validated.symbol;
     modelId = validated.modelId;

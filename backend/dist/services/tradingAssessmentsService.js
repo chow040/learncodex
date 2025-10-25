@@ -38,6 +38,10 @@ const mapDetailRow = (row) => ({
     investmentDebate: row.investmentDebate ?? null,
     bullArgument: row.bullArgument ?? null,
     bearArgument: row.bearArgument ?? null,
+    aggressiveArgument: row.aggressiveArgument ?? null,
+    conservativeArgument: row.conservativeArgument ?? null,
+    neutralArgument: row.neutralArgument ?? null,
+    riskDebate: row.riskDebate ?? null,
 });
 export const getTradingAssessments = async (symbol, options = {}) => {
     const normalizedLimit = normalizeLimit(options.limit);

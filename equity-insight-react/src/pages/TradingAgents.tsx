@@ -64,7 +64,12 @@ const MODEL_OPTIONS = [
   { id: 'gpt-5-mini', label: 'GPT-5 Mini', description: 'Next-gen reasoning with fast responses.' },
   { id: 'gpt-5-nano', label: 'GPT-5 Nano', description: 'Ultra-light deployment for rapid iterations.' },
   { id: 'gpt-5', label: 'GPT-5', description: 'Flagship capability balanced for most desks.' },
-  { id: 'gpt-5-pro', label: 'GPT-5 Pro', description: 'Top-tier insights when every basis point counts.' }
+  { id: 'gpt-5-pro', label: 'GPT-5 Pro', description: 'Top-tier insights when every basis point counts.' },
+  { id: 'grok-beta', label: 'Grok Beta', description: 'x.ai experimental model with fast inference.' },
+  { id: 'grok-2-1212', label: 'Grok 2 (1212)', description: 'Grok 2nd generation with improved reasoning.' },
+  { id: 'grok-2-vision-1212', label: 'Grok 2 Vision (1212)', description: 'Vision-capable Grok for multimodal analysis.' },
+  { id: 'grok-4-fast', label: 'Grok 4 Fast', description: 'High-speed Grok 4 reasoning model.' },
+  { id: 'grok-4-fast-reasoning', label: 'Grok 4 Fast Reasoning', description: 'Latest Grok 4 with ultra-fast reasoning capabilities.' }
 ]
 
 const DEFAULT_ANALYST_SELECTION = ANALYST_OPTIONS.map((analyst) => analyst.id)
@@ -333,9 +338,17 @@ const TradingAgents = () => {
   }
 
   useEffect(() => {
+    console.log('[TradingAgents] Progress state changed:', {
+      runId: progressState.runId,
+      status: progressState.status,
+      hasResult: !!progressState.result,
+      hasError: !!progressState.error
+    })
+    
     if (!progressState.runId) return
 
     if (progressState.status === 'complete' && progressState.result) {
+      console.log('[TradingAgents] Assessment complete, setting decision:', progressState.result)
       const result = progressState.result
       setTradingDecision(result)
       setTradingError(null)
@@ -349,6 +362,7 @@ const TradingAgents = () => {
       })
       clearActiveRun()
     } else if (progressState.status === 'error' && progressState.error) {
+      console.log('[TradingAgents] Assessment error:', progressState.error)
       const message = progressState.error
       setTradingDecision(null)
       setTradingError(message)
@@ -772,7 +786,7 @@ const TradingAgents = () => {
                 defaultValue={defaultPersonaPanel}
                 className="space-y-4"
               >
-                <div className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
+                <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
                   {personaPanels.map((panel) => (
                     <TabsTrigger
                       key={panel.key}
@@ -782,7 +796,7 @@ const TradingAgents = () => {
                       {panel.label}
                     </TabsTrigger>
                   ))}
-                </div>
+                </TabsList>
                 {personaPanels.map((panel) => (
                   <TabsContent key={panel.key} value={panel.key} className="mt-4 rounded-2xl border border-border/60 bg-card/80 p-6">
                     <AgentTextBlock text={panel.value} emptyLabel={panel.fallback} />
@@ -826,7 +840,7 @@ const TradingAgents = () => {
                   defaultValue={defaultAnalystPanel}
                   className="space-y-4"
                 >
-                  <div className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
+                  <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
                     {analystPanels.map((panel) => (
                       <TabsTrigger
                         key={panel.key}
@@ -836,7 +850,7 @@ const TradingAgents = () => {
                         {panel.label}
                       </TabsTrigger>
                     ))}
-                  </div>
+                  </TabsList>
                   {analystPanels.map((panel) => (
                     <TabsContent
                       key={panel.key}
@@ -1072,19 +1086,45 @@ const TradingAgents = () => {
             </p>
           </div>
 
-          {tradingError ? (
-            <div className="rounded-2xl border border-amber-400/40 bg-amber-500/15 p-4 text-sm text-amber-100 shadow shadow-amber-500/20">
-              {tradingError}
-            </div>
-          ) : tradingDecision ? (
-            renderDecisionSummary(tradingDecision)
-          ) : showTradingProgress ? (
-            <TradingProgress state={progressState} onCancel={handleCancelTradingRun} />
-          ) : (
-            <div className="rounded-2xl border border-border/50 bg-muted/20 p-5 text-sm text-muted-foreground">
-              Submit a ticker to start a trading run. Progress and results will appear here.
-            </div>
-          )}
+          {(() => {
+            console.log('[TradingAgents] Render state:', {
+              hasError: !!tradingError,
+              hasDecision: !!tradingDecision,
+              decisionData: tradingDecision ? {
+                symbol: tradingDecision.symbol,
+                decision: tradingDecision.decision,
+                runId: tradingDecision.runId
+              } : null,
+              showProgress: showTradingProgress,
+              activeRun: activeRun,
+              progressStatus: progressState.status
+            })
+            
+            if (tradingError) {
+              return (
+                <div className="rounded-2xl border border-amber-400/40 bg-amber-500/15 p-4 text-sm text-amber-100 shadow shadow-amber-500/20">
+                  {tradingError}
+                </div>
+              )
+            }
+            
+            if (tradingDecision) {
+              console.log('[TradingAgents] Rendering decision summary')
+              return renderDecisionSummary(tradingDecision)
+            }
+            
+            if (showTradingProgress) {
+              console.log('[TradingAgents] Rendering progress')
+              return <TradingProgress state={progressState} onCancel={handleCancelTradingRun} />
+            }
+            
+            console.log('[TradingAgents] Rendering empty state')
+            return (
+              <div className="rounded-2xl border border-border/50 bg-muted/20 p-5 text-sm text-muted-foreground">
+                Submit a ticker to start a trading run. Progress and results will appear here.
+              </div>
+            )
+          })()}
         </div>
       </div>
 

@@ -17,7 +17,18 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    ```bash
    cp .env.example .env
    ```
-3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging. By default Trading Agents allow `gpt-4o-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5`, and `gpt-5-pro`; set `TRADING_ALLOWED_MODELS` (comma separated) to override the list or add additional models. Enable the Trading Agents assessment history endpoints by setting `TRADING_ASSESSMENT_HISTORY_ENABLED=true` (requires `DATABASE_URL` so results can be queried).
+3. Update `.env` with valid values for `OPENAI_API_KEY`, `FINNHUB_API_KEY`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and optionally `DATABASE_URL` to enable assessment logging.
+   
+   **Model Configuration:**
+   - By default, Trading Agents allow OpenAI models: `gpt-4o-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5`, `gpt-5-pro`
+   - **Grok Integration:** To use Grok models from x.ai, add `GROK_API_KEY`, `GROK_MODEL` (e.g., `grok-beta`), and optionally `GROK_BASE_URL` (defaults to `https://api.x.ai/v1`)
+   - The system automatically merges OpenAI and Grok models into a combined allow-list
+   - Override the default model with `TRADING_DEFAULT_MODEL` (priority: `TRADING_DEFAULT_MODEL` → `OPENAI_MODEL` → `GROK_MODEL`)
+   - Customize the full allow-list with `TRADING_ALLOWED_MODELS` (comma-separated)
+   - Default Grok models: `grok-beta`, `grok-2-1212`, `grok-2-vision-1212`
+   
+   Enable the Trading Agents assessment history endpoints by setting `TRADING_ASSESSMENT_HISTORY_ENABLED=true` (requires `DATABASE_URL` so results can be queried).
+
 4. Create a Reddit script application at https://www.reddit.com/prefs/apps, then copy the generated client ID/secret into `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` (choose the script app type).
 5. If `DATABASE_URL` is set, manage schema with Drizzle:
    - Generate SQL from the TypeScript schema: `npm run drizzle:generate`

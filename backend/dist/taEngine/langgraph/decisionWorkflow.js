@@ -17,6 +17,17 @@ import { createTraderRunnable, TRADER_SYSTEM_PROMPT, buildTraderUserMessage, } f
 import { createAggressiveAnalystRunnable, createConservativeAnalystRunnable, createNeutralAnalystRunnable, buildAggressiveUserMessage, buildConservativeUserMessage, buildNeutralUserMessage, AGGRESSIVE_SYSTEM_PROMPT, CONSERVATIVE_SYSTEM_PROMPT, NEUTRAL_SYSTEM_PROMPT, } from '../langchain/risk/index.js';
 import { createRiskManagerRunnable, RISK_MANAGER_SYSTEM_PROMPT, buildRiskManagerUserMessage, } from '../langchain/risk/riskManagerRunnable.js';
 import { canContinueInvestment, canContinueRisk, createDebateRoundEntry, createRiskDebateRoundEntry, withIncrementedInvestRound, withIncrementedRiskRound, } from './stateUtils.js';
+/**
+ * Determines the provider (openai or grok) for a given model ID.
+ * Grok models typically start with 'grok-' prefix.
+ */
+const resolveProvider = (modelId) => {
+    const normalized = (modelId ?? '').trim().toLowerCase();
+    if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
+        return 'grok';
+    }
+    return 'openai';
+};
 const StateAnnotation = Annotation.Root({
     symbol: Annotation(),
     tradeDate: Annotation(),
@@ -66,12 +77,27 @@ const StateAnnotation = Annotation.Root({
     }),
 });
 const createChatModel = (modelOverride, temperature = 1) => {
+    const modelId = modelOverride ?? env.defaultTradingModel;
+    const provider = resolveProvider(modelId);
+    if (provider === 'grok') {
+        if (!env.grokApiKey) {
+            throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
+        }
+        const options = {
+            openAIApiKey: env.grokApiKey,
+            model: modelId,
+            temperature,
+            configuration: { baseURL: env.grokBaseUrl },
+        };
+        return new ChatOpenAI(options);
+    }
+    // OpenAI branch (unchanged)
     if (!env.openAiApiKey) {
         throw new Error('OPENAI_API_KEY is not configured.');
     }
     const options = {
         openAIApiKey: env.openAiApiKey,
-        model: modelOverride ?? env.openAiModel,
+        model: modelId,
         temperature,
     };
     if (env.openAiBaseUrl) {
@@ -128,7 +154,7 @@ const stagePercents = {
 const resolveModelId = (state) => {
     const raw = state.metadata?.modelId ?? '';
     const trimmed = raw.trim();
-    return trimmed.length > 0 ? trimmed : env.openAiModel;
+    return trimmed.length > 0 ? trimmed : env.defaultTradingModel;
 };
 const resolveEnabledAnalysts = (state) => {
     const raw = state.metadata?.enabledAnalysts;
@@ -642,6 +668,30 @@ const finalizeNode = async (state) => {
     }
     decision.bullArgument = state.debate?.bull ?? null;
     decision.bearArgument = state.debate?.bear ?? null;
+    // Include individual risk analyst arguments
+    decision.aggressiveArgument = state.debate?.aggressive ?? null;
+    decision.conservativeArgument = state.debate?.conservative ?? null;
+    decision.neutralArgument = state.debate?.neutral ?? null;
+    // Build risk debate transcript from individual arguments or history
+    if (state.debate?.risk) {
+        decision.riskDebate = state.debate.risk;
+    }
+    else if (state.debate?.aggressive || state.debate?.conservative || state.debate?.neutral) {
+        const aggressive = state.debate?.aggressive?.trim();
+        const conservative = state.debate?.conservative?.trim();
+        const neutral = state.debate?.neutral?.trim();
+        const sections = [];
+        if (aggressive)
+            sections.push(`### Aggressive Analyst\n${aggressive}`);
+        if (conservative)
+            sections.push(`### Conservative Analyst\n${conservative}`);
+        if (neutral)
+            sections.push(`### Neutral Analyst\n${neutral}`);
+        decision.riskDebate = sections.length > 0 ? sections.join('\n\n') : null;
+    }
+    else {
+        decision.riskDebate = null;
+    }
     const payload = {
         symbol: state.symbol,
         tradeDate: state.tradeDate,
@@ -764,7 +814,7 @@ const decisionGraph = (() => {
     return graph.compile();
 })();
 export const runDecisionGraph = async (payload, options) => {
-    const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.openAiModel)?.trim() ?? env.openAiModel;
+    const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.defaultTradingModel)?.trim() ?? env.defaultTradingModel;
     const normalizedAnalysts = options?.analysts && options.analysts.length > 0
         ? options.analysts
         : payload.analysts && payload.analysts.length > 0

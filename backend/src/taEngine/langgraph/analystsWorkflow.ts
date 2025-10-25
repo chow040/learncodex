@@ -348,6 +348,17 @@ export interface RunAnalystStageOptions {
   enabledAnalysts?: TradingAnalystId[];
 }
 
+/**
+ * Determines the provider (openai or grok) for a given model ID.
+ */
+const resolveProvider = (modelId: string): 'openai' | 'grok' => {
+  const normalized = (modelId ?? '').trim().toLowerCase();
+  if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
+    return 'grok';
+  }
+  return 'openai';
+};
+
 export const runAnalystStage = async (
   symbol: string,
   tradeDate: string,
@@ -363,17 +374,31 @@ export const runAnalystStage = async (
     return filtered.length > 0 ? filtered : [...DEFAULT_TRADING_ANALYSTS];
   })();
 
-  const requestedModel = options?.modelId ?? env.openAiModel ?? '';
-  const modelId = requestedModel.trim() || env.openAiModel;
+  const requestedModel = options?.modelId ?? env.defaultTradingModel ?? '';
+  const modelId = requestedModel.trim() || env.defaultTradingModel;
+  const provider = resolveProvider(modelId);
 
   const llmOptions: Record<string, unknown> = {
-    openAIApiKey: env.openAiApiKey,
     model: modelId,
     temperature: 1,
   };
-  if (env.openAiBaseUrl) {
-    llmOptions.configuration = { baseURL: env.openAiBaseUrl };
+
+  if (provider === 'grok') {
+    if (!env.grokApiKey) {
+      throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
+    }
+    llmOptions.apiKey = env.grokApiKey;
+    llmOptions.configuration = { baseURL: env.grokBaseUrl };
+  } else {
+    if (!env.openAiApiKey) {
+      throw new Error('OPENAI_API_KEY is not configured.');
+    }
+    llmOptions.apiKey = env.openAiApiKey;
+    if (env.openAiBaseUrl) {
+      llmOptions.configuration = { baseURL: env.openAiBaseUrl };
+    }
   }
+
   const llm = new ChatOpenAI(llmOptions);
 
   const personaAssets = new Map<TradingAnalystId, PersonaAssets>();

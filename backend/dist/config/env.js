@@ -33,7 +33,7 @@ const parsePositiveInt = (input, fallback) => {
     }
     return parsed;
 };
-const DEFAULT_TRADING_MODELS = [
+const DEFAULT_OPENAI_MODELS = [
     'gpt-4o-mini',
     'gpt-4o',
     'gpt-5-mini',
@@ -41,14 +41,43 @@ const DEFAULT_TRADING_MODELS = [
     'gpt-5',
     'gpt-5-pro',
 ];
-const openAiModel = process.env.OPENAI_MODEL ?? DEFAULT_TRADING_MODELS[0];
+const DEFAULT_GROK_MODELS = [
+    'grok-beta',
+    'grok-2-1212',
+    'grok-2-vision-1212',
+];
+const openAiModel = process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODELS[0];
+const grokApiKey = process.env.GROK_API_KEY ?? '';
+const grokBaseUrl = process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1';
+const grokModel = process.env.GROK_MODEL ?? '';
+const grokAllowedModels = parseCsvList(process.env.GROK_ALLOWED_MODELS);
+// Derive default trading model with priority: TRADING_DEFAULT_MODEL → OPENAI_MODEL → GROK_MODEL
+const defaultTradingModel = process.env.TRADING_DEFAULT_MODEL ??
+    (process.env.OPENAI_MODEL ? openAiModel : grokModel || DEFAULT_OPENAI_MODELS[0]);
+// Warn if a Grok model is configured but key is missing
+if ((grokModel || grokAllowedModels.length > 0) && !grokApiKey) {
+    console.warn('Grok model(s) configured but GROK_API_KEY is not set. Grok models will fail at runtime.');
+}
+// Merge OpenAI + Grok allow-lists
 const tradingAllowedModels = (() => {
     const configured = parseCsvList(process.env.TRADING_ALLOWED_MODELS);
-    const base = configured.length > 0 ? configured : [...DEFAULT_TRADING_MODELS];
-    const unique = new Set(base);
-    if (openAiModel) {
-        unique.add(openAiModel);
+    if (configured.length > 0) {
+        // If explicit TRADING_ALLOWED_MODELS is set, use it as the base
+        const unique = new Set(configured);
+        if (openAiModel)
+            unique.add(openAiModel);
+        if (grokModel)
+            unique.add(grokModel);
+        return Array.from(unique);
     }
+    // Otherwise merge OpenAI defaults + Grok allowed models
+    const base = [...DEFAULT_OPENAI_MODELS];
+    const grokModels = grokAllowedModels.length > 0 ? grokAllowedModels : (grokModel ? [grokModel] : DEFAULT_GROK_MODELS);
+    const unique = new Set([...base, ...grokModels]);
+    if (openAiModel)
+        unique.add(openAiModel);
+    if (grokModel)
+        unique.add(grokModel);
     return Array.from(unique);
 })();
 export const env = {
@@ -57,6 +86,11 @@ export const env = {
     port: Number.parseInt(process.env.PORT ?? '4000', 10),
     openAiApiKey: process.env.OPENAI_API_KEY ?? '',
     openAiModel,
+    grokApiKey,
+    grokBaseUrl,
+    grokModel,
+    grokAllowedModels,
+    defaultTradingModel,
     tradingAllowedModels,
     finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',
     finnhubBaseUrl: process.env.FINNHUB_BASE_URL ?? 'https://finnhub.io/api/v1',

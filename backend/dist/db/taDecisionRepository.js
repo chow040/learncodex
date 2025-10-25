@@ -68,6 +68,10 @@ const parseDecisionPayload = (value) => {
         return {
             payload: core.payload ?? null,
             debate: core.debate ?? null,
+            aggressiveArgument: core.aggressiveArgument ?? null,
+            conservativeArgument: core.conservativeArgument ?? null,
+            neutralArgument: core.neutralArgument ?? null,
+            riskDebate: core.riskDebate ?? null,
         };
     }
     return { payload: source, debate: null };
@@ -115,6 +119,19 @@ export const insertTaDecision = async (input) => {
         const storedPayload = { payload: input.payload };
         if (hasDebateExtras) {
             storedPayload.debate = debateExtras;
+        }
+        // Add risk analyst arguments at the top level of stored payload
+        if (input.decision.aggressiveArgument) {
+            storedPayload.aggressiveArgument = input.decision.aggressiveArgument;
+        }
+        if (input.decision.conservativeArgument) {
+            storedPayload.conservativeArgument = input.decision.conservativeArgument;
+        }
+        if (input.decision.neutralArgument) {
+            storedPayload.neutralArgument = input.decision.neutralArgument;
+        }
+        if (input.decision.riskDebate) {
+            storedPayload.riskDebate = input.decision.riskDebate;
         }
         await pg.query(`INSERT INTO ta_decisions (
          run_id, symbol, trade_date, decision_token,
@@ -258,6 +275,10 @@ export const fetchTradingAssessmentByRunId = async (runId) => {
         investmentDebate: storedPayload.debate?.investmentDebate ?? null,
         bullArgument: storedPayload.debate?.bullArgument ?? null,
         bearArgument: storedPayload.debate?.bearArgument ?? null,
+        aggressiveArgument: storedPayload.aggressiveArgument ?? null,
+        conservativeArgument: storedPayload.conservativeArgument ?? null,
+        neutralArgument: storedPayload.neutralArgument ?? null,
+        riskDebate: storedPayload.riskDebate ?? null,
         ...(analysts ? { analysts } : {}),
     };
 };

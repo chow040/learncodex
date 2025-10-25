@@ -36,7 +36,7 @@ export const requestTradingAgentsDecisionInternal = async (symbol, options) => {
     };
     if (useMockData) {
         return runMockTradingAgentsDecision(payload, {
-            runId: options?.runId,
+            ...(options?.runId ? { runId: options.runId } : {}),
             modelId,
             analysts,
         });
