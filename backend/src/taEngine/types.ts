@@ -46,6 +46,10 @@ export interface TradingAgentsDecision {
   investmentDebate?: string | null;
   bullArgument?: string | null;
   bearArgument?: string | null;
+  aggressiveArgument?: string | null;
+  conservativeArgument?: string | null;
+  neutralArgument?: string | null;
+  riskDebate?: string | null;
   modelId?: string | null;
   analysts?: TradingAnalystId[];
   debugPrompt?: string; // optional prompt preview for troubleshooting

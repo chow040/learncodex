@@ -8,7 +8,12 @@ export const createInitialState = (symbol, tradeDate, context) => ({
     finalDecision: null,
     conversationLog: [],
     debate: {},
-    metadata: {},
+    debateHistory: [],
+    riskDebateHistory: [],
+    metadata: {
+        invest_continue: true,
+        risk_continue: true,
+    },
     toolCalls: [],
 });
 //# sourceMappingURL=types.js.map

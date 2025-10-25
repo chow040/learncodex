@@ -47,6 +47,26 @@ const normalizeAnalysts = (value) => {
     }
     return DEFAULT_TRADING_ANALYSTS.filter((id) => seen.has(id));
 };
+const normalizeMockFlag = (value) => {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (!normalized)
+            return undefined;
+        if (['mock', 'true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+            return true;
+        }
+        if (['live', 'false', '0', 'no', 'n', 'off', 'real'].includes(normalized)) {
+            return false;
+        }
+    }
+    return undefined;
+};
 export const validateTradingAgentsRequest = (input, options) => {
     const symbolRaw = typeof input.symbol === 'string' ? input.symbol.trim().toUpperCase() : '';
     if (!symbolRaw) {
@@ -58,11 +78,13 @@ export const validateTradingAgentsRequest = (input, options) => {
     const modelId = normalizeModelId(input.modelId, options);
     const analysts = normalizeAnalysts(input.analysts);
     const runId = normalizeRunId(input.runId);
+    const useMockData = normalizeMockFlag(input.useMockData ?? input.mode);
     return {
         symbol: symbolRaw,
         modelId,
         analysts,
         ...(runId ? { runId } : {}),
+        ...(useMockData !== undefined ? { useMockData } : {}),
     };
 };
 //# sourceMappingURL=tradingAgents.js.map

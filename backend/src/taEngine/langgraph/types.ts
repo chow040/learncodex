@@ -13,8 +13,8 @@ export type DebateHistory = {
   bull?: string | null;
   bear?: string | null;
   risk?: string;
-  risky?: string | null;
-  safe?: string | null;
+  aggressive?: string | null;
+  conservative?: string | null;
   neutral?: string | null;
 };
 
@@ -37,7 +37,7 @@ export interface DebateRoundEntry {
   timestamp: string;
 }
 
-export type RiskDebatePersona = 'risky' | 'safe' | 'neutral';
+export type RiskDebatePersona = 'aggressive' | 'conservative' | 'neutral';
 
 export interface RiskDebateRoundEntry {
   persona: RiskDebatePersona;

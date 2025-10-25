@@ -15,5 +15,13 @@ export type TradingAgentsDecision = {
   investmentDebate?: string | null
   bullArgument?: string | null
   bearArgument?: string | null
+  aggressiveArgument?: string | null
+  conservativeArgument?: string | null
+  neutralArgument?: string | null
+  riskDebate?: string | null
+  marketReport?: string | null
+  sentimentReport?: string | null
+  newsReport?: string | null
+  fundamentalsReport?: string | null
   [key: string]: unknown
 }

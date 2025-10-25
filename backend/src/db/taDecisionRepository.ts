@@ -51,6 +51,10 @@ export interface TradingAssessmentDetailRow extends TradingAssessmentSummaryRow 
   investmentDebate?: string | null;
   bullArgument?: string | null;
   bearArgument?: string | null;
+  aggressiveArgument?: string | null;
+  conservativeArgument?: string | null;
+  neutralArgument?: string | null;
+  riskDebate?: string | null;
 }
 
 export interface FetchTradingAssessmentsOptions {
@@ -96,6 +100,10 @@ interface StoredDecisionPayload {
     bearArgument?: string | null;
     investmentDebate?: string | null;
   } | null;
+  aggressiveArgument?: string | null;
+  conservativeArgument?: string | null;
+  neutralArgument?: string | null;
+  riskDebate?: string | null;
 }
 
 const parseDecisionPayload = (value: unknown): StoredDecisionPayload => {
@@ -119,10 +127,21 @@ const parseDecisionPayload = (value: unknown): StoredDecisionPayload => {
   }
 
   if ('payload' in source && typeof (source as { payload?: unknown }).payload === 'object') {
-    const core = source as { payload?: TradingAgentsPayload; debate?: StoredDecisionPayload['debate'] };
+    const core = source as { 
+      payload?: TradingAgentsPayload; 
+      debate?: StoredDecisionPayload['debate'];
+      aggressiveArgument?: string;
+      conservativeArgument?: string;
+      neutralArgument?: string;
+      riskDebate?: string;
+    };
     return {
       payload: core.payload ?? null,
       debate: core.debate ?? null,
+      aggressiveArgument: core.aggressiveArgument ?? null,
+      conservativeArgument: core.conservativeArgument ?? null,
+      neutralArgument: core.neutralArgument ?? null,
+      riskDebate: core.riskDebate ?? null,
     };
   }
 
@@ -178,6 +197,20 @@ export const insertTaDecision = async (input: InsertTaDecisionInput): Promise<vo
     const storedPayload: Record<string, unknown> = { payload: input.payload };
     if (hasDebateExtras) {
       storedPayload.debate = debateExtras;
+    }
+    
+    // Add risk analyst arguments at the top level of stored payload
+    if (input.decision.aggressiveArgument) {
+      storedPayload.aggressiveArgument = input.decision.aggressiveArgument;
+    }
+    if (input.decision.conservativeArgument) {
+      storedPayload.conservativeArgument = input.decision.conservativeArgument;
+    }
+    if (input.decision.neutralArgument) {
+      storedPayload.neutralArgument = input.decision.neutralArgument;
+    }
+    if (input.decision.riskDebate) {
+      storedPayload.riskDebate = input.decision.riskDebate;
     }
 
     await pg.query(
@@ -341,6 +374,10 @@ export const fetchTradingAssessmentByRunId = async (
     investmentDebate: storedPayload.debate?.investmentDebate ?? null,
     bullArgument: storedPayload.debate?.bullArgument ?? null,
     bearArgument: storedPayload.debate?.bearArgument ?? null,
+    aggressiveArgument: storedPayload.aggressiveArgument ?? null,
+    conservativeArgument: storedPayload.conservativeArgument ?? null,
+    neutralArgument: storedPayload.neutralArgument ?? null,
+    riskDebate: storedPayload.riskDebate ?? null,
     ...(analysts ? { analysts } : {}),
   };
 };

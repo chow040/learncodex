@@ -42,6 +42,10 @@ export interface TradingAssessmentDetail extends TradingAssessmentSummary {
   investmentDebate: string | null;
   bullArgument: string | null;
   bearArgument: string | null;
+  aggressiveArgument: string | null;
+  conservativeArgument: string | null;
+  neutralArgument: string | null;
+  riskDebate: string | null;
 }
 
 const normalizeLimit = (limit?: number): number => {
@@ -81,6 +85,10 @@ const mapDetailRow = (row: TradingAssessmentDetailRow): TradingAssessmentDetail 
   investmentDebate: row.investmentDebate ?? null,
   bullArgument: row.bullArgument ?? null,
   bearArgument: row.bearArgument ?? null,
+  aggressiveArgument: row.aggressiveArgument ?? null,
+  conservativeArgument: row.conservativeArgument ?? null,
+  neutralArgument: row.neutralArgument ?? null,
+  riskDebate: row.riskDebate ?? null,
 });
 
 export const getTradingAssessments = async (

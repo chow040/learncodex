@@ -632,6 +632,19 @@ const TradingAgents = () => {
       return sections.length > 0 ? sections.join('\n\n') : null
     })()
 
+    const riskDebateText = (() => {
+      const debate = decision.riskDebate?.trim()
+      if (debate) return debate
+      const aggressive = decision.aggressiveArgument?.trim()
+      const conservative = decision.conservativeArgument?.trim()
+      const neutral = decision.neutralArgument?.trim()
+      const sections: string[] = []
+      if (aggressive) sections.push(`### Aggressive Analyst\n${aggressive}`)
+      if (conservative) sections.push(`### Conservative Analyst\n${conservative}`)
+      if (neutral) sections.push(`### Neutral Analyst\n${neutral}`)
+      return sections.length > 0 ? sections.join('\n\n') : null
+    })()
+
     const personaPanels: Array<{
       key: string
       label: string
@@ -646,6 +659,30 @@ const TradingAgents = () => {
         label: 'Bull vs Bear Debate',
         value: investmentDebateText,
         fallback: 'Debate transcript unavailable.'
+      },
+      {
+        key: 'risk-debate',
+        label: 'Risk Debate (Full)',
+        value: riskDebateText,
+        fallback: 'Risk debate transcript unavailable.'
+      },
+      {
+        key: 'aggressive-analyst',
+        label: 'Aggressive Analyst',
+        value: decision.aggressiveArgument,
+        fallback: 'Aggressive analyst argument unavailable.'
+      },
+      {
+        key: 'conservative-analyst',
+        label: 'Conservative Analyst',
+        value: decision.conservativeArgument,
+        fallback: 'Conservative analyst argument unavailable.'
+      },
+      {
+        key: 'neutral-analyst',
+        label: 'Neutral Analyst',
+        value: decision.neutralArgument,
+        fallback: 'Neutral analyst argument unavailable.'
       }
     ]
     const analystPanels: Array<{
@@ -735,19 +772,19 @@ const TradingAgents = () => {
                 defaultValue={defaultPersonaPanel}
                 className="space-y-4"
               >
-                <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                <div className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
                   {personaPanels.map((panel) => (
                     <TabsTrigger
                       key={panel.key}
                       value={panel.key}
-                      className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                      className="whitespace-nowrap rounded-full border border-border/60 bg-background/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:bg-background/60 data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
                     >
                       {panel.label}
                     </TabsTrigger>
                   ))}
-                </TabsList>
+                </div>
                 {personaPanels.map((panel) => (
-                  <TabsContent key={panel.key} value={panel.key} className="rounded-2xl border border-border/60 bg-card/80 p-6">
+                  <TabsContent key={panel.key} value={panel.key} className="mt-4 rounded-2xl border border-border/60 bg-card/80 p-6">
                     <AgentTextBlock text={panel.value} emptyLabel={panel.fallback} />
                   </TabsContent>
                 ))}
@@ -789,22 +826,22 @@ const TradingAgents = () => {
                   defaultValue={defaultAnalystPanel}
                   className="space-y-4"
                 >
-                  <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                  <div className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
                     {analystPanels.map((panel) => (
                       <TabsTrigger
                         key={panel.key}
                         value={panel.key}
-                        className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                        className="whitespace-nowrap rounded-full border border-border/60 bg-background/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:bg-background/60 data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
                       >
                         {panel.label}
                       </TabsTrigger>
                     ))}
-                  </TabsList>
+                  </div>
                   {analystPanels.map((panel) => (
                     <TabsContent
                       key={panel.key}
                       value={panel.key}
-                      className="rounded-2xl border border-border/60 bg-background/40 p-6"
+                      className="mt-4 rounded-2xl border border-border/60 bg-background/40 p-6"
                     >
                       <AgentTextBlock text={panel.value} emptyLabel={panel.fallback} />
                     </TabsContent>

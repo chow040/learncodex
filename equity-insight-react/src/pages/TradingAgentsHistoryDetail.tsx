@@ -418,11 +418,49 @@ const TradingAgentsHistoryDetail = () => {
       if (bear) sections.push(`### Bear Argument\n${bear}`)
       return sections.length > 0 ? sections.join('\n\n') : null
     })()
+
+    const riskDebateText = (() => {
+      const debate = data.riskDebate?.trim()
+      if (debate) return debate
+      const aggressive = data.aggressiveArgument?.trim()
+      const conservative = data.conservativeArgument?.trim()
+      const neutral = data.neutralArgument?.trim()
+      const sections: string[] = []
+      if (aggressive) sections.push(`### Aggressive Analyst\n${aggressive}`)
+      if (conservative) sections.push(`### Conservative Analyst\n${conservative}`)
+      if (neutral) sections.push(`### Neutral Analyst\n${neutral}`)
+      return sections.length > 0 ? sections.join('\n\n') : null
+    })()
+
     const personaPanels: Array<{ key: string; label: string; value?: string | null; fallback: string }> = [
       { key: 'trader-plan', label: 'Trader (Execution)', value: data.traderPlan, fallback: 'Trader plan unavailable.' },
       { key: 'investment-plan', label: 'Research Manager', value: data.investmentPlan, fallback: 'Research manager plan unavailable.' },
       { key: 'risk-judge', label: 'Risk Manager', value: data.riskJudge, fallback: 'Risk manager commentary unavailable.' },
-      { key: 'investment-debate', label: 'Bull vs Bear Debate', value: investmentDebateText, fallback: 'Debate transcript unavailable.' }
+      { key: 'investment-debate', label: 'Bull vs Bear Debate', value: investmentDebateText, fallback: 'Debate transcript unavailable.' },
+      {
+        key: 'risk-debate',
+        label: 'Risk Debate (Full)',
+        value: riskDebateText,
+        fallback: 'Risk debate transcript unavailable.'
+      },
+      {
+        key: 'aggressive-analyst',
+        label: 'Aggressive Analyst',
+        value: data.aggressiveArgument,
+        fallback: 'Aggressive analyst argument unavailable.'
+      },
+      {
+        key: 'conservative-analyst',
+        label: 'Conservative Analyst',
+        value: data.conservativeArgument,
+        fallback: 'Conservative analyst argument unavailable.'
+      },
+      {
+        key: 'neutral-analyst',
+        label: 'Neutral Analyst',
+        value: data.neutralArgument,
+        fallback: 'Neutral analyst argument unavailable.'
+      }
     ]
 
     const defaultPersona =
@@ -440,19 +478,19 @@ const TradingAgentsHistoryDetail = () => {
               defaultValue={defaultPersona}
               className="space-y-4"
             >
-              <TabsList className="flex flex-wrap gap-2 rounded-2xl bg-background/30 p-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+              <TabsList className="flex h-auto flex-wrap gap-2 rounded-2xl bg-background/30 p-3">
                 {personaPanels.map((panel) => (
                   <TabsTrigger
                     key={panel.key}
                     value={panel.key}
-                    className="rounded-full border border-border/60 px-4 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
+                    className="whitespace-nowrap rounded-full border border-border/60 bg-background/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground transition hover:bg-background/60 data-[state=active]:border-cyan-400/60 data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-100"
                   >
                     {panel.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
               {personaPanels.map((panel) => (
-                <TabsContent key={panel.key} value={panel.key} className="rounded-2xl border border-border/60 bg-background/40 p-6">
+                <TabsContent key={panel.key} value={panel.key} className="mt-4 rounded-2xl border border-border/60 bg-background/40 p-6">
                   <AgentTextBlock text={panel.value ?? undefined} emptyLabel={panel.fallback} />
                 </TabsContent>
               ))}

@@ -52,7 +52,7 @@ export const requestTradingAgentsDecisionInternal = async (
 
   if (useMockData) {
     return runMockTradingAgentsDecision(payload, {
-      runId: options?.runId,
+      ...(options?.runId ? { runId: options.runId } : {}),
       modelId,
       analysts,
     });

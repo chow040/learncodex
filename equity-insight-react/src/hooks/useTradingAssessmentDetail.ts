@@ -22,6 +22,10 @@ export interface TradingAssessmentDetail {
   investmentDebate: string | null
   bullArgument: string | null
   bearArgument: string | null
+  aggressiveArgument: string | null
+  conservativeArgument: string | null
+  neutralArgument: string | null
+  riskDebate: string | null
 }
 
 export interface UseTradingAssessmentDetailOptions {
@@ -49,6 +53,10 @@ interface TradingAssessmentDetailApiResponse {
   investmentDebate?: string | null
   bullArgument?: string | null
   bearArgument?: string | null
+  aggressiveArgument?: string | null
+  conservativeArgument?: string | null
+  neutralArgument?: string | null
+  riskDebate?: string | null
 }
 
 const DEFAULT_ANALYSTS: TradingAnalystId[] = ['fundamental', 'market', 'news', 'social']
@@ -115,7 +123,11 @@ const fetchTradingAssessmentDetail = async (
     riskJudge: typeof payload.riskJudge === 'string' ? payload.riskJudge : null,
     investmentDebate: typeof payload.investmentDebate === 'string' ? payload.investmentDebate : null,
     bullArgument: typeof payload.bullArgument === 'string' ? payload.bullArgument : null,
-    bearArgument: typeof payload.bearArgument === 'string' ? payload.bearArgument : null
+    bearArgument: typeof payload.bearArgument === 'string' ? payload.bearArgument : null,
+    aggressiveArgument: typeof payload.aggressiveArgument === 'string' ? payload.aggressiveArgument : null,
+    conservativeArgument: typeof payload.conservativeArgument === 'string' ? payload.conservativeArgument : null,
+    neutralArgument: typeof payload.neutralArgument === 'string' ? payload.neutralArgument : null,
+    riskDebate: typeof payload.riskDebate === 'string' ? payload.riskDebate : null
   }
 }
 

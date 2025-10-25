@@ -47,8 +47,9 @@ const toIsoTimestamp = (value) => {
     return '';
 };
 const parseDecisionPayload = (value) => {
-    if (!value)
-        return null;
+    if (!value) {
+        return { payload: null, debate: null };
+    }
     const source = typeof value === 'string'
         ? (() => {
             try {
@@ -59,12 +60,17 @@ const parseDecisionPayload = (value) => {
             }
         })()
         : value;
-    if (!source || typeof source !== 'object')
-        return null;
-    if ('payload' in source && typeof source.payload === 'object') {
-        return source.payload ?? null;
+    if (!source || typeof source !== 'object') {
+        return { payload: null, debate: null };
     }
-    return source;
+    if ('payload' in source && typeof source.payload === 'object') {
+        const core = source;
+        return {
+            payload: core.payload ?? null,
+            debate: core.debate ?? null,
+        };
+    }
+    return { payload: source, debate: null };
 };
 export const insertTaDecision = async (input) => {
     const pg = getPool();
@@ -91,11 +97,29 @@ export const insertTaDecision = async (input) => {
         console.warn('[taDecisionRepository] ta_runs insert failed (will continue):', err.message);
     }
     // Insert into ta_decisions (required for this feature)
+    const executionMs = typeof input.executionMs === 'number' && Number.isFinite(input.executionMs)
+        ? Math.trunc(input.executionMs)
+        : null;
     try {
+        const debateExtras = {
+            bullArgument: input.decision.bullArgument ?? null,
+            bearArgument: input.decision.bearArgument ?? null,
+            investmentDebate: input.decision.investmentDebate ?? null,
+        };
+        const hasDebateExtras = Object.values(debateExtras).some((value) => {
+            if (typeof value === 'string') {
+                return value.trim().length > 0;
+            }
+            return value !== null && value !== undefined;
+        });
+        const storedPayload = { payload: input.payload };
+        if (hasDebateExtras) {
+            storedPayload.debate = debateExtras;
+        }
         await pg.query(`INSERT INTO ta_decisions (
          run_id, symbol, trade_date, decision_token,
-         investment_plan, trader_plan, risk_judge, payload, raw_text, model, analysts, prompt_hash, orchestrator_version
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`, [
+         investment_plan, trader_plan, risk_judge, payload, raw_text, model, analysts, execution_ms, prompt_hash, orchestrator_version
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, [
             runId,
             input.decision.symbol,
             tradeDate,
@@ -103,10 +127,11 @@ export const insertTaDecision = async (input) => {
             input.decision.investmentPlan ?? null,
             input.decision.traderPlan ?? null,
             input.decision.riskJudge ?? null,
-            JSON.stringify({ payload: input.payload }),
+            JSON.stringify(storedPayload),
             input.rawText ?? null,
             input.model ?? null,
             input.analysts ? JSON.stringify(input.analysts) : null,
+            executionMs,
             input.promptHash ?? null,
             input.orchestratorVersion ?? null,
         ]);
@@ -138,7 +163,7 @@ export const fetchTradingAssessmentsBySymbol = async (symbol, options = {}) => {
     params.push(limit + 1);
     const limitParamIndex = params.length;
     const query = `
-    SELECT run_id, symbol, trade_date, decision_token, model, analysts, created_at, orchestrator_version
+    SELECT run_id, symbol, trade_date, decision_token, model, analysts, created_at, orchestrator_version, execution_ms
     FROM ta_decisions
     WHERE symbol = $1
       AND run_id IS NOT NULL
@@ -150,6 +175,8 @@ export const fetchTradingAssessmentsBySymbol = async (symbol, options = {}) => {
     const summaries = [];
     for (const row of rows.slice(0, limit)) {
         const analysts = parseAnalystsColumn(row.analysts);
+        const executionRaw = typeof row.execution_ms === 'number' ? row.execution_ms : Number(row.execution_ms ?? Number.NaN);
+        const executionMs = Number.isFinite(executionRaw) ? Math.trunc(executionRaw) : null;
         const summary = {
             runId: row.run_id,
             symbol: row.symbol,
@@ -158,6 +185,7 @@ export const fetchTradingAssessmentsBySymbol = async (symbol, options = {}) => {
             modelId: row.model ?? null,
             createdAt: toIsoTimestamp(row.created_at),
             orchestratorVersion: row.orchestrator_version ?? null,
+            executionMs,
             ...(analysts ? { analysts } : {}),
         };
         summaries.push(summary);
@@ -183,9 +211,13 @@ export const fetchTradingAssessmentByRunId = async (runId) => {
       d.analysts,
       d.payload,
       d.raw_text,
+      d.trader_plan,
+      d.investment_plan,
+      d.risk_judge,
       d.created_at,
       d.orchestrator_version,
       d.prompt_hash,
+      d.execution_ms,
       r.logs_path,
       COALESCE(r.orchestrator_version, d.orchestrator_version) AS combined_orchestrator_version
     FROM ta_decisions d
@@ -200,6 +232,13 @@ export const fetchTradingAssessmentByRunId = async (runId) => {
     }
     const row = rows[0];
     const analysts = parseAnalystsColumn(row.analysts);
+    const storedPayload = parseDecisionPayload(row.payload);
+    const executionRaw = typeof row.execution_ms === 'number'
+        ? row.execution_ms
+        : row.execution_ms == null
+            ? Number.NaN
+            : Number(row.execution_ms);
+    const executionMs = Number.isFinite(executionRaw) ? Math.trunc(executionRaw) : null;
     return {
         runId: row.run_id,
         symbol: row.symbol,
@@ -208,10 +247,17 @@ export const fetchTradingAssessmentByRunId = async (runId) => {
         modelId: row.model ?? null,
         createdAt: toIsoTimestamp(row.created_at),
         orchestratorVersion: row.combined_orchestrator_version ?? null,
-        payload: parseDecisionPayload(row.payload),
+        payload: storedPayload.payload,
         rawText: row.raw_text ?? null,
         promptHash: row.prompt_hash ?? null,
         logsPath: row.logs_path ?? null,
+        executionMs,
+        traderPlan: row.trader_plan ?? null,
+        investmentPlan: row.investment_plan ?? null,
+        riskJudge: row.risk_judge ?? null,
+        investmentDebate: storedPayload.debate?.investmentDebate ?? null,
+        bullArgument: storedPayload.debate?.bullArgument ?? null,
+        bearArgument: storedPayload.debate?.bearArgument ?? null,
         ...(analysts ? { analysts } : {}),
     };
 };

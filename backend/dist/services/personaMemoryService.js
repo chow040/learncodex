@@ -21,21 +21,14 @@ const openai = env.openAiApiKey
     })
     : null;
 const EMBEDDING_MODEL = env.openAiEmbeddingModel ?? 'text-embedding-3-small';
+const EMBEDDING_CHAR_LIMIT = Number.parseInt(process.env.MEMORY_EMBEDDING_CHAR_LIMIT ?? '6000', 10);
 const isDatabaseAvailable = Boolean(db);
-const cosineSimilarity = (a, b) => {
-    if (!a.length || a.length !== b.length)
-        return -1;
-    let dot = 0;
-    let magA = 0;
-    let magB = 0;
-    for (let i = 0; i < a.length; i += 1) {
-        dot += a[i] * b[i];
-        magA += a[i] * a[i];
-        magB += b[i] * b[i];
-    }
-    if (magA === 0 || magB === 0)
-        return -1;
-    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+const truncateForEmbedding = (text) => {
+    if (!text)
+        return '';
+    if (text.length <= EMBEDDING_CHAR_LIMIT)
+        return text;
+    return `${text.slice(0, EMBEDDING_CHAR_LIMIT)}\n\n[truncated]`;
 };
 const embedText = async (text) => {
     if (!openai) {
@@ -43,7 +36,7 @@ const embedText = async (text) => {
     }
     const response = await openai.embeddings.create({
         model: EMBEDDING_MODEL,
-        input: text,
+        input: truncateForEmbedding(text),
     });
     const vector = response.data[0]?.embedding;
     if (!vector) {
@@ -72,61 +65,30 @@ const buildFallbackMemories = async (persona, symbol, limit) => {
     }
 };
 export const fetchPersonaMemories = async (persona, symbol, situation, limit = 2) => {
-    if (!isDatabaseAvailable || !openai) {
+    if (!isDatabaseAvailable) {
         return buildFallbackMemories(persona, symbol, limit);
     }
     try {
-        const [queryEmbedding, rows] = await Promise.all([
-            embedText(situation),
-            db
-                .select({
-                recommendation: personaMemories.recommendation,
-                embedding: personaMemories.embedding,
-                situation: personaMemories.situation,
-                createdAt: personaMemories.createdAt,
-            })
-                .from(personaMemories)
-                .where(and(eq(personaMemories.persona, persona), eq(personaMemories.symbol, symbol)))
-                .orderBy(desc(personaMemories.createdAt))
-                .limit(200),
-        ]);
+        const rows = await db
+            .select({
+            recommendation: personaMemories.recommendation,
+            embedding: personaMemories.embedding,
+            situation: personaMemories.situation,
+            createdAt: personaMemories.createdAt,
+        })
+            .from(personaMemories)
+            .where(and(eq(personaMemories.persona, persona), eq(personaMemories.symbol, symbol)))
+            .orderBy(desc(personaMemories.createdAt))
+            .limit(Math.max(limit, 1));
         if (!rows.length) {
             return buildFallbackMemories(persona, symbol, limit);
         }
-        const toVector = (values) => {
-            if (!Array.isArray(values))
-                return null;
-            const parsed = [];
-            for (const item of values) {
-                const num = typeof item === 'number' ? item : Number(item);
-                if (!Number.isFinite(num))
-                    return null;
-                parsed.push(num);
-            }
-            return parsed;
-        };
-        const scored = rows
-            .map((row) => {
-            const embedding = toVector(row.embedding);
-            if (!embedding)
-                return null;
-            const similarity = cosineSimilarity(queryEmbedding, embedding);
-            if (similarity < 0)
-                return null;
-            return {
-                similarity,
-                recommendation: row.recommendation ?? '',
-                situation: row.situation ?? null,
-                createdAt: row.createdAt ? new Date(row.createdAt) : null,
-            };
-        })
-            .filter((entry) => entry !== null)
-            .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, Math.max(limit, 1));
-        if (!scored.length) {
-            return buildFallbackMemories(persona, symbol, limit);
-        }
-        return formatMemories(scored);
+        return formatMemories(rows.map((row) => ({
+            similarity: 1,
+            recommendation: row.recommendation ?? '',
+            situation: row.situation ?? null,
+            createdAt: row.createdAt ? new Date(row.createdAt) : null,
+        })));
     }
     catch (error) {
         console.error('[PersonaMemory] Failed to fetch persona memories', error);

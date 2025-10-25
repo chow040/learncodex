@@ -44,17 +44,17 @@ import {
   buildTraderUserMessage,
 } from '../langchain/trader/traderRunnable.js';
 import {
-  createRiskyAnalystRunnable,
-  createSafeAnalystRunnable,
+  createAggressiveAnalystRunnable,
+  createConservativeAnalystRunnable,
   createNeutralAnalystRunnable,
-  buildRiskyUserMessage,
-  buildSafeUserMessage,
+  buildAggressiveUserMessage,
+  buildConservativeUserMessage,
   buildNeutralUserMessage,
-  RISKY_SYSTEM_PROMPT,
-  SAFE_SYSTEM_PROMPT,
+  AGGRESSIVE_SYSTEM_PROMPT,
+  CONSERVATIVE_SYSTEM_PROMPT,
   NEUTRAL_SYSTEM_PROMPT,
   type RiskDebateInput,
-} from '../langchain/risk/riskAnalystRunnables.js';
+} from '../langchain/risk/index.js';
 import {
   createRiskManagerRunnable,
   RISK_MANAGER_SYSTEM_PROMPT,
@@ -527,9 +527,9 @@ const traderNode = async (state: State) => {
   };
 };
 
-const riskyNode = async (state: State) => {
+const aggressiveNode = async (state: State) => {
   const llm = createChatModel(resolveModelId(state));
-  const runnable = createRiskyAnalystRunnable(llm);
+  const runnable = createAggressiveAnalystRunnable(llm);
   const context = buildDebateContext(state);
   const round = Number(state.metadata?.risk_round ?? 0) + 1;
   emitStage(state, 'risk_debate', 'Risk debate analysis', `Risk round ${round}`, round);
@@ -541,31 +541,31 @@ const riskyNode = async (state: State) => {
     history,
     rounds: state.riskDebateHistory ?? [],
   };
-  if (state.debate?.risky) input.lastRisky = state.debate.risky;
-  if (state.debate?.safe) input.lastSafe = state.debate.safe;
+  if (state.debate?.aggressive) input.lastAggressive = state.debate.aggressive;
+  if (state.debate?.conservative) input.lastConservative = state.debate.conservative;
   if (state.debate?.neutral) input.lastNeutral = state.debate.neutral;
-  const userMessage = buildRiskyUserMessage(input);
+  const userMessage = buildAggressiveUserMessage(input);
   const output = await runnable.invoke(input);
 
   return {
     debate: {
-      risky: output,
-      risk: appendHistory(history, `Risky Analyst (Round ${round})`, output),
+      aggressive: output,
+      risk: appendHistory(history, `Aggressive Analyst (Round ${round})`, output),
     },
-    riskDebateHistory: [createRiskDebateRoundEntry('risky', round, output)],
+    riskDebateHistory: [createRiskDebateRoundEntry('aggressive', round, output)],
     conversationLog: [
       {
-        roleLabel: 'Risky Analyst',
-        system: RISKY_SYSTEM_PROMPT,
+        roleLabel: 'Aggressive Analyst',
+        system: AGGRESSIVE_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
   };
 };
 
-const safeNode = async (state: State) => {
+const conservativeNode = async (state: State) => {
   const llm = createChatModel(resolveModelId(state));
-  const runnable = createSafeAnalystRunnable(llm);
+  const runnable = createConservativeAnalystRunnable(llm);
   const context = buildDebateContext(state);
   const round = Number(state.metadata?.risk_round ?? 0) + 1;
   const history = state.debate?.risk ?? '';
@@ -576,22 +576,22 @@ const safeNode = async (state: State) => {
     history,
     rounds: state.riskDebateHistory ?? [],
   };
-  if (state.debate?.risky) input.lastRisky = state.debate.risky;
-  if (state.debate?.safe) input.lastSafe = state.debate.safe;
+  if (state.debate?.aggressive) input.lastAggressive = state.debate.aggressive;
+  if (state.debate?.conservative) input.lastConservative = state.debate.conservative;
   if (state.debate?.neutral) input.lastNeutral = state.debate.neutral;
-  const userMessage = buildSafeUserMessage(input);
+  const userMessage = buildConservativeUserMessage(input);
   const output = await runnable.invoke(input);
 
   return {
     debate: {
-      safe: output,
-      risk: appendHistory(history, `Safe Analyst (Round ${round})`, output),
+      conservative: output,
+      risk: appendHistory(history, `Conservative Analyst (Round ${round})`, output),
     },
-    riskDebateHistory: [createRiskDebateRoundEntry('safe', round, output)],
+    riskDebateHistory: [createRiskDebateRoundEntry('conservative', round, output)],
     conversationLog: [
       {
-        roleLabel: 'Safe Analyst',
-        system: SAFE_SYSTEM_PROMPT,
+        roleLabel: 'Conservative Analyst',
+        system: CONSERVATIVE_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -612,8 +612,8 @@ const neutralNode = async (state: State) => {
     history,
     rounds: state.riskDebateHistory ?? [],
   };
-  if (state.debate?.risky) input.lastRisky = state.debate.risky;
-  if (state.debate?.safe) input.lastSafe = state.debate.safe;
+  if (state.debate?.aggressive) input.lastAggressive = state.debate.aggressive;
+  if (state.debate?.conservative) input.lastConservative = state.debate.conservative;
   if (state.debate?.neutral) input.lastNeutral = state.debate.neutral;
   const userMessage = buildNeutralUserMessage(input);
   const output = await runnable.invoke(input);
@@ -798,6 +798,27 @@ const finalizeNode = async (state: State) => {
   decision.bullArgument = state.debate?.bull ?? null;
   decision.bearArgument = state.debate?.bear ?? null;
 
+  // Include individual risk analyst arguments
+  decision.aggressiveArgument = state.debate?.aggressive ?? null;
+  decision.conservativeArgument = state.debate?.conservative ?? null;
+  decision.neutralArgument = state.debate?.neutral ?? null;
+
+  // Build risk debate transcript from individual arguments or history
+  if (state.debate?.risk) {
+    decision.riskDebate = state.debate.risk;
+  } else if (state.debate?.aggressive || state.debate?.conservative || state.debate?.neutral) {
+    const aggressive = state.debate?.aggressive?.trim();
+    const conservative = state.debate?.conservative?.trim();
+    const neutral = state.debate?.neutral?.trim();
+    const sections: string[] = [];
+    if (aggressive) sections.push(`### Aggressive Analyst\n${aggressive}`);
+    if (conservative) sections.push(`### Conservative Analyst\n${conservative}`);
+    if (neutral) sections.push(`### Neutral Analyst\n${neutral}`);
+    decision.riskDebate = sections.length > 0 ? sections.join('\n\n') : null;
+  } else {
+    decision.riskDebate = null;
+  }
+
   const payload: TradingAgentsPayload = {
     symbol: state.symbol,
     tradeDate: state.tradeDate,
@@ -824,8 +845,8 @@ const finalizeNode = async (state: State) => {
       bearArg: state.debate?.bear ?? null,
       riskDebateHistory: state.debate?.risk ?? '',
       riskDebateRounds: state.riskDebateHistory ?? [],
-      riskyOut: state.debate?.risky ?? null,
-      safeOut: state.debate?.safe ?? null,
+      riskyOut: state.debate?.aggressive ?? null,
+      safeOut: state.debate?.conservative ?? null,
       neutralOut: state.debate?.neutral ?? null,
     });
   } catch (error) {
@@ -896,8 +917,8 @@ const decisionGraph = (() => {
   graph.addNode('Bull', bullNode);
   graph.addNode('ResearchManager', researchManagerNode);
   graph.addNode('Trader', traderNode);
-  graph.addNode('Risky', riskyNode);
-  graph.addNode('Safe', safeNode);
+  graph.addNode('Aggressive', aggressiveNode);
+  graph.addNode('Conservative', conservativeNode);
   graph.addNode('Neutral', neutralNode);
   graph.addNode('RiskManager', riskManagerNode);
   graph.addNode('PersistMemories', persistMemoriesNode);
@@ -912,11 +933,11 @@ const decisionGraph = (() => {
     stop: 'ResearchManager',
   } as any);
   graph.addEdge('ResearchManager' as any, 'Trader' as any);
-  graph.addEdge('Trader' as any, 'Risky' as any);
-  graph.addEdge('Risky' as any, 'Safe' as any);
-  graph.addEdge('Safe' as any, 'Neutral' as any);
+  graph.addEdge('Trader' as any, 'Aggressive' as any);
+  graph.addEdge('Aggressive' as any, 'Conservative' as any);
+  graph.addEdge('Conservative' as any, 'Neutral' as any);
   graph.addConditionalEdges('Neutral' as any, riskShouldContinue, {
-    continue: 'Risky',
+    continue: 'Aggressive',
     stop: 'RiskManager',
   } as any);
   graph.addEdge('RiskManager' as any, 'PersistMemories' as any);

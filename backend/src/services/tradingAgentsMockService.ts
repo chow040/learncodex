@@ -82,7 +82,7 @@ const generateDefaultDecision = (
   tradeDate: payload.tradeDate,
   decision: 'BUY',
   finalTradeDecision: 'BUY',
-  executionMs: undefined,
+  executionMs: null,
   traderPlan: [
     `### Execution Plan for ${payload.symbol}`,
     '- Entry: Stage into the position near the 10-day VWAP with a half-size starter.',
@@ -121,7 +121,7 @@ export const runMockTradingAgentsDecision = async (
   const stageDelays = computeStageDelays(totalDurationTarget);
   if (options.runId) {
     for (const [index, stage] of STAGE_SEQUENCE.entries()) {
-      await sleep(stageDelays[index]);
+      await sleep(stageDelays[index] ?? MIN_STAGE_DELAY_MS);
       publishProgressEvent(options.runId, {
         runId: options.runId,
         stage: stage.stage,

@@ -335,7 +335,9 @@ export const runAnalystStage = async (symbol, tradeDate, context, options) => {
         messages: [],
         pendingConversation: null,
     };
-    const finalState = await compiledGraph.invoke(initialState);
+    const finalState = await compiledGraph.invoke(initialState, {
+        recursionLimit: env.maxRecursionLimit,
+    });
     return {
         reports: finalState.reports,
         conversationLog: finalState.conversationLog,

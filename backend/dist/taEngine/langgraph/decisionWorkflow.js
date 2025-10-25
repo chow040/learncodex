@@ -1,5 +1,6 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { env } from '../../config/env.js';
 import { logAgentPrompts, writeEvalSummary, logToolCalls } from '../logger.js';
 import { insertTaDecision } from '../../db/taDecisionRepository.js';
@@ -13,8 +14,9 @@ import { BEAR_SYSTEM_PROMPT, buildBearUserMessage, createBearDebateRunnable, } f
 import { BULL_SYSTEM_PROMPT, buildBullUserMessage, createBullDebateRunnable, } from '../langchain/debates/bullRunnable.js';
 import { createResearchManagerRunnable, RESEARCH_MANAGER_SYSTEM_PROMPT, buildResearchManagerUserMessage, } from '../langchain/judges/researchManagerRunnable.js';
 import { createTraderRunnable, TRADER_SYSTEM_PROMPT, buildTraderUserMessage, } from '../langchain/trader/traderRunnable.js';
-import { createRiskyAnalystRunnable, createSafeAnalystRunnable, createNeutralAnalystRunnable, buildRiskyUserMessage, buildSafeUserMessage, buildNeutralUserMessage, RISKY_SYSTEM_PROMPT, SAFE_SYSTEM_PROMPT, NEUTRAL_SYSTEM_PROMPT, } from '../langchain/risk/riskAnalystRunnables.js';
+import { createAggressiveAnalystRunnable, createConservativeAnalystRunnable, createNeutralAnalystRunnable, buildAggressiveUserMessage, buildConservativeUserMessage, buildNeutralUserMessage, AGGRESSIVE_SYSTEM_PROMPT, CONSERVATIVE_SYSTEM_PROMPT, NEUTRAL_SYSTEM_PROMPT, } from '../langchain/risk/index.js';
 import { createRiskManagerRunnable, RISK_MANAGER_SYSTEM_PROMPT, buildRiskManagerUserMessage, } from '../langchain/risk/riskManagerRunnable.js';
+import { canContinueInvestment, canContinueRisk, createDebateRoundEntry, createRiskDebateRoundEntry, withIncrementedInvestRound, withIncrementedRiskRound, } from './stateUtils.js';
 const StateAnnotation = Annotation.Root({
     symbol: Annotation(),
     tradeDate: Annotation(),
@@ -43,35 +45,73 @@ const StateAnnotation = Annotation.Root({
         reducer: (left, right) => ({ ...left, ...right }),
         default: () => ({}),
     }),
+    debateHistory: Annotation({
+        reducer: (left, right) => left.concat(right),
+        default: () => [],
+    }),
+    riskDebateHistory: Annotation({
+        reducer: (left, right) => left.concat(right),
+        default: () => [],
+    }),
     metadata: Annotation({
         reducer: (left, right) => ({ ...left, ...right }),
-        default: () => ({}),
+        default: () => ({
+            invest_continue: true,
+            risk_continue: true,
+        }),
     }),
     result: Annotation({
         reducer: (_, right) => right,
         default: () => undefined,
     }),
 });
-const createChatModel = (modelOverride) => {
+const createChatModel = (modelOverride, temperature = 1) => {
     if (!env.openAiApiKey) {
         throw new Error('OPENAI_API_KEY is not configured.');
     }
     const options = {
         openAIApiKey: env.openAiApiKey,
         model: modelOverride ?? env.openAiModel,
-        temperature: 1,
+        temperature,
     };
     if (env.openAiBaseUrl) {
         options.configuration = { baseURL: env.openAiBaseUrl };
     }
     return new ChatOpenAI(options);
 };
+const DECISION_PARSER_SYSTEM_PROMPT = 'You are an efficient assistant that reads analyst reports. Extract the explicit investment verdict (SELL, BUY, or HOLD) and reply with only that single word. Do not include any other words or punctuation.';
+const extractDecisionToken = async (text, modelId) => {
+    const trimmed = text?.trim();
+    if (!trimmed)
+        return null;
+    try {
+        const parser = createChatModel(modelId, 0);
+        const response = await parser.invoke([
+            new SystemMessage(DECISION_PARSER_SYSTEM_PROMPT),
+            new HumanMessage(trimmed),
+        ]);
+        const raw = response?.content;
+        const content = typeof raw === 'string'
+            ? raw
+            : Array.isArray(raw)
+                ? raw.map((chunk) => (typeof chunk === 'string' ? chunk : JSON.stringify(chunk))).join('')
+                : '';
+        const token = content.trim().toUpperCase();
+        if (token === 'BUY' || token === 'SELL' || token === 'HOLD') {
+            return token;
+        }
+    }
+    catch (error) {
+        console.warn('[DecisionGraph] Failed to extract decision token via LLM', error);
+    }
+    return null;
+};
 const appendHistory = (history, label, content) => {
     const trimmed = content?.trim() ?? '';
     if (!trimmed)
         return history ?? '';
-    const entry = `${label}: ${trimmed}`;
-    return history ? `${history}\n${entry}` : entry;
+    const entry = `${label}:\n${trimmed}`;
+    return history ? `${history}\n\n${entry}` : entry;
 };
 const coalesce = (value, fallback) => value && value.trim().length > 0 ? value : (fallback ?? '');
 const coalesceReport = (reports, key, fallback) => coalesce(reports[key], fallback);
@@ -188,14 +228,17 @@ const loadMemoriesNode = async (state) => {
         traderMemories = normalize(traderVector);
     if (!normalize(riskManagerMemories))
         riskManagerMemories = normalize(riskVector);
+    const existingMetadata = (state.metadata ?? {});
     return {
         metadata: {
-            ...(state.metadata ?? {}),
+            ...existingMetadata,
             managerMemories: normalize(managerMemories),
             traderMemories: normalize(traderMemories),
             riskManagerMemories: normalize(riskManagerMemories),
-            invest_round: 0,
-            risk_round: 0,
+            invest_round: typeof existingMetadata.invest_round === 'number' ? existingMetadata.invest_round : 0,
+            risk_round: typeof existingMetadata.risk_round === 'number' ? existingMetadata.risk_round : 0,
+            invest_continue: existingMetadata.invest_continue === undefined ? true : existingMetadata.invest_continue,
+            risk_continue: existingMetadata.risk_continue === undefined ? true : existingMetadata.risk_continue,
         },
     };
 };
@@ -235,14 +278,17 @@ const bearNode = async (state) => {
         history,
         opponentArgument,
         reflections: await fetchPersonaMemories('bear', state.symbol, situationSummary, 2),
+        rounds: state.debateHistory ?? [],
     };
     const userMessage = buildBearUserMessage(input);
     const output = await runnable.invoke(input);
     return {
         debate: {
+            ...(state.debate ?? {}),
             bear: output,
             investment: appendHistory(history, `Bear Analyst (Round ${round})`, output),
         },
+        debateHistory: [createDebateRoundEntry('bear', round, output)],
         conversationLog: [
             {
                 roleLabel: 'Bear Analyst',
@@ -268,14 +314,17 @@ const bullNode = async (state) => {
         history,
         opponentArgument,
         reflections: await fetchPersonaMemories('bull', state.symbol, situationSummary, 2),
+        rounds: state.debateHistory ?? [],
     };
     const userMessage = buildBullUserMessage(input);
     const output = await runnable.invoke(input);
     return {
         debate: {
+            ...(state.debate ?? {}),
             bull: output,
             investment: appendHistory(history, `Bull Analyst (Round ${round})`, output),
         },
+        debateHistory: [createDebateRoundEntry('bull', round, output)],
         conversationLog: [
             {
                 roleLabel: 'Bull Analyst',
@@ -283,10 +332,7 @@ const bullNode = async (state) => {
                 user: userMessage,
             },
         ],
-        metadata: {
-            ...(state.metadata ?? {}),
-            invest_round: round,
-        },
+        metadata: withIncrementedInvestRound((state.metadata ?? {}), round),
     };
 };
 const researchManagerNode = async (state) => {
@@ -352,9 +398,9 @@ const traderNode = async (state) => {
         ],
     };
 };
-const riskyNode = async (state) => {
+const aggressiveNode = async (state) => {
     const llm = createChatModel(resolveModelId(state));
-    const runnable = createRiskyAnalystRunnable(llm);
+    const runnable = createAggressiveAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.risk_round ?? 0) + 1;
     emitStage(state, 'risk_debate', 'Risk debate analysis', `Risk round ${round}`, round);
@@ -363,32 +409,34 @@ const riskyNode = async (state) => {
         context,
         traderPlan: state.traderPlan ?? '',
         history,
+        rounds: state.riskDebateHistory ?? [],
     };
-    if (state.debate?.risky)
-        input.lastRisky = state.debate.risky;
-    if (state.debate?.safe)
-        input.lastSafe = state.debate.safe;
+    if (state.debate?.aggressive)
+        input.lastAggressive = state.debate.aggressive;
+    if (state.debate?.conservative)
+        input.lastConservative = state.debate.conservative;
     if (state.debate?.neutral)
         input.lastNeutral = state.debate.neutral;
-    const userMessage = buildRiskyUserMessage(input);
+    const userMessage = buildAggressiveUserMessage(input);
     const output = await runnable.invoke(input);
     return {
         debate: {
-            risky: output,
-            risk: appendHistory(history, `Risky Analyst (Round ${round})`, output),
+            aggressive: output,
+            risk: appendHistory(history, `Aggressive Analyst (Round ${round})`, output),
         },
+        riskDebateHistory: [createRiskDebateRoundEntry('aggressive', round, output)],
         conversationLog: [
             {
-                roleLabel: 'Risky Analyst',
-                system: RISKY_SYSTEM_PROMPT,
+                roleLabel: 'Aggressive Analyst',
+                system: AGGRESSIVE_SYSTEM_PROMPT,
                 user: userMessage,
             },
         ],
     };
 };
-const safeNode = async (state) => {
+const conservativeNode = async (state) => {
     const llm = createChatModel(resolveModelId(state));
-    const runnable = createSafeAnalystRunnable(llm);
+    const runnable = createConservativeAnalystRunnable(llm);
     const context = buildDebateContext(state);
     const round = Number(state.metadata?.risk_round ?? 0) + 1;
     const history = state.debate?.risk ?? '';
@@ -396,24 +444,26 @@ const safeNode = async (state) => {
         context,
         traderPlan: state.traderPlan ?? '',
         history,
+        rounds: state.riskDebateHistory ?? [],
     };
-    if (state.debate?.risky)
-        input.lastRisky = state.debate.risky;
-    if (state.debate?.safe)
-        input.lastSafe = state.debate.safe;
+    if (state.debate?.aggressive)
+        input.lastAggressive = state.debate.aggressive;
+    if (state.debate?.conservative)
+        input.lastConservative = state.debate.conservative;
     if (state.debate?.neutral)
         input.lastNeutral = state.debate.neutral;
-    const userMessage = buildSafeUserMessage(input);
+    const userMessage = buildConservativeUserMessage(input);
     const output = await runnable.invoke(input);
     return {
         debate: {
-            safe: output,
-            risk: appendHistory(history, `Safe Analyst (Round ${round})`, output),
+            conservative: output,
+            risk: appendHistory(history, `Conservative Analyst (Round ${round})`, output),
         },
+        riskDebateHistory: [createRiskDebateRoundEntry('conservative', round, output)],
         conversationLog: [
             {
-                roleLabel: 'Safe Analyst',
-                system: SAFE_SYSTEM_PROMPT,
+                roleLabel: 'Conservative Analyst',
+                system: CONSERVATIVE_SYSTEM_PROMPT,
                 user: userMessage,
             },
         ],
@@ -430,11 +480,12 @@ const neutralNode = async (state) => {
         context,
         traderPlan: state.traderPlan ?? '',
         history,
+        rounds: state.riskDebateHistory ?? [],
     };
-    if (state.debate?.risky)
-        input.lastRisky = state.debate.risky;
-    if (state.debate?.safe)
-        input.lastSafe = state.debate.safe;
+    if (state.debate?.aggressive)
+        input.lastAggressive = state.debate.aggressive;
+    if (state.debate?.conservative)
+        input.lastConservative = state.debate.conservative;
     if (state.debate?.neutral)
         input.lastNeutral = state.debate.neutral;
     const userMessage = buildNeutralUserMessage(input);
@@ -444,6 +495,7 @@ const neutralNode = async (state) => {
             neutral: output,
             risk: appendHistory(history, `Neutral Analyst (Round ${round})`, output),
         },
+        riskDebateHistory: [createRiskDebateRoundEntry('neutral', round, output)],
         conversationLog: [
             {
                 roleLabel: 'Neutral Analyst',
@@ -451,14 +503,12 @@ const neutralNode = async (state) => {
                 user: userMessage,
             },
         ],
-        metadata: {
-            ...(state.metadata ?? {}),
-            risk_round: round,
-        },
+        metadata: withIncrementedRiskRound((state.metadata ?? {}), round),
     };
 };
 const riskManagerNode = async (state) => {
-    const llm = createChatModel(resolveModelId(state));
+    const modelId = resolveModelId(state);
+    const llm = createChatModel(modelId);
     const runnable = createRiskManagerRunnable(llm);
     const riskMemories = state.metadata?.riskManagerMemories ?? '';
     emitStage(state, 'risk_manager', 'Risk manager verdict');
@@ -477,7 +527,7 @@ const riskManagerNode = async (state) => {
     };
     const userMessage = buildRiskManagerUserMessage(input);
     const output = await runnable.invoke(input);
-    const decisionToken = normalizeDecision(output);
+    const decisionToken = (await extractDecisionToken(output, modelId)) ?? normalizeDecision(output);
     return {
         finalDecision: output,
         conversationLog: [
@@ -538,6 +588,11 @@ const finalizeNode = async (state) => {
     const modelId = resolveModelId(state);
     const enabledAnalysts = resolveEnabledAnalysts(state);
     const enabledSet = new Set(enabledAnalysts);
+    const runCompletedAt = Date.now();
+    const runStartedAt = typeof state.metadata?.runStartedAt === 'number' && Number.isFinite(state.metadata.runStartedAt)
+        ? state.metadata.runStartedAt
+        : null;
+    const executionMs = runStartedAt !== null ? Math.max(0, runCompletedAt - runStartedAt) : null;
     const decision = {
         symbol: state.symbol,
         tradeDate: state.tradeDate,
@@ -551,6 +606,9 @@ const finalizeNode = async (state) => {
         analysts: enabledAnalysts,
         debugPrompt: '',
     };
+    if (executionMs !== null) {
+        decision.executionMs = executionMs;
+    }
     if (enabledSet.has('market')) {
         decision.marketReport =
             coalesceReport(state.reports, 'market', state.context.market_technical_report) || null;
@@ -566,6 +624,24 @@ const finalizeNode = async (state) => {
         decision.fundamentalsReport =
             coalesceReport(state.reports, 'fundamentals', state.context.fundamentals_summary) || null;
     }
+    if (state.debate?.investment) {
+        decision.investmentDebate = state.debate.investment;
+    }
+    else if (state.debate?.bull || state.debate?.bear) {
+        const bull = state.debate?.bull?.trim();
+        const bear = state.debate?.bear?.trim();
+        const sections = [];
+        if (bull)
+            sections.push(`### Bull Argument\n${bull}`);
+        if (bear)
+            sections.push(`### Bear Argument\n${bear}`);
+        decision.investmentDebate = sections.length > 0 ? sections.join('\n\n') : null;
+    }
+    else {
+        decision.investmentDebate = null;
+    }
+    decision.bullArgument = state.debate?.bull ?? null;
+    decision.bearArgument = state.debate?.bear ?? null;
     const payload = {
         symbol: state.symbol,
         tradeDate: state.tradeDate,
@@ -586,11 +662,13 @@ const finalizeNode = async (state) => {
     try {
         evalLogPath = await writeEvalSummary(payload, decision, {
             investmentDebateHistory: state.debate?.investment ?? '',
+            investmentDebateRounds: state.debateHistory ?? [],
             bullArg: state.debate?.bull ?? null,
             bearArg: state.debate?.bear ?? null,
             riskDebateHistory: state.debate?.risk ?? '',
-            riskyOut: state.debate?.risky ?? null,
-            safeOut: state.debate?.safe ?? null,
+            riskDebateRounds: state.riskDebateHistory ?? [],
+            riskyOut: state.debate?.aggressive ?? null,
+            safeOut: state.debate?.conservative ?? null,
             neutralOut: state.debate?.neutral ?? null,
         });
     }
@@ -609,6 +687,7 @@ const finalizeNode = async (state) => {
             orchestratorVersion: 'langgraph',
             logsPath: evalLogPath ?? promptsLogPath ?? null,
             rawText: null,
+            executionMs,
         });
     }
     catch (error) {
@@ -616,17 +695,38 @@ const finalizeNode = async (state) => {
     }
     return {
         result: decision,
+        metadata: {
+            ...(state.metadata ?? {}),
+            runCompletedAt,
+            ...(executionMs !== null ? { executionMs } : {}),
+        },
     };
 };
 const investmentShouldContinue = (state) => {
     const maxRounds = Math.max(1, env.investDebateRounds ?? 1);
-    const completed = Number(state.metadata?.invest_round ?? 0);
-    return completed < maxRounds ? 'continue' : 'stop';
+    const shouldContinue = canContinueInvestment(state.metadata, maxRounds);
+    if (process.env.DEBUG_LANGGRAPH === '1') {
+        console.debug('[DecisionGraph] investmentShouldContinue', {
+            invest_round: state.metadata?.invest_round,
+            invest_continue: state.metadata?.invest_continue,
+            maxRounds,
+            decision: shouldContinue ? 'continue' : 'stop',
+        });
+    }
+    return shouldContinue ? 'continue' : 'stop';
 };
 const riskShouldContinue = (state) => {
     const maxRounds = Math.max(1, env.riskDebateRounds ?? 1);
-    const completed = Number(state.metadata?.risk_round ?? 0);
-    return completed < maxRounds ? 'continue' : 'stop';
+    const shouldContinue = canContinueRisk(state.metadata, maxRounds);
+    if (process.env.DEBUG_LANGGRAPH === '1') {
+        console.debug('[DecisionGraph] riskShouldContinue', {
+            risk_round: state.metadata?.risk_round,
+            risk_continue: state.metadata?.risk_continue,
+            maxRounds,
+            decision: shouldContinue ? 'continue' : 'stop',
+        });
+    }
+    return shouldContinue ? 'continue' : 'stop';
 };
 const decisionGraph = (() => {
     const graph = new StateGraph(StateAnnotation);
@@ -636,8 +736,8 @@ const decisionGraph = (() => {
     graph.addNode('Bull', bullNode);
     graph.addNode('ResearchManager', researchManagerNode);
     graph.addNode('Trader', traderNode);
-    graph.addNode('Risky', riskyNode);
-    graph.addNode('Safe', safeNode);
+    graph.addNode('Aggressive', aggressiveNode);
+    graph.addNode('Conservative', conservativeNode);
     graph.addNode('Neutral', neutralNode);
     graph.addNode('RiskManager', riskManagerNode);
     graph.addNode('PersistMemories', persistMemoriesNode);
@@ -651,11 +751,11 @@ const decisionGraph = (() => {
         stop: 'ResearchManager',
     });
     graph.addEdge('ResearchManager', 'Trader');
-    graph.addEdge('Trader', 'Risky');
-    graph.addEdge('Risky', 'Safe');
-    graph.addEdge('Safe', 'Neutral');
+    graph.addEdge('Trader', 'Aggressive');
+    graph.addEdge('Aggressive', 'Conservative');
+    graph.addEdge('Conservative', 'Neutral');
     graph.addConditionalEdges('Neutral', riskShouldContinue, {
-        continue: 'Risky',
+        continue: 'Aggressive',
         stop: 'RiskManager',
     });
     graph.addEdge('RiskManager', 'PersistMemories');
@@ -675,17 +775,29 @@ export const runDecisionGraph = async (payload, options) => {
         modelId: normalizedModelId,
         analysts: normalizedAnalysts,
     };
+    const runStartedAt = Date.now();
+    const baseState = createInitialState(normalizedPayload.symbol, normalizedPayload.tradeDate, normalizedPayload.context);
+    const metadata = {
+        ...baseState.metadata,
+        payload: normalizedPayload,
+        modelId: normalizedModelId,
+        enabledAnalysts: normalizedAnalysts,
+        runStartedAt,
+    };
+    if (options?.runId) {
+        metadata.progressRunId = options.runId;
+    }
     const initialState = {
-        ...createInitialState(normalizedPayload.symbol, normalizedPayload.tradeDate, normalizedPayload.context),
-        metadata: {
-            payload: normalizedPayload,
-            progressRunId: options?.runId,
-            modelId: normalizedModelId,
-            enabledAnalysts: normalizedAnalysts,
-        },
+        ...baseState,
+        metadata,
     };
     try {
-        const finalState = await decisionGraph.invoke(initialState);
+        const finalState = await decisionGraph.invoke(initialState, {
+            recursionLimit: env.maxRecursionLimit,
+        });
+        const executionMs = typeof finalState.metadata?.executionMs === 'number' && Number.isFinite(finalState.metadata.executionMs)
+            ? finalState.metadata.executionMs
+            : undefined;
         if (!finalState.result) {
             const enabledSet = new Set(normalizedAnalysts);
             const fallback = {
@@ -701,6 +813,16 @@ export const runDecisionGraph = async (payload, options) => {
                 analysts: normalizedAnalysts,
                 debugPrompt: '',
             };
+            if (executionMs !== undefined) {
+                fallback.executionMs = executionMs;
+            }
+            else if (typeof finalState.metadata?.runStartedAt === 'number' &&
+                Number.isFinite(finalState.metadata.runStartedAt)) {
+                fallback.executionMs = Math.max(0, Date.now() - finalState.metadata.runStartedAt);
+            }
+            else {
+                fallback.executionMs = null;
+            }
             if (enabledSet.has('market')) {
                 fallback.marketReport =
                     coalesceReport(finalState.reports, 'market', normalizedPayload.context.market_technical_report) || null;
@@ -718,6 +840,9 @@ export const runDecisionGraph = async (payload, options) => {
                     coalesceReport(finalState.reports, 'fundamentals', normalizedPayload.context.fundamentals_summary) || null;
             }
             return fallback;
+        }
+        if (executionMs !== undefined && finalState.result.executionMs === undefined) {
+            finalState.result.executionMs = executionMs;
         }
         return finalState.result;
     }

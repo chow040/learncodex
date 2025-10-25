@@ -24,6 +24,7 @@ const mapSummaryRow = (row) => ({
     analysts: normalizeAnalysts(row.analysts),
     createdAt: row.createdAt,
     orchestratorVersion: row.orchestratorVersion ?? null,
+    executionMs: row.executionMs ?? null,
 });
 const mapDetailRow = (row) => ({
     ...mapSummaryRow(row),
@@ -31,6 +32,12 @@ const mapDetailRow = (row) => ({
     rawText: row.rawText,
     promptHash: row.promptHash,
     logsPath: row.logsPath,
+    traderPlan: row.traderPlan,
+    investmentPlan: row.investmentPlan,
+    riskJudge: row.riskJudge,
+    investmentDebate: row.investmentDebate ?? null,
+    bullArgument: row.bullArgument ?? null,
+    bearArgument: row.bearArgument ?? null,
 });
 export const getTradingAssessments = async (symbol, options = {}) => {
     const normalizedLimit = normalizeLimit(options.limit);
