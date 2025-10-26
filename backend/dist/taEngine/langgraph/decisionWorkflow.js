@@ -20,6 +20,7 @@ import { canContinueInvestment, canContinueRisk, createDebateRoundEntry, createR
 /**
  * Determines the provider (openai or grok) for a given model ID.
  * Grok models typically start with 'grok-' prefix.
+ * Supports region-specific models like: grok-4-fast-reasoning-us-east-1
  */
 const resolveProvider = (modelId) => {
     const normalized = (modelId ?? '').trim().toLowerCase();
@@ -83,27 +84,22 @@ const createChatModel = (modelOverride, temperature = 1) => {
         if (!env.grokApiKey) {
             throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
         }
-        const options = {
-            openAIApiKey: env.grokApiKey,
+        return new ChatOpenAI({
+            apiKey: env.grokApiKey,
             model: modelId,
             temperature,
             configuration: { baseURL: env.grokBaseUrl },
-        };
-        return new ChatOpenAI(options);
+        });
     }
-    // OpenAI branch (unchanged)
     if (!env.openAiApiKey) {
         throw new Error('OPENAI_API_KEY is not configured.');
     }
-    const options = {
-        openAIApiKey: env.openAiApiKey,
+    return new ChatOpenAI({
+        apiKey: env.openAiApiKey,
         model: modelId,
         temperature,
-    };
-    if (env.openAiBaseUrl) {
-        options.configuration = { baseURL: env.openAiBaseUrl };
-    }
-    return new ChatOpenAI(options);
+        ...(env.openAiBaseUrl ? { configuration: { baseURL: env.openAiBaseUrl } } : {}),
+    });
 };
 const DECISION_PARSER_SYSTEM_PROMPT = 'You are an efficient assistant that reads analyst reports. Extract the explicit investment verdict (SELL, BUY, or HOLD) and reply with only that single word. Do not include any other words or punctuation.';
 const extractDecisionToken = async (text, modelId) => {
@@ -813,6 +809,7 @@ const decisionGraph = (() => {
     graph.addEdge('Finalize', END);
     return graph.compile();
 })();
+export const getDecisionGraph = () => decisionGraph;
 export const runDecisionGraph = async (payload, options) => {
     const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.defaultTradingModel)?.trim() ?? env.defaultTradingModel;
     const normalizedAnalysts = options?.analysts && options.analysts.length > 0

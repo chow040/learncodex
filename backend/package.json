@@ -24,6 +24,7 @@
   "dependencies": {
     "@langchain/core": "^0.3.78",
     "@langchain/langgraph": "^0.4.9",
+    "@langchain/langgraph-sdk": "^0.1.10",
     "@langchain/openai": "^0.6.16",
     "@types/multer": "^2.0.0",
     "@types/pg": "^8.15.5",

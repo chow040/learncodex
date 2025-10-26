@@ -972,6 +972,8 @@ const decisionGraph = (() => {
   return graph.compile();
 })();
 
+export const getDecisionGraph = () => decisionGraph;
+
 export const runDecisionGraph = async (
   payload: TradingAgentsPayload,
   options?: { runId?: string; modelId?: string; analysts?: TradingAnalystId[] },

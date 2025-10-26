@@ -45,6 +45,9 @@ const DEFAULT_GROK_MODELS = [
     'grok-beta',
     'grok-2-1212',
     'grok-2-vision-1212',
+    'grok-4-fast',
+    'grok-4-fast-reasoning',
+    'grok-4-fast-reasoning-latest',
 ];
 const openAiModel = process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODELS[0];
 const grokApiKey = process.env.GROK_API_KEY ?? '';
