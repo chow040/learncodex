@@ -26,11 +26,21 @@ export interface TradingAssessmentDetail {
   conservativeArgument: string | null
   neutralArgument: string | null
   riskDebate: string | null
+  fundamentalsReport: string | null
+  marketReport: string | null
+  newsReport: string | null
+  sentimentReport: string | null
+  analystAssessments: AnalystAssessment[]
 }
 
 export interface UseTradingAssessmentDetailOptions {
   apiBaseUrl?: string
   enabled?: boolean
+}
+
+export interface AnalystAssessment {
+  role: TradingAnalystId
+  content: string | null
 }
 
 interface TradingAssessmentDetailApiResponse {
@@ -57,6 +67,11 @@ interface TradingAssessmentDetailApiResponse {
   conservativeArgument?: string | null
   neutralArgument?: string | null
   riskDebate?: string | null
+  fundamentalsReport?: string | null
+  marketReport?: string | null
+  newsReport?: string | null
+  sentimentReport?: string | null
+  analystAssessments?: Array<{ role?: string | null; content?: unknown }> | null
 }
 
 const DEFAULT_ANALYSTS: TradingAnalystId[] = ['fundamental', 'market', 'news', 'social']
@@ -68,6 +83,36 @@ const sanitizeAnalysts = (value: unknown): TradingAnalystId[] => {
       typeof entry === 'string' && (DEFAULT_ANALYSTS as readonly string[]).includes(entry)
   )
   return valid.length > 0 ? valid : [...DEFAULT_ANALYSTS]
+}
+
+const sanitizeAnalystAssessments = (value: unknown): AnalystAssessment[] => {
+  const base: Record<TradingAnalystId, string | null> = {
+    fundamental: null,
+    market: null,
+    news: null,
+    social: null
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const rawRole = typeof entry?.role === 'string' ? entry.role.trim().toLowerCase() : null
+      if (!rawRole || !(DEFAULT_ANALYSTS as readonly string[]).includes(rawRole)) continue
+      const typedRole = rawRole as TradingAnalystId
+      const rawContent = entry?.content
+      if (typeof rawContent === 'string') {
+        base[typedRole] = rawContent
+      } else if (rawContent == null) {
+        base[typedRole] = null
+      } else if (typeof rawContent === 'number' || typeof rawContent === 'boolean') {
+        base[typedRole] = String(rawContent)
+      }
+    }
+  }
+
+  return DEFAULT_ANALYSTS.map((role) => ({
+    role,
+    content: base[role]
+  }))
 }
 
 const resolveBaseUrl = (input?: string): string => {
@@ -127,7 +172,14 @@ const fetchTradingAssessmentDetail = async (
     aggressiveArgument: typeof payload.aggressiveArgument === 'string' ? payload.aggressiveArgument : null,
     conservativeArgument: typeof payload.conservativeArgument === 'string' ? payload.conservativeArgument : null,
     neutralArgument: typeof payload.neutralArgument === 'string' ? payload.neutralArgument : null,
-    riskDebate: typeof payload.riskDebate === 'string' ? payload.riskDebate : null
+    riskDebate: typeof payload.riskDebate === 'string' ? payload.riskDebate : null,
+    fundamentalsReport:
+      typeof payload.fundamentalsReport === 'string' ? payload.fundamentalsReport : null,
+    marketReport: typeof payload.marketReport === 'string' ? payload.marketReport : null,
+    newsReport: typeof payload.newsReport === 'string' ? payload.newsReport : null,
+    sentimentReport:
+      typeof payload.sentimentReport === 'string' ? payload.sentimentReport : null,
+    analystAssessments: sanitizeAnalystAssessments(payload.analystAssessments)
   }
 }
 

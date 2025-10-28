@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowUpRight, Clipboard, Loader2 } from 'lucide-react'
 
+import { MarkdownViewer } from '../components/MarkdownViewer'
 import { TradingAgentsLayout } from '../components/trading/TradingAgentsLayout'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -66,53 +67,11 @@ const decisionToneClasses = (decision: string | null): string => {
 }
 
 const AgentTextBlock = ({ text, emptyLabel = 'No output provided yet.' }: { text?: string | null; emptyLabel?: string }) => {
-  if (!text || typeof text !== 'string') {
+  const trimmed = typeof text === 'string' ? text.trim() : ''
+  if (!trimmed) {
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>
   }
-
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
-  const blocks: React.ReactNode[] = []
-
-  const isBullet = (line: string) => /^\s*[-*]\s+/.test(line)
-  const isNumbered = (line: string) => /^\s*\d+[.)]\s+/.test(line)
-
-  for (let i = 0; i < lines.length; ) {
-    const line = lines[i]
-    if (!line.trim()) {
-      i++
-      continue
-    }
-
-    if (isBullet(line) || isNumbered(line)) {
-      const items: string[] = []
-      const matcher = isBullet(line) ? isBullet : isNumbered
-      while (i < lines.length && matcher(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, '').replace(/^\s*\d+[.)]\s+/, '').trim())
-        i++
-      }
-      blocks.push(
-        <ul key={`ul-${i}`} className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-          {items.map((item, index) => (
-            <li key={index}>{item}</li>
-          ))}
-        </ul>
-      )
-      continue
-    }
-
-    const paragraphLines: string[] = []
-    while (i < lines.length && lines[i].trim() && !isBullet(lines[i]) && !isNumbered(lines[i])) {
-      paragraphLines.push(lines[i])
-      i++
-    }
-    blocks.push(
-      <p key={`p-${i}`} className="text-sm leading-6 text-muted-foreground">
-        {paragraphLines.join(' ').trim()}
-      </p>
-    )
-  }
-
-  return <div className="space-y-3">{blocks}</div>
+  return <MarkdownViewer content={trimmed} />
 }
 
 const TradingAgentsHistoryDetail = () => {
@@ -168,6 +127,33 @@ const TradingAgentsHistoryDetail = () => {
       toast({
         title: 'Copy failed',
         description: clipError instanceof Error ? clipError.message : 'Unable to copy run ID.',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleCopyAssessment = async (
+    role: TradingAnalystId,
+    label: string,
+    content: string | null | undefined
+  ) => {
+    const trimmed = typeof content === 'string' ? content.trim() : ''
+    if (!trimmed) return
+    try {
+      await navigator.clipboard.writeText(trimmed)
+      toast({
+        title: 'Copied',
+        description: `${label} assessment copied to clipboard.`
+      })
+      sendAnalyticsEvent('trading_history_analyst_copied', {
+        runId: data?.runId ?? runId,
+        role,
+        copiedAt: new Date().toISOString()
+      })
+    } catch (clipError) {
+      toast({
+        title: 'Copy failed',
+        description: clipError instanceof Error ? clipError.message : 'Unable to copy assessment.',
         variant: 'destructive'
       })
     }
@@ -368,6 +354,72 @@ const TradingAgentsHistoryDetail = () => {
     )
   }
 
+  const renderAnalystAssessments = () => {
+    if (!data) return null
+    const sections = data.analystAssessments ?? []
+    const anyContent = sections.some((section) => section.content && section.content.trim().length > 0)
+
+    return (
+      <Card className="border border-border/60 bg-card/80">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-[0.3em] text-muted-foreground">
+            Analyst assessments
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!anyContent ? (
+            <p className="text-sm text-muted-foreground">
+              No analyst assessments were captured for this run.
+            </p>
+          ) : null}
+          <div className="grid gap-4 md:grid-cols-2">
+            {sections.map((section) => {
+              const meta = ANALYST_LABELS[section.role] ?? {
+                label: section.role,
+                accent: 'bg-border/20 text-muted-foreground'
+              }
+              const hasContent = typeof section.content === 'string' && section.content.trim().length > 0
+              return (
+                <div
+                  key={section.role}
+                  className="space-y-3 rounded-2xl border border-border/60 bg-background/40 p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-3 py-1 text-[0.65rem] uppercase tracking-[0.3em]',
+                          meta.accent
+                        )}
+                      >
+                        {meta.label} Analyst
+                      </span>
+                      <p className="text-xs text-muted-foreground/80">
+                        Snapshot of the {meta.label.toLowerCase()} analyst&apos;s report at decision time.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Copy ${meta.label} analyst assessment`}
+                      className="h-8 w-8 rounded-full text-muted-foreground hover:text-cyan-200 disabled:opacity-40"
+                      disabled={!hasContent}
+                      onClick={() => handleCopyAssessment(section.role, meta.label, section.content)}
+                    >
+                      <Clipboard className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </div>
+                  <AgentTextBlock text={section.content} emptyLabel="Not captured for this analyst." />
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const renderPayload = () => {
     if (!data) return null
     return (
@@ -542,6 +594,7 @@ const TradingAgentsHistoryDetail = () => {
             </CardContent>
           </Card>
           {renderDecisionPanels()}
+          {renderAnalystAssessments()}
           {renderAnalysts()}
           {renderPayload()}
           {renderRawText()}

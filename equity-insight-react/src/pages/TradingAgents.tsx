@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
+import { MarkdownViewer } from '../components/MarkdownViewer'
 import { TradingAgentsLayout } from '../components/trading/TradingAgentsLayout'
 import { TradingProgress } from '../components/trading/TradingProgress'
 import { Button } from '../components/ui/button'
@@ -89,53 +90,11 @@ type AgentTextBlockProps = {
 }
 
 const AgentTextBlock = ({ text, emptyLabel = 'No output provided yet.' }: AgentTextBlockProps) => {
-  if (!text || typeof text !== 'string') {
+  const trimmed = typeof text === 'string' ? text.trim() : ''
+  if (!trimmed) {
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>
   }
-
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
-  const blocks: ReactNode[] = []
-
-  const isBullet = (line: string) => /^\s*[-*]\s+/.test(line)
-  const isNumbered = (line: string) => /^\s*\d+[.)]\s+/.test(line)
-
-  for (let i = 0; i < lines.length; ) {
-    const line = lines[i]
-    if (!line.trim()) {
-      i++
-      continue
-    }
-
-    if (isBullet(line) || isNumbered(line)) {
-      const items: string[] = []
-      const matcher = isBullet(line) ? isBullet : isNumbered
-      while (i < lines.length && matcher(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s+/, '').replace(/^\s*\d+[.)]\s+/, '').trim())
-        i++
-      }
-      blocks.push(
-        <ul key={`ul-${i}`} className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-          {items.map((item, index) => (
-            <li key={index}>{item}</li>
-          ))}
-        </ul>
-      )
-      continue
-    }
-
-    const paragraphLines: string[] = []
-    while (i < lines.length && lines[i].trim() && !isBullet(lines[i]) && !isNumbered(lines[i])) {
-      paragraphLines.push(lines[i])
-      i++
-    }
-    blocks.push(
-      <p key={`p-${i}`} className="text-sm leading-6 text-muted-foreground">
-        {paragraphLines.join(' ').trim()}
-      </p>
-    )
-  }
-
-  return <div className="space-y-3">{blocks}</div>
+  return <MarkdownViewer content={trimmed} />
 }
 
 const TradingAgents = () => {

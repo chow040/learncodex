@@ -1,0 +1,3 @@
+Run the service (uvicorn autotrade_service.main:app --reload or whatever launcher you use) and check logs; you should see the Redis ping succeed (no warning about Redis being disabled).
+Hit the health endpoint (curl http://localhost:8085/healthz) once the service is up; it reports Redis status.
+Optional sanity check: use redis-cli -u redis://localhost:6379/0 ping to confirm the server answers PONG.

@@ -174,7 +174,7 @@ const AuthenticatedHome = () => {
             <p className="text-muted-foreground">Choose your analysis tool to get started</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3 max-w-5xl">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 max-w-6xl">
             {/* Equity Insight Card */}
             <Card className="group cursor-pointer transition-all hover:shadow-lg border-border/50 hover:border-blue-500/50">
               <CardHeader>
@@ -270,6 +270,41 @@ const AuthenticatedHome = () => {
                   </div>
                   <Link to="/trading-agents">
                     <Button className="group-hover:bg-cyan-500 group-hover:text-black">
+                      Enter
+                      <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Auto Trading Card */}
+            <Card className="group cursor-pointer transition-all hover:shadow-lg border-border/50 hover:border-emerald-500/50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center">
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-9a2 2 0 012-2h2m3-3h4a2 2 0 012 2v1H8V7a2 2 0 012-2z" />
+                    </svg>
+                  </div>
+                  <Badge variant="secondary">Automation</Badge>
+                </div>
+                <CardTitle className="group-hover:text-emerald-500 transition-colors">
+                  Auto Trading Control Room
+                </CardTitle>
+                <CardDescription>
+                  Monitor LLM-driven crypto trades, view live positions, and manage automation guardrails from a single dashboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Runs every five minutes with full audit trail
+                  </div>
+                  <Link to="/auto-trading">
+                    <Button className="group-hover:bg-emerald-500 group-hover:text-emerald-950">
                       Enter
                       <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

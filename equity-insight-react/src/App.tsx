@@ -7,6 +7,9 @@ import EquityInsight from "./pages/EquityInsight"
 import TradeIdeas from "./pages/TradeIdeas"
 import TradingAgents from "./pages/TradingAgents"
 import TradingAgentsHistoryDetail from "./pages/TradingAgentsHistoryDetail"
+import AutoTradingDashboard from "./pages/AutoTradingDashboard"
+import AutoTradingDecisionDetail from "./pages/AutoTradingDecisionDetail"
+import AutoTradingShell from "./pages/AutoTradingShell"
 import { Toaster } from "./components/ui/toaster"
 
 const App = () => {
@@ -30,6 +33,14 @@ const App = () => {
               <TradingAgents />
             </ProtectedRoute>
           } />
+          <Route path="/auto-trading" element={
+            <ProtectedRoute>
+              <AutoTradingShell />
+            </ProtectedRoute>
+          }>
+            <Route index element={<AutoTradingDashboard />} />
+            <Route path="decision/:decisionId" element={<AutoTradingDecisionDetail />} />
+          </Route>
           <Route path="/trading-agents/history/:runId" element={
             <ProtectedRoute>
               <TradingAgentsHistoryDetail />

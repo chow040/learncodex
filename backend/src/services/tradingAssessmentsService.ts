@@ -31,6 +31,11 @@ export interface TradingAssessmentsResult {
   nextCursor?: string;
 }
 
+export interface AnalystAssessment {
+  role: TradingAnalystId;
+  content: string | null;
+}
+
 export interface TradingAssessmentDetail extends TradingAssessmentSummary {
   payload: TradingAgentsPayload | null;
   rawText: string | null;
@@ -46,6 +51,11 @@ export interface TradingAssessmentDetail extends TradingAssessmentSummary {
   conservativeArgument: string | null;
   neutralArgument: string | null;
   riskDebate: string | null;
+  fundamentalsReport: string | null;
+  marketReport: string | null;
+  newsReport: string | null;
+  sentimentReport: string | null;
+  analystAssessments: AnalystAssessment[];
 }
 
 const normalizeLimit = (limit?: number): number => {
@@ -60,6 +70,25 @@ const normalizeAnalysts = (analysts?: TradingAnalystId[]): TradingAnalystId[] =>
   }
   return analysts;
 };
+
+const ANALYST_REPORT_FIELDS: Array<{
+  role: TradingAnalystId;
+  field: keyof Pick<
+    TradingAssessmentDetailRow,
+    'fundamentalsReport' | 'marketReport' | 'newsReport' | 'sentimentReport'
+  >;
+}> = [
+  { role: 'fundamental', field: 'fundamentalsReport' },
+  { role: 'market', field: 'marketReport' },
+  { role: 'news', field: 'newsReport' },
+  { role: 'social', field: 'sentimentReport' },
+];
+
+const buildAnalystAssessments = (row: TradingAssessmentDetailRow): AnalystAssessment[] =>
+  ANALYST_REPORT_FIELDS.map(({ role, field }) => ({
+    role,
+    content: typeof row[field] === 'string' ? (row[field] as string) : row[field] ?? null,
+  }));
 
 const mapSummaryRow = (row: TradingAssessmentSummaryRow): TradingAssessmentSummary => ({
   runId: row.runId,
@@ -89,6 +118,11 @@ const mapDetailRow = (row: TradingAssessmentDetailRow): TradingAssessmentDetail 
   conservativeArgument: row.conservativeArgument ?? null,
   neutralArgument: row.neutralArgument ?? null,
   riskDebate: row.riskDebate ?? null,
+  fundamentalsReport: row.fundamentalsReport ?? null,
+  marketReport: row.marketReport ?? null,
+  newsReport: row.newsReport ?? null,
+  sentimentReport: row.sentimentReport ?? null,
+  analystAssessments: buildAnalystAssessments(row),
 });
 
 export const getTradingAssessments = async (

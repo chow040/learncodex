@@ -23,5 +23,9 @@ export type TradingAgentsDecision = {
   sentimentReport?: string | null
   newsReport?: string | null
   fundamentalsReport?: string | null
+  analystAssessments?: Array<{
+    role: string
+    content: string | null
+  }>
   [key: string]: unknown
 }

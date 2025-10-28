@@ -16,7 +16,8 @@
     "drizzle:studio": "drizzle-kit studio --config ./drizzle.config.ts",
     "db:logs": "tsx src/db/queryAssessmentLogs.ts",
     "db:test": "tsx src/db/testConnection.ts",
-    "db:schema:dump": "tsx scripts/generateSchemaDoc.ts"
+    "db:schema:dump": "tsx scripts/generateSchemaDoc.ts",
+    "seed:autotrade": "tsx src/scripts/seedAutotrade.ts"
   },
   "keywords": [],
   "author": "",
