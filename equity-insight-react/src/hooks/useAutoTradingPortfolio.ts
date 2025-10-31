@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 
 import { resolveApiBaseUrl } from "../lib/api"
 import type { AutoTradePortfolioSnapshot } from "../types/autotrade"
-import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 
 interface ApiResponse {
   portfolio?: AutoTradePortfolioSnapshot
@@ -34,6 +33,5 @@ export const useAutoTradingPortfolio = (options?: { apiBaseUrl?: string; enabled
     enabled,
     staleTime: 30_000,
     retry: 1,
-    placeholderData: mockAutoTradingPortfolio,
   })
 }

@@ -15,6 +15,7 @@ import { cn } from "../lib/utils"
 import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 import { useAutoTradingPortfolio } from "../hooks/useAutoTradingPortfolio"
 import { useAutoTradingScheduler } from "../hooks/useAutoTradingScheduler"
+import { SimulationBanner } from "../components/trading/SimulationBanner"
 import type { AutoTradePortfolioSnapshot } from "../types/autotrade"
 
 const AutoTradingDashboard = () => {
@@ -121,6 +122,10 @@ const AutoTradingDashboard = () => {
 
       <main className="py-10">
         <Container className="space-y-8">
+          <SimulationBanner 
+            mode={portfolio.mode} 
+            lastUpdate={portfolio.lastRunAt}
+          />
           {isLoading ? (
             <div className="rounded-lg border border-border/60 bg-background/60 p-6 text-sm text-muted-foreground">
               Loading portfolio…

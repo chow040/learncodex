@@ -1,5 +1,5 @@
 # Database Schema Snapshot
-Generated: 2025-10-15T02:50:14.851Z
+Generated: 2025-10-29T15:11:30.450Z
 
 ## auth.audit_log_entries
 
@@ -377,6 +377,29 @@ Generated: 2025-10-15T02:50:14.851Z
 - Indexes:
   - __drizzle_migrations_pkey: CREATE UNIQUE INDEX __drizzle_migrations_pkey ON drizzle.__drizzle_migrations USING btree (id)
 
+## public._drizzle_migrations
+
+- Columns:
+  - `id`: text, not null
+  - `hash`: text, not null
+  - `executed_at`: timestamp with time zone, nullable, default: now()
+- Primary key: (id)
+- Indexes:
+  - _drizzle_migrations_pkey: CREATE UNIQUE INDEX _drizzle_migrations_pkey ON public._drizzle_migrations USING btree (id)
+
+## public.assessment_cache
+
+- Columns:
+  - `key`: text, not null
+  - `input_fp`: text, not null
+  - `result_json`: jsonb, not null
+  - `expires_at`: timestamp with time zone, not null
+  - `agent_version`: text, not null
+- Primary key: (key)
+- Indexes:
+  - assessment_cache_pkey: CREATE UNIQUE INDEX assessment_cache_pkey ON public.assessment_cache USING btree (key)
+  - idx_assessment_cache_expires_at: CREATE INDEX idx_assessment_cache_expires_at ON public.assessment_cache USING btree (expires_at)
+
 ## public.assessment_logs
 
 - Columns:
@@ -393,6 +416,386 @@ Generated: 2025-10-15T02:50:14.851Z
 - Indexes:
   - assessment_logs_pkey: CREATE UNIQUE INDEX assessment_logs_pkey ON public.assessment_logs USING btree (id)
   - idx_assessment_logs_symbol_created_at: CREATE INDEX idx_assessment_logs_symbol_created_at ON public.assessment_logs USING btree (symbol, created_at DESC)
+
+## public.auto_portfolio_settings
+
+- Columns:
+  - `portfolio_id`: uuid, not null
+  - `max_leverage`: numeric, nullable, default: 10, prec: 6, scale: 3
+  - `max_position_pct`: numeric, nullable, default: 50, prec: 6, scale: 3
+  - `max_daily_loss`: numeric, nullable, prec: 10, scale: 2
+  - `max_drawdown_pct`: numeric, nullable, prec: 6, scale: 3
+  - `cooldown_minutes`: integer, nullable, default: 15, prec: 32, scale: 0
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `updated_at`: timestamp with time zone, not null, default: now()
+- Primary key: (portfolio_id)
+- Foreign keys:
+  - portfolio_id → public.auto_portfolios(id)
+- Indexes:
+  - auto_portfolio_settings_pkey: CREATE UNIQUE INDEX auto_portfolio_settings_pkey ON public.auto_portfolio_settings USING btree (portfolio_id)
+
+## public.auto_portfolios
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `user_id`: uuid, not null
+  - `status`: USER-DEFINED, not null, default: 'pending'::auto_portfolio_status
+  - `automation_enabled`: boolean, not null, default: false
+  - `starting_capital`: numeric, not null, prec: 18, scale: 2
+  - `current_cash`: numeric, not null, prec: 18, scale: 2
+  - `sharpe`: numeric, nullable, prec: 10, scale: 4
+  - `drawdown_pct`: numeric, nullable, prec: 6, scale: 3
+  - `last_run_at`: timestamp with time zone, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `updated_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - user_id → public.users(id)
+- Indexes:
+  - auto_portfolios_pkey: CREATE UNIQUE INDEX auto_portfolios_pkey ON public.auto_portfolios USING btree (id)
+  - idx_auto_portfolios_status: CREATE INDEX idx_auto_portfolios_status ON public.auto_portfolios USING btree (status)
+  - idx_auto_portfolios_user: CREATE INDEX idx_auto_portfolios_user ON public.auto_portfolios USING btree (user_id)
+
+## public.autotrade_events
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `portfolio_id`: uuid, not null
+  - `event_type`: USER-DEFINED, not null
+  - `payload`: jsonb, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - portfolio_id → public.auto_portfolios(id)
+- Indexes:
+  - autotrade_events_pkey: CREATE UNIQUE INDEX autotrade_events_pkey ON public.autotrade_events USING btree (id)
+  - idx_autotrade_events_portfolio: CREATE INDEX idx_autotrade_events_portfolio ON public.autotrade_events USING btree (portfolio_id, created_at DESC)
+
+## public.http_cache
+
+- Columns:
+  - `key`: text, not null
+  - `data_json`: jsonb, not null
+  - `data_fp`: text, not null
+  - `etag`: text, nullable
+  - `last_modified`: timestamp with time zone, nullable
+  - `as_of`: text, nullable
+  - `fetched_at`: timestamp with time zone, not null, default: now()
+  - `expires_at`: timestamp with time zone, not null
+  - `schema_version`: text, not null
+- Primary key: (key)
+- Indexes:
+  - http_cache_pkey: CREATE UNIQUE INDEX http_cache_pkey ON public.http_cache USING btree (key)
+  - idx_http_cache_expires_at: CREATE INDEX idx_http_cache_expires_at ON public.http_cache USING btree (expires_at)
+
+## public.llm_decision_logs
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `portfolio_id`: uuid, not null
+  - `run_id`: uuid, not null
+  - `symbol`: text, not null
+  - `action`: USER-DEFINED, not null
+  - `size_pct`: numeric, nullable, prec: 6, scale: 3
+  - `confidence`: numeric, nullable, prec: 6, scale: 3
+  - `rationale`: text, nullable
+  - `prompt_ref`: uuid, nullable
+  - `cot_ref`: uuid, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - cot_ref → public.llm_prompt_payloads(id)
+  - portfolio_id → public.auto_portfolios(id)
+  - prompt_ref → public.llm_prompt_payloads(id)
+- Indexes:
+  - idx_llm_decision_logs_portfolio: CREATE INDEX idx_llm_decision_logs_portfolio ON public.llm_decision_logs USING btree (portfolio_id, created_at DESC)
+  - idx_llm_decision_logs_run: CREATE INDEX idx_llm_decision_logs_run ON public.llm_decision_logs USING btree (run_id)
+  - llm_decision_logs_pkey: CREATE UNIQUE INDEX llm_decision_logs_pkey ON public.llm_decision_logs USING btree (id)
+
+## public.llm_prompt_payloads
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `storage_uri`: text, not null
+  - `sha256`: text, not null
+  - `payload_type`: USER-DEFINED, not null
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Indexes:
+  - idx_llm_prompt_payloads_sha: CREATE INDEX idx_llm_prompt_payloads_sha ON public.llm_prompt_payloads USING btree (sha256)
+  - llm_prompt_payloads_pkey: CREATE UNIQUE INDEX llm_prompt_payloads_pkey ON public.llm_prompt_payloads USING btree (id)
+
+## public.market_snapshots
+
+- Columns:
+  - `symbol`: text, not null
+  - `bucket_start`: timestamp with time zone, not null
+  - `bucket_end`: timestamp with time zone, not null
+  - `open_price`: numeric, not null
+  - `high_price`: numeric, not null
+  - `low_price`: numeric, not null
+  - `close_price`: numeric, not null
+  - `volume`: numeric, not null
+  - `updated_at`: timestamp with time zone, not null, default: now()
+  - `ema_fast`: numeric, nullable
+  - `ema_slow`: numeric, nullable
+  - `macd`: numeric, nullable
+  - `macd_signal`: numeric, nullable
+  - `macd_histogram`: numeric, nullable
+  - `rsi`: numeric, nullable
+  - `atr`: numeric, nullable
+  - `volatility`: numeric, nullable
+  - `rsi_short`: numeric, nullable
+  - `atr_short`: numeric, nullable
+  - `volume_ratio`: numeric, nullable
+- Primary key: (symbol, bucket_start)
+- Indexes:
+  - market_snapshots_pkey: CREATE UNIQUE INDEX market_snapshots_pkey ON public.market_snapshots USING btree (symbol, bucket_start)
+
+## public.persona_memories
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `persona`: text, not null
+  - `symbol`: text, not null
+  - `situation`: text, nullable
+  - `recommendation`: text, not null
+  - `embedding`: jsonb, not null
+  - `trade_date`: date, not null
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Indexes:
+  - idx_persona_memories_created_at: CREATE INDEX idx_persona_memories_created_at ON public.persona_memories USING btree (created_at DESC)
+  - idx_persona_memories_persona_symbol: CREATE INDEX idx_persona_memories_persona_symbol ON public.persona_memories USING btree (persona, symbol)
+  - persona_memories_pkey: CREATE UNIQUE INDEX persona_memories_pkey ON public.persona_memories USING btree (id)
+
+## public.portfolio_positions
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `portfolio_id`: uuid, not null
+  - `symbol`: text, not null
+  - `quantity`: numeric, not null, prec: 28, scale: 12
+  - `avg_cost`: numeric, not null, prec: 18, scale: 8
+  - `mark_price`: numeric, not null, prec: 18, scale: 8
+  - `unrealized_pnl`: numeric, nullable, prec: 18, scale: 4
+  - `leverage`: numeric, nullable, prec: 6, scale: 3
+  - `confidence`: numeric, nullable, prec: 6, scale: 3
+  - `risk_usd`: numeric, nullable, prec: 18, scale: 4
+  - `exit_plan`: jsonb, nullable
+  - `updated_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - portfolio_id → public.auto_portfolios(id)
+- Indexes:
+  - idx_positions_portfolio_symbol: CREATE INDEX idx_positions_portfolio_symbol ON public.portfolio_positions USING btree (portfolio_id, symbol)
+  - portfolio_positions_pkey: CREATE UNIQUE INDEX portfolio_positions_pkey ON public.portfolio_positions USING btree (id)
+
+## public.portfolio_snapshots
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `portfolio_id`: uuid, not null
+  - `equity`: numeric, not null, prec: 18, scale: 2
+  - `cash`: numeric, not null, prec: 18, scale: 2
+  - `positions_value`: numeric, not null, prec: 18, scale: 2
+  - `realized_pnl`: numeric, not null, prec: 18, scale: 2
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - portfolio_id → public.auto_portfolios(id)
+- Indexes:
+  - idx_portfolio_snapshots_portfolio_created: CREATE INDEX idx_portfolio_snapshots_portfolio_created ON public.portfolio_snapshots USING btree (portfolio_id, created_at DESC)
+  - portfolio_snapshots_pkey: CREATE UNIQUE INDEX portfolio_snapshots_pkey ON public.portfolio_snapshots USING btree (id)
+
+## public.sessions
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `user_id`: uuid, not null
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `expires_at`: timestamp with time zone, not null
+  - `ip_address`: text, nullable
+  - `user_agent`: text, nullable
+- Primary key: (id)
+- Foreign keys:
+  - user_id → public.users(id)
+- Indexes:
+  - idx_sessions_expires_at: CREATE INDEX idx_sessions_expires_at ON public.sessions USING btree (expires_at)
+  - idx_sessions_user_id: CREATE INDEX idx_sessions_user_id ON public.sessions USING btree (user_id)
+  - sessions_pkey: CREATE UNIQUE INDEX sessions_pkey ON public.sessions USING btree (id)
+
+## public.ta_decisions
+
+- Columns:
+  - `id`: bigint, not null, default: nextval('ta_decisions_id_seq'::regclass), prec: 64, scale: 0
+  - `run_id`: text, nullable
+  - `symbol`: text, not null
+  - `trade_date`: date, not null
+  - `decision_token`: text, not null
+  - `investment_plan`: text, nullable
+  - `trader_plan`: text, nullable
+  - `risk_judge`: text, nullable
+  - `payload`: jsonb, nullable
+  - `raw_text`: text, nullable
+  - `model`: text, nullable
+  - `prompt_hash`: text, nullable
+  - `orchestrator_version`: text, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `analysts`: jsonb, nullable
+  - `execution_ms`: bigint, nullable, prec: 64, scale: 0
+- Primary key: (id)
+- Indexes:
+  - idx_ta_decisions_run_id: CREATE INDEX idx_ta_decisions_run_id ON public.ta_decisions USING btree (run_id)
+  - idx_ta_decisions_symbol_created_at: CREATE INDEX idx_ta_decisions_symbol_created_at ON public.ta_decisions USING btree (symbol, created_at DESC)
+  - idx_ta_decisions_symbol_trade_date: CREATE INDEX idx_ta_decisions_symbol_trade_date ON public.ta_decisions USING btree (symbol, trade_date)
+  - ta_decisions_pkey: CREATE UNIQUE INDEX ta_decisions_pkey ON public.ta_decisions USING btree (id)
+
+## public.ta_outcomes
+
+- Columns:
+  - `id`: bigint, not null, default: nextval('ta_outcomes_id_seq'::regclass), prec: 64, scale: 0
+  - `decision_id`: bigint, not null, prec: 64, scale: 0
+  - `horizon`: text, not null
+  - `realized_return`: double precision, nullable, prec: 53
+  - `max_drawdown`: double precision, nullable, prec: 53
+  - `label`: text, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - decision_id → public.ta_decisions(id)
+- Indexes:
+  - idx_ta_outcomes_decision_id: CREATE INDEX idx_ta_outcomes_decision_id ON public.ta_outcomes USING btree (decision_id)
+  - idx_ta_outcomes_horizon: CREATE INDEX idx_ta_outcomes_horizon ON public.ta_outcomes USING btree (horizon)
+  - ta_outcomes_pkey: CREATE UNIQUE INDEX ta_outcomes_pkey ON public.ta_outcomes USING btree (id)
+
+## public.ta_run_failures
+
+- Columns:
+  - `id`: bigint, not null, default: nextval('ta_run_failures_id_seq'::regclass), prec: 64, scale: 0
+  - `run_id`: text, nullable
+  - `symbol`: text, not null
+  - `trade_date`: date, not null
+  - `persona_id`: text, not null
+  - `stage`: text, not null
+  - `message`: text, not null
+  - `fingerprint`: text, not null
+  - `retryable`: boolean, not null, default: false
+  - `details`: jsonb, nullable
+  - `model`: text, nullable
+  - `analysts`: jsonb, nullable
+  - `orchestrator_version`: text, nullable
+  - `logs_path`: text, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - run_id → public.ta_runs(run_id)
+- Indexes:
+  - idx_ta_run_failures_run_id: CREATE INDEX idx_ta_run_failures_run_id ON public.ta_run_failures USING btree (run_id)
+  - idx_ta_run_failures_symbol_date: CREATE INDEX idx_ta_run_failures_symbol_date ON public.ta_run_failures USING btree (symbol, trade_date, created_at DESC)
+  - ta_run_failures_pkey: CREATE UNIQUE INDEX ta_run_failures_pkey ON public.ta_run_failures USING btree (id)
+
+## public.ta_runs
+
+- Columns:
+  - `id`: bigint, not null, default: nextval('ta_runs_id_seq'::regclass), prec: 64, scale: 0
+  - `run_id`: text, nullable
+  - `symbol`: text, not null
+  - `trade_date`: date, not null
+  - `model`: text, nullable
+  - `prompt_hash`: text, nullable
+  - `orchestrator_version`: text, nullable
+  - `logs_path`: text, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `analysts`: jsonb, nullable
+- Primary key: (id)
+- Indexes:
+  - idx_ta_runs_symbol_trade_date: CREATE INDEX idx_ta_runs_symbol_trade_date ON public.ta_runs USING btree (symbol, trade_date)
+  - ta_runs_pkey: CREATE UNIQUE INDEX ta_runs_pkey ON public.ta_runs USING btree (id)
+  - ta_runs_run_id_key: CREATE UNIQUE INDEX ta_runs_run_id_key ON public.ta_runs USING btree (run_id)
+
+## public.trade_executions
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `order_id`: uuid, not null
+  - `fill_price`: numeric, not null, prec: 18, scale: 8
+  - `fill_quantity`: numeric, not null, prec: 28, scale: 12
+  - `fee`: numeric, nullable, prec: 18, scale: 8
+  - `liquidity`: text, nullable
+  - `filled_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - order_id → public.trade_orders(id)
+- Indexes:
+  - idx_trade_executions_order: CREATE INDEX idx_trade_executions_order ON public.trade_executions USING btree (order_id, filled_at)
+  - trade_executions_pkey: CREATE UNIQUE INDEX trade_executions_pkey ON public.trade_executions USING btree (id)
+
+## public.trade_orders
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `portfolio_id`: uuid, not null
+  - `client_order_id`: text, not null
+  - `venue`: text, not null
+  - `symbol`: text, not null
+  - `side`: USER-DEFINED, not null
+  - `order_type`: USER-DEFINED, not null
+  - `quantity`: numeric, not null, prec: 28, scale: 12
+  - `price`: numeric, nullable, prec: 18, scale: 8
+  - `status`: USER-DEFINED, not null, default: 'pending'::autotrade_order_status
+  - `confidence`: numeric, nullable, prec: 6, scale: 3
+  - `risk_usd`: numeric, nullable, prec: 18, scale: 4
+  - `run_id`: uuid, nullable
+  - `submitted_at`: timestamp with time zone, not null, default: now()
+  - `updated_at`: timestamp with time zone, not null, default: now()
+  - `metadata`: jsonb, nullable
+- Primary key: (id)
+- Foreign keys:
+  - portfolio_id → public.auto_portfolios(id)
+- Indexes:
+  - idx_trade_orders_portfolio_created: CREATE INDEX idx_trade_orders_portfolio_created ON public.trade_orders USING btree (portfolio_id, submitted_at DESC)
+  - idx_trade_orders_run: CREATE INDEX idx_trade_orders_run ON public.trade_orders USING btree (run_id)
+  - trade_orders_client_order_id_unique: CREATE UNIQUE INDEX trade_orders_client_order_id_unique ON public.trade_orders USING btree (client_order_id)
+  - trade_orders_pkey: CREATE UNIQUE INDEX trade_orders_pkey ON public.trade_orders USING btree (id)
+
+## public.user_identities
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `user_id`: uuid, not null
+  - `provider`: USER-DEFINED, not null
+  - `provider_sub`: text, not null
+  - `access_token`: text, nullable
+  - `refresh_token`: text, nullable
+  - `id_token`: text, nullable
+  - `expires_at`: timestamp with time zone, nullable
+  - `raw_profile`: jsonb, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `updated_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Foreign keys:
+  - user_id → public.users(id)
+- Indexes:
+  - idx_user_identities_provider_sub: CREATE INDEX idx_user_identities_provider_sub ON public.user_identities USING btree (provider, provider_sub)
+  - idx_user_identities_user_id: CREATE INDEX idx_user_identities_user_id ON public.user_identities USING btree (user_id)
+  - user_identities_pkey: CREATE UNIQUE INDEX user_identities_pkey ON public.user_identities USING btree (id)
+
+## public.users
+
+- Columns:
+  - `id`: uuid, not null, default: gen_random_uuid()
+  - `email`: text, not null
+  - `email_verified`: boolean, not null, default: false
+  - `full_name`: text, nullable
+  - `avatar_url`: text, nullable
+  - `created_at`: timestamp with time zone, not null, default: now()
+  - `updated_at`: timestamp with time zone, not null, default: now()
+- Primary key: (id)
+- Indexes:
+  - idx_users_email: CREATE INDEX idx_users_email ON public.users USING btree (email)
+  - users_email_unique: CREATE UNIQUE INDEX users_email_unique ON public.users USING btree (email)
+  - users_pkey: CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)
 
 ## realtime.messages
 

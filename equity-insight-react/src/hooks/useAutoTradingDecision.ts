@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import { resolveApiBaseUrl } from "../lib/api"
 import type { AutoTradeDecision } from "../types/autotrade"
-import { mockAutoTradingPortfolio, getMockDecisionById } from "../mocks/autoTradingMockData"
+import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 
 interface ApiResponse {
   decision?: AutoTradeDecision
@@ -37,7 +37,6 @@ export const useAutoTradingDecision = (
     enabled,
     staleTime: 30_000,
     retry: 1,
-    placeholderData: decisionId ? getMockDecisionById(decisionId) ?? undefined : undefined,
   })
 }
 

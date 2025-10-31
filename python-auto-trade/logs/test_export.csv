@@ -1,0 +1,2 @@
+timestamp,symbol,action,price,quantity,realized_pnl,reason
+2025-10-30T18:11:41.020383,BTCUSDT,BUY,50000.00,0.010000,0.00,Test buy

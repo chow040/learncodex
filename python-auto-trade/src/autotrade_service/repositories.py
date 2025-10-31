@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, TypedDict
+from datetime import datetime
+from typing import Any, Iterable, TypedDict
 
-import asyncpg
+try:
+    import asyncpg
+except ModuleNotFoundError:  # pragma: no cover - fallback for local/test environments without asyncpg
+    class _AsyncPGStub:  # type: ignore
+        Record = dict
 
+    asyncpg = _AsyncPGStub()  # type: ignore[assignment]
+
+from .config import get_settings
 from .db import get_db
 
 
@@ -73,6 +82,163 @@ class AutoTradePortfolioSnapshot:
     positions: list[AutoTradePosition]
     decisions: list[AutoTradeDecision]
     events: list[AutoTradeEvent]
+
+
+@dataclass(slots=True)
+class MarketSnapshot:
+    symbol: str
+    bucket_start: datetime
+    bucket_end: datetime
+    open_price: float
+    high_price: float
+    low_price: float
+    close_price: float
+    volume: float
+
+
+async def upsert_market_snapshots(snapshots: Iterable[MarketSnapshot]) -> None:
+    rows = list(snapshots)
+    if not rows:
+        return
+    db = get_db()
+    if not db.is_connected:
+        return
+    query = """
+        INSERT INTO market_snapshots (
+            symbol,
+            bucket_start,
+            bucket_end,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            volume,
+            updated_at
+        )
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, NOW()
+        )
+        ON CONFLICT (symbol, bucket_start)
+        DO UPDATE SET
+            bucket_end = EXCLUDED.bucket_end,
+            open_price = EXCLUDED.open_price,
+            high_price = EXCLUDED.high_price,
+            low_price = EXCLUDED.low_price,
+            close_price = EXCLUDED.close_price,
+            volume = EXCLUDED.volume,
+            updated_at = NOW()
+    """
+    values = [
+        (
+            snapshot.symbol,
+            snapshot.bucket_start,
+            snapshot.bucket_end,
+            snapshot.open_price,
+            snapshot.high_price,
+            snapshot.low_price,
+            snapshot.close_price,
+            snapshot.volume,
+        )
+        for snapshot in rows
+    ]
+    async with db.acquire() as conn:
+        await conn.executemany(query, values)
+
+
+async def upsert_market_snapshot_indicators(
+    *,
+    symbol: str,
+    bucket_start: datetime,
+    bucket_end: datetime,
+    open_price: float,
+    high_price: float,
+    low_price: float,
+    close_price: float,
+    volume: float,
+    ema_fast: float,
+    ema_slow: float | None,
+    macd: float,
+    macd_signal: float,
+    macd_histogram: float,
+    rsi: float,
+    rsi_short: float,
+    atr: float,
+    atr_short: float,
+    volatility: float,
+    volume_ratio: float,
+) -> None:
+    db = get_db()
+    if not db.is_connected:
+        return
+    async with db.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO market_snapshots (
+                symbol,
+                bucket_start,
+                bucket_end,
+                open_price,
+                high_price,
+                low_price,
+                close_price,
+                volume,
+                ema_fast,
+                ema_slow,
+                macd,
+                macd_signal,
+                macd_histogram,
+                rsi,
+                rsi_short,
+                atr,
+                atr_short,
+                volatility,
+                volume_ratio,
+                updated_at
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW()
+            )
+            ON CONFLICT (symbol, bucket_start) DO UPDATE SET
+                bucket_end = GREATEST(market_snapshots.bucket_end, EXCLUDED.bucket_end),
+                open_price = COALESCE(market_snapshots.open_price, EXCLUDED.open_price),
+                high_price = GREATEST(market_snapshots.high_price, EXCLUDED.high_price),
+                low_price = LEAST(market_snapshots.low_price, EXCLUDED.low_price),
+                close_price = EXCLUDED.close_price,
+                volume = EXCLUDED.volume,
+                ema_fast = EXCLUDED.ema_fast,
+                ema_slow = EXCLUDED.ema_slow,
+                macd = EXCLUDED.macd,
+                macd_signal = EXCLUDED.macd_signal,
+                macd_histogram = EXCLUDED.macd_histogram,
+                rsi = EXCLUDED.rsi,
+                rsi_short = EXCLUDED.rsi_short,
+                atr = EXCLUDED.atr,
+                atr_short = EXCLUDED.atr_short,
+                volatility = EXCLUDED.volatility,
+                volume_ratio = EXCLUDED.volume_ratio,
+                updated_at = NOW()
+            """,
+            symbol,
+            bucket_start,
+            bucket_end,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            volume,
+            ema_fast,
+            ema_slow,
+            macd,
+            macd_signal,
+            macd_histogram,
+            rsi,
+            rsi_short,
+            atr,
+            atr_short,
+            volatility,
+            volume_ratio,
+        )
 
 
 class DecisionRow(TypedDict):
@@ -168,9 +334,51 @@ def _map_decision(row: DecisionRow) -> AutoTradeDecision:
 
 
 async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
+    settings = get_settings()
+    
+    # If simulation mode is enabled, load from simulated state
+    if settings.simulation_enabled:
+        from .simulation import load_state, simulated_to_snapshot, create_initial_state
+        
+        logger = logging.getLogger("autotrade.repositories")
+        logger.debug("Simulation mode enabled; loading simulated portfolio state")
+        
+        portfolio = load_state(settings.simulation_state_path)
+        
+        # If no state exists, create initial state
+        if portfolio is None:
+            logger.info(
+                f"Creating new simulation portfolio with ${settings.simulation_starting_cash:.2f}"
+            )
+            portfolio = create_initial_state(
+                portfolio_id="simulation",
+                starting_cash=settings.simulation_starting_cash,
+                path=settings.simulation_state_path,
+            )
+        
+        return simulated_to_snapshot(portfolio)
+    
+    # Otherwise, use production database logic
     db = get_db()
     if not db.is_connected:
-        return None
+        logger = logging.getLogger("autotrade.repositories")
+        logger.debug("Database not connected; returning bootstrap portfolio snapshot.")
+        return AutoTradePortfolioSnapshot(
+            portfolio_id="bootstrap",
+            automation_enabled=True,
+            mode="paper",
+            available_cash=10_000.0,
+            equity=10_000.0,
+            total_pnl=0.0,
+            pnl_pct=0.0,
+            sharpe=0.0,
+            drawdown_pct=0.0,
+            last_run_at="",
+            next_run_in_minutes=3,
+            positions=[],
+            decisions=[],
+            events=[],
+        )
     async with db.acquire() as conn:
         portfolio = await conn.fetchrow(
             "SELECT * FROM auto_portfolios ORDER BY updated_at DESC LIMIT 1"

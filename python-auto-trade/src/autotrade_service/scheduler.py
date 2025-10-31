@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Literal, Optional
 
+from .config import get_settings
+from .pipelines import get_decision_pipeline, shutdown_decision_pipeline
+
 
 @dataclass(slots=True)
 class SchedulerJobStatus:
@@ -193,8 +196,8 @@ class SchedulerManager:
         self._job.next_run_at = self._next_run_at
 
     async def _default_job_handler(self) -> None:
-        # Placeholder hook; real evaluation logic will be injected later.
-        await asyncio.sleep(0)
+        decision_pipeline = get_decision_pipeline()
+        await decision_pipeline.run_once()
 
 
 _scheduler: SchedulerManager | None = None
@@ -202,13 +205,16 @@ _scheduler: SchedulerManager | None = None
 
 def get_scheduler(implementation: str | None = None) -> SchedulerManager:
     global _scheduler
+    settings = get_settings()
+    interval = timedelta(minutes=settings.decision_interval_minutes)
+    impl = implementation or settings.scheduler_impl
     if _scheduler is None:
-        impl = implementation or "apscheduler"
-        _scheduler = SchedulerManager(implementation=impl)
-    elif implementation and _scheduler._implementation != implementation:
-        # If an implementation override is provided after creation, update the label
-        # so status reporting stays accurate.
-        _scheduler._implementation = implementation
+        _scheduler = SchedulerManager(implementation=impl, interval=interval)
+    else:
+        if implementation and _scheduler._implementation != implementation:
+            _scheduler._implementation = implementation
+        if _scheduler._interval != interval:
+            _scheduler._interval = interval
     return _scheduler
 
 
@@ -223,6 +229,12 @@ def reset_scheduler() -> None:
         else:
             loop.create_task(_scheduler.stop())
     _scheduler = None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(shutdown_decision_pipeline())
+    else:
+        loop.create_task(shutdown_decision_pipeline())
 
 
 __all__ = ["SchedulerManager", "SchedulerStatus", "SchedulerJobStatus", "get_scheduler", "reset_scheduler"]

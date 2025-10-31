@@ -29,7 +29,7 @@ class RedisClient:
 
     async def disconnect(self) -> None:
         if self._client is not None:
-            await self._client.close()
+            await self._client.aclose()
             self._client = None
 
     @asynccontextmanager

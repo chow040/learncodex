@@ -1,9 +1,34 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Any, Protocol
 
-import asyncpg
+try:
+    import asyncpg
+except ModuleNotFoundError:  # pragma: no cover - fallback for local/test environments without asyncpg
+    class _AsyncConnection(Protocol):
+        async def fetch(self, query: str, *args) -> list[dict]: ...
+
+    class _AsyncPool:
+        async def close(self) -> None: ...
+        async def acquire(self):  # type: ignore[override]
+            class _DummyContext:
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+
+            return _DummyContext()
+
+    class _AsyncPGStub:  # type: ignore
+        Pool = _AsyncPool
+
+        @staticmethod
+        async def create_pool(*_args, **_kwargs) -> _AsyncPool:
+            raise RuntimeError("asyncpg is not installed; database operations unavailable")
+
+    asyncpg = _AsyncPGStub()  # type: ignore[assignment]
 
 from .config import get_settings
 
@@ -24,7 +49,7 @@ class Database:
             self._pool = None
 
     @asynccontextmanager
-    async def acquire(self) -> AsyncIterator[asyncpg.Connection]:
+    async def acquire(self) -> AsyncIterator[Any]:
         if self._pool is None:
             raise RuntimeError("Database pool is not initialized")
         async with self._pool.acquire() as connection:
