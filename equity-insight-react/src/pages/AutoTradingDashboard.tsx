@@ -79,6 +79,14 @@ const AutoTradingDashboard = () => {
     [portfolio.positions],
   )
 
+  const sortedDecisions = useMemo(
+    () =>
+      [...portfolio.decisions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [portfolio.decisions],
+  )
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/60 bg-background/90 backdrop-blur">
@@ -275,7 +283,7 @@ const AutoTradingDashboard = () => {
                       <TableHead>Symbol</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
                       <TableHead className="text-right">Entry</TableHead>
-                      <TableHead className="text-right">Mark</TableHead>
+                      <TableHead className="text-right">Notional</TableHead>
                       <TableHead className="text-right">PnL ($)</TableHead>
                       <TableHead className="text-right">PnL (%)</TableHead>
                       <TableHead className="text-right">Leverage</TableHead>
@@ -288,7 +296,11 @@ const AutoTradingDashboard = () => {
                         <TableCell className="font-semibold">{position.symbol}</TableCell>
                         <TableCell className="text-right">{position.quantity.toLocaleString()}</TableCell>
                         <TableCell className="text-right">${position.entryPrice.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${position.markPrice.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          ${(position.quantity * position.markPrice).toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}
+                        </TableCell>
                         <TableCell
                           className={cn(
                             "text-right font-medium",
@@ -356,7 +368,7 @@ const AutoTradingDashboard = () => {
               <CardContent className="space-y-4">
                 <ScrollArea className="h-72 pr-6">
                   <div className="space-y-3">
-                    {portfolio.decisions.map((decision) => (
+                    {sortedDecisions.map((decision) => (
                       <div
                         key={decision.id}
                         className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm"

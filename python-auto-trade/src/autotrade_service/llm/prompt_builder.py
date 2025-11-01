@@ -149,6 +149,11 @@ class PromptBuilder:
                 "9. Use “THOUGHT:” for reasoning and “OUTPUT:” for JSON as instructed in the system prompt.",
                 "10. Output must be a valid JSON array — no commentary, no extra text.",
                 "",
+                "Risk-adjustment template:",
+                "- If conviction is strong (multiple indicators align and higher timeframe agrees) and volatility is moderate, you may use higher leverage (around 10×).",
+                "- If the signal is weak or volatility is elevated, keep leverage low (approx. 2×–5×).",
+                "- If signals conflict or uncertainty is high, do not open new trades and prefer holding existing positions.",
+                "",
                 "End of data.",
             ]
         )

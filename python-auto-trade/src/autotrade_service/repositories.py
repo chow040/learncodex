@@ -467,6 +467,37 @@ async def fetch_decisions(symbol: str | None = None) -> list[AutoTradeDecision]:
 
 
 async def fetch_decision_by_id(decision_id: str) -> AutoTradeDecision | None:
+    settings = get_settings()
+
+    # Support simulation decisions (ids prefixed with "sim-")
+    if settings.simulation_enabled and decision_id.startswith("sim-"):
+        from .simulation import load_state  # deferred import to avoid circular deps
+
+        portfolio = load_state(settings.simulation_state_path)
+        if portfolio:
+            for entry in portfolio.evaluation_log:
+                sim_id = f"sim-{entry.timestamp.isoformat()}-{entry.symbol}"
+                if sim_id != decision_id:
+                    continue
+                prompt = AutoTradeDecisionPrompt(
+                    system_prompt=entry.system_prompt,
+                    user_payload=entry.user_payload,
+                    chain_of_thought=entry.chain_of_thought,
+                    invalidations=[],
+                    observation_window="PT5M",
+                )
+                return AutoTradeDecision(
+                    id=sim_id,
+                    symbol=entry.symbol,
+                    action=entry.action.lower(),
+                    size_pct=entry.size_pct,
+                    confidence=entry.confidence,
+                    rationale=entry.rationale,
+                    created_at=entry.timestamp.isoformat(),
+                    prompt=prompt,
+                )
+        return None
+
     db = get_db()
     if not db.is_connected:
         return None

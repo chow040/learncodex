@@ -31,7 +31,9 @@ export const useAutoTradingPortfolio = (options?: { apiBaseUrl?: string; enabled
     queryKey: ["autoTradingPortfolio", baseUrl],
     queryFn: () => fetchPortfolio(baseUrl),
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     retry: 1,
   })
 }

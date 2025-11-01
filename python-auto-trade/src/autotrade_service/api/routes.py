@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -156,8 +155,8 @@ async def list_decisions(symbol: str | None = None) -> dict:
 
 
 @router.get("/decisions/{decision_id}", summary="Retrieve decision by id")
-async def get_decision(decision_id: UUID) -> dict:
-    decision = await fetch_decision_by_id(str(decision_id))
+async def get_decision(decision_id: str) -> dict:
+    decision = await fetch_decision_by_id(decision_id)
     if decision is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Decision not found")
     return {"decision": asdict(decision)}

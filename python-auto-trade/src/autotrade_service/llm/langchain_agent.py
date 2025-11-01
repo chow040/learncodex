@@ -22,6 +22,19 @@ from .schemas import DecisionRequest
 
 logger = logging.getLogger("autotrade.llm.langchain")
 
+SYSTEM_PROMPT = (
+    "You are AutoTrader, an LLM portfolio manager. Use the available tools to gather the latest "
+    "market data and technical indicators for each symbol before making any decisions. "
+    "ALWAYS call `live_market_data` and `indicator_calculator` for every symbol you evaluate. "
+    "After you finish reasoning, respond with ONLY a JSON array of decisions matching the schema:\n"
+    '  [{"symbol": "BTC-USD", "action": "HOLD|CLOSE|BUY|SELL", "quantity": 0.0, '
+    '"size_pct": 0.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
+    '"max_slippage_bps": 25, "invalidation_condition": "string", "rationale": "string"}]\n'
+    "IMPORTANT: confidence must be a decimal between 0.0 and 1.0 (e.g., 0.65 for 65% confidence, NOT 65.0)\n"
+    "Always include the latest invalidation_condition for every symbol (for HOLD actions, reuse it from the input data).\n"
+    "Do not include any extra keys. If a field is not applicable, omit it."
+)
+
 
 def _build_chat_model():
     settings = get_settings()
@@ -92,6 +105,16 @@ def create_langchain_agent(
         if result is None or result.snapshot is None:
             raise ValueError(f"No indicator snapshot available for {symbol}")
         snapshot = result.snapshot
+
+        def _trim(series: Sequence[float] | None, limit: int = 10) -> list[float]:
+            if series is None:
+                return []
+            # Convert to list in case we receive tuples/arrays
+            seq = list(series)
+            if limit <= 0 or len(seq) <= limit:
+                return seq
+            return seq[-limit:]
+
         payload: dict[str, object] = {
             "symbol": snapshot.symbol,
             "price": snapshot.price,
@@ -106,12 +129,12 @@ def create_langchain_agent(
             "volume": snapshot.volume,
             "volume_ratio": snapshot.volume_ratio,
             "generated_at": snapshot.generated_at.isoformat(),
-            "mid_prices": snapshot.mid_prices,
-            "ema20_series": snapshot.ema20_series,
-            "macd_series": snapshot.macd_series,
-            "macd_histogram_series": snapshot.macd_histogram_series,
-            "rsi7_series": snapshot.rsi7_series,
-            "rsi14_series": snapshot.rsi14_series,
+            "mid_prices": _trim(snapshot.mid_prices),
+            "ema20_series": _trim(snapshot.ema20_series),
+            "macd_series": _trim(snapshot.macd_series),
+            "macd_histogram_series": _trim(snapshot.macd_histogram_series),
+            "rsi7_series": _trim(snapshot.rsi7_series),
+            "rsi14_series": _trim(snapshot.rsi14_series),
         }
         if snapshot.higher_timeframe:
             htf = snapshot.higher_timeframe
@@ -123,35 +146,22 @@ def create_langchain_agent(
                 "macd": htf.macd,
                 "macd_signal": htf.macd_signal,
                 "macd_histogram": htf.macd_histogram,
-                "macd_histogram_series": htf.macd_histogram_series,
+                "macd_histogram_series": _trim(htf.macd_histogram_series),
                 "rsi14": htf.rsi14,
                 "volume": htf.volume,
                 "volume_avg": htf.volume_avg,
                 "volume_ratio": htf.volume_ratio,
-                "macd_series": htf.macd_series,
-                "rsi14_series": htf.rsi14_series,
+                "macd_series": _trim(htf.macd_series),
+                "rsi14_series": _trim(htf.rsi14_series),
                 "generated_at": htf.generated_at.isoformat(),
             }
         return json.dumps(payload)
-
-    system_prompt = (
-        "You are AutoTrader, an LLM portfolio manager. Use the available tools to gather the latest "
-        "market data and technical indicators for each symbol before making any decisions. "
-        "ALWAYS call `live_market_data` and `indicator_calculator` for every symbol you evaluate. "
-        "After you finish reasoning, respond with ONLY a JSON array of decisions matching the schema:\n"
-        '  [{"symbol": "BTC-USD", "action": "HOLD|CLOSE|BUY|SELL", "quantity": 0.0, '
-        '"size_pct": 0.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
-        '"max_slippage_bps": 25, "invalidation_condition": "string", "rationale": "string"}]\n'
-        "IMPORTANT: confidence must be a decimal between 0.0 and 1.0 (e.g., 0.65 for 65% confidence, NOT 65.0)\n"
-        "Always include the latest invalidation_condition for every symbol (for HOLD actions, reuse it from the input data).\n"
-        "Do not include any extra keys. If a field is not applicable, omit it."
-    )
 
     model = _build_chat_model()
     return create_agent(
         model=model,
         tools=[live_market_data, indicator_calculator],
-        system_prompt=system_prompt,
+        system_prompt=SYSTEM_PROMPT,
         debug=settings.log_level == "debug",
     )
 
@@ -194,4 +204,4 @@ def _extract_json_block(text: str) -> str:
     return text[start : end + 1]
 
 
-__all__ = ["create_langchain_agent", "parse_agent_output"]
+__all__ = ["create_langchain_agent", "parse_agent_output", "SYSTEM_PROMPT"]

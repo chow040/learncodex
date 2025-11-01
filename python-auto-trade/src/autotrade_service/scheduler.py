@@ -5,9 +5,11 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Literal, Optional
+import json
 
 from .config import get_settings
 from .pipelines import get_decision_pipeline, shutdown_decision_pipeline
+from .llm.langchain_agent import SYSTEM_PROMPT
 
 
 @dataclass(slots=True)
@@ -196,8 +198,93 @@ class SchedulerManager:
         self._job.next_run_at = self._next_run_at
 
     async def _default_job_handler(self) -> None:
+        from autotrade_service.simulation.broker import SimulatedBroker
+        from autotrade_service.simulation import load_state, save_state
+        from autotrade_service.config import get_settings
+        
+        settings = get_settings()
         decision_pipeline = get_decision_pipeline()
-        await decision_pipeline.run_once()
+        
+        # Run the decision pipeline to get LLM decisions
+        result = await decision_pipeline.run_once()
+        
+        if result is None or not result.response.decisions:
+            self._logger.info("No decisions generated from pipeline")
+            return
+        
+        # If simulation mode is enabled, execute trades via simulated broker
+        if settings.simulation_enabled:
+            # Load portfolio from state file
+            portfolio = load_state(settings.simulation_state_path)
+            if portfolio is None:
+                self._logger.error("Failed to load portfolio from state file")
+                return
+            
+            # Create broker with loaded portfolio
+            broker = SimulatedBroker(portfolio)
+            
+            # Collect market snapshots from tool messages (live_market_data / indicator_calculator)
+            market_snapshots: dict[str, float] = {}
+            for trace_entry in result.agent_trace:
+                if trace_entry.get("message_type") != "ToolMessage":
+                    continue
+                content = trace_entry.get("content") or ""
+                if not content:
+                    continue
+                try:
+                    payload = json.loads(content)
+                except json.JSONDecodeError:
+                    continue
+
+                tool_name = trace_entry.get("tool_name")
+                symbol = (payload.get("symbol") or "").upper()
+                if not symbol:
+                    continue
+
+                price_value: float | None = None
+                if tool_name == "live_market_data":
+                    price = payload.get("last_price")
+                    if isinstance(price, (int, float)):
+                        price_value = float(price)
+                elif tool_name == "indicator_calculator":
+                    price = payload.get("price")
+                    if isinstance(price, (int, float)):
+                        price_value = float(price)
+
+                if price_value is not None and price_value > 0:
+                    market_snapshots[symbol] = price_value
+
+            # Ensure every decision symbol has a positive snapshot
+            for decision in result.response.decisions:
+                symbol = decision.symbol
+                if symbol not in market_snapshots or market_snapshots[symbol] <= 0:
+                    fallback = decision.take_profit or decision.stop_loss or decision.quantity or 0.0
+                    if isinstance(fallback, (int, float)) and fallback > 0:
+                        market_snapshots[symbol] = float(fallback)
+                    else:
+                        self._logger.warning(
+                            "No market price available for %s; trade execution will be skipped",
+                            symbol,
+                        )
+                        # Leave symbol absent so broker skips invalid prices
+            
+            # Execute the decisions (this will log to evaluation_log)
+            messages = broker.execute(
+                result.response.decisions,
+                market_snapshots,
+                system_prompt=SYSTEM_PROMPT,
+                user_payload=result.prompt,
+            )
+            
+            for msg in messages:
+                self._logger.info(msg)
+            
+            # Refresh unrealized PnL with latest prices
+            broker.mark_to_market(market_snapshots)
+            
+            # Save the updated portfolio state to disk
+            save_state(broker.portfolio, settings.simulation_state_path)
+            self._logger.info(f"Saved portfolio state with {len(broker.portfolio.evaluation_log)} evaluations")
 
 
 _scheduler: SchedulerManager | None = None

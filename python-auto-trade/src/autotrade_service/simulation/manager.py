@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
+from ..config import get_settings
 from ..repositories import (
     AutoTradeDecision,
     AutoTradeDecisionPrompt,
@@ -62,8 +63,8 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
             rationale=eval_entry.rationale,
             created_at=eval_entry.timestamp.isoformat(),
             prompt=AutoTradeDecisionPrompt(
-                system_prompt="",
-                user_payload="",
+                system_prompt=eval_entry.system_prompt,
+                user_payload=eval_entry.user_payload,
                 chain_of_thought=eval_entry.chain_of_thought,  # Full LLM reasoning
                 invalidations=[],
                 observation_window="PT5M",
@@ -93,7 +94,7 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
         sharpe=0.0,  # TODO: Calculate Sharpe ratio from trade history
         drawdown_pct=0.0,  # TODO: Track max drawdown
         last_run_at=portfolio.updated_at.isoformat(),
-        next_run_in_minutes=3,
+        next_run_in_minutes=get_settings().decision_interval_minutes,
         positions=positions,
         decisions=decisions,
         events=events,

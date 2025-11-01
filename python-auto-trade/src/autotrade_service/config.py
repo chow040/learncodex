@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     ccxt_poll_interval_seconds: float = 210.0
     ccxt_poll_jitter_seconds: float = 15.0
     ccxt_trades_limit: int = 200
-    ccxt_ohlcv_limit: int = 150
-    ccxt_timeframe: str = "1m"
+    ccxt_ohlcv_limit: int = 100
+    ccxt_ohlcv_high_limit: int = 20  # Number of high timeframe candles to fetch (~5 days for 6h)
+    ccxt_timeframe: str = "5m"
     ccxt_enable_trades: bool = True
     ccxt_enable_ohlcv: bool = True
     ccxt_timeout_seconds: float = 10.0
@@ -59,9 +60,9 @@ class Settings(BaseSettings):
     tick_compaction_timeframe_seconds: int = 60
     tick_compaction_max_bars: int = 120
     tick_compaction_max_ticks: int = 7200
-    indicator_timeframe_seconds: int = 180
+    indicator_timeframe_seconds: int = 300
     indicator_volume_ratio_period: int = 20
-    indicator_high_timeframe_seconds: int = 14_400
+    indicator_high_timeframe_seconds: int = 21_600
     indicator_high_volume_ratio_period: int = 6
     indicator_high_macd_series_points: int = 5
 

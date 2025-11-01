@@ -46,6 +46,9 @@ class SimulatedBroker:
         self,
         decisions: List[DecisionPayload],
         market_snapshots: Dict[str, float],
+        *,
+        system_prompt: str = "",
+        user_payload: str = "",
     ) -> List[str]:
         """
         Execute a batch of trading decisions.
@@ -72,6 +75,11 @@ class SimulatedBroker:
                 continue
             
             current_price = market_snapshots[symbol]
+            if current_price is None or current_price <= 0:
+                msg = f"Invalid market price ({current_price}) for {symbol}; skipping decision"
+                logger.warning(msg)
+                messages.append(msg)
+                continue
             
             # Log all LLM evaluations (including HOLD) to evaluation_log
             self.portfolio.evaluation_log.append(
@@ -85,6 +93,8 @@ class SimulatedBroker:
                     price=current_price,
                     executed=False,  # Will be set to True if trade is executed
                     chain_of_thought=decision.chain_of_thought or "",  # Full LLM reasoning
+                    system_prompt=system_prompt,
+                    user_payload=user_payload,
                 )
             )
             
@@ -153,8 +163,16 @@ class SimulatedBroker:
         if position_value > max_position_value:
             position_value = max_position_value
         
+        if fill_price <= 0:
+            raise ValueError(f"Invalid fill price ({fill_price}) for BUY {symbol}")
+        
         quantity = position_value / fill_price
         cost = quantity * fill_price
+        if quantity <= 0 or cost <= 0:
+            return (
+                f"Computed non-positive trade size for BUY {symbol} "
+                f"(quantity={quantity}, cost={cost}); skipping execution"
+            )
         
         # Check if we have enough cash
         if cost > self.portfolio.current_cash:

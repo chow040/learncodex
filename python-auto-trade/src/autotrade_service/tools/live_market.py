@@ -15,6 +15,54 @@ from .cache import ToolCache
 ExchangeFactory = Callable[[str, CCXTMarketConfig], ccxt.Exchange | Awaitable[ccxt.Exchange]]
 
 
+def seconds_to_ccxt_timeframe(seconds: int) -> str:
+    """
+    Convert seconds to CCXT timeframe string format.
+    
+    Args:
+        seconds: Number of seconds in the timeframe
+        
+    Returns:
+        CCXT-compatible timeframe string (e.g., "1m", "5m", "1h", "4h", "1d")
+        
+    Raises:
+        ValueError: If seconds cannot be converted to a standard CCXT timeframe
+    """
+    # Standard CCXT timeframes in order of preference
+    conversions = [
+        (604800, "1w"),   # 7 days
+        (86400, "1d"),    # 1 day
+        (43200, "12h"),   # 12 hours
+        (21600, "6h"),    # 6 hours
+        (14400, "4h"),    # 4 hours
+        (7200, "2h"),     # 2 hours
+        (3600, "1h"),     # 1 hour
+        (1800, "30m"),    # 30 minutes
+        (900, "15m"),     # 15 minutes
+        (300, "5m"),      # 5 minutes
+        (180, "3m"),      # 3 minutes
+        (60, "1m"),       # 1 minute
+    ]
+    
+    for sec, timeframe in conversions:
+        if seconds == sec:
+            return timeframe
+    
+    # If exact match not found, try to find a suitable divisor
+    if seconds >= 3600 and seconds % 3600 == 0:
+        hours = seconds // 3600
+        return f"{hours}h"
+    elif seconds >= 60 and seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes}m"
+    
+    raise ValueError(
+        f"Cannot convert {seconds} seconds to a standard CCXT timeframe. "
+        f"Supported values: 60 (1m), 180 (3m), 300 (5m), 900 (15m), 1800 (30m), "
+        f"3600 (1h), 7200 (2h), 14400 (4h), 21600 (6h), 43200 (12h), 86400 (1d), 604800 (1w)"
+    )
+
+
 @dataclass(slots=True)
 class OhlcCandle:
     timestamp: datetime
@@ -53,19 +101,50 @@ class LiveMarketDataTool:
         exchange_factory: ExchangeFactory | None = None,
         intraday_timeframe: str | None = None,
         intraday_limit: int | None = None,
-        high_timeframe: str = "1h",
-        high_limit: int = 240,
+        high_timeframe: str | None = None,
+        high_limit: int | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         config_symbols = self._settings.symbols or ["BTC-USD"]
         self._ccxt_config = CCXTMarketConfig.from_settings(self._settings, config_symbols)
         self._cache = cache
         self._custom_exchange_factory = exchange_factory
+        
+        # Intraday timeframe: use provided value, or config, or default to 1m
         self._intraday_timeframe = intraday_timeframe or self._settings.ccxt_timeframe or "1m"
         default_limit = self._settings.ccxt_ohlcv_limit or 200
-        self._intraday_limit = intraday_limit or max(default_limit, 200)
-        self._high_timeframe = high_timeframe
-        self._high_limit = high_limit
+        # Ensure we have at least enough bars for indicator calculations without forcing large history
+        self._intraday_limit = intraday_limit or max(default_limit, 50)
+        
+        # High timeframe: derive from config's indicator_high_timeframe_seconds if not explicitly provided
+        if high_timeframe is not None:
+            self._high_timeframe = high_timeframe
+        else:
+            try:
+                self._high_timeframe = seconds_to_ccxt_timeframe(self._settings.indicator_high_timeframe_seconds)
+            except ValueError as e:
+                self._logger = logging.getLogger("autotrade.tools.live_market")
+                self._logger.warning(
+                    "Could not convert indicator_high_timeframe_seconds=%d to CCXT timeframe: %s. "
+                    "Falling back to '4h'.",
+                    self._settings.indicator_high_timeframe_seconds,
+                    e,
+                )
+                self._high_timeframe = "4h"
+        
+        # High limit: calculate based on timeframe to maintain consistent time coverage
+        if high_limit is not None:
+            self._high_limit = high_limit
+        else:
+            # Use config setting, or calculate based on timeframe for ~5 days of data
+            if hasattr(self._settings, 'ccxt_ohlcv_high_limit'):
+                self._high_limit = self._settings.ccxt_ohlcv_high_limit
+            else:
+                # Fallback calculation: 5 days = 120 hours
+                timeframe_hours = self._settings.indicator_high_timeframe_seconds / 3600
+                target_hours = 120  # 5 days
+                self._high_limit = max(30, int(target_hours / timeframe_hours))
+        
         self._logger = logging.getLogger("autotrade.tools.live_market")
 
     async def fetch(self, symbols: Sequence[str]) -> Dict[str, LiveMarketData]:

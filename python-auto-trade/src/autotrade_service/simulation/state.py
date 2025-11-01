@@ -97,6 +97,8 @@ class EvaluationLogEntry:
     price: float  # Current market price at evaluation time
     executed: bool = False  # Whether this evaluation resulted in a trade
     chain_of_thought: str = ""  # Full LLM reasoning/thinking process
+    system_prompt: str = ""
+    user_payload: str = ""
     
     def to_dict(self) -> dict:
         """Serialize evaluation log entry to dictionary."""
@@ -110,6 +112,8 @@ class EvaluationLogEntry:
             "price": self.price,
             "executed": self.executed,
             "chain_of_thought": self.chain_of_thought,
+            "system_prompt": self.system_prompt,
+            "user_payload": self.user_payload,
         }
     
     @classmethod
@@ -125,6 +129,8 @@ class EvaluationLogEntry:
             price=data.get("price", 0.0),
             executed=data.get("executed", False),
             chain_of_thought=data.get("chain_of_thought", ""),
+            system_prompt=data.get("system_prompt", ""),
+            user_payload=data.get("user_payload", ""),
         )
 
 

@@ -35,7 +35,9 @@ export const useAutoTradingDecision = (
     queryKey: ["autoTradingDecision", decisionId, baseUrl],
     queryFn: () => fetchDecision(baseUrl, decisionId as string),
     enabled,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     retry: 1,
   })
 }

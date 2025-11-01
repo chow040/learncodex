@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from autotrade_service.config import get_settings
+from autotrade_service.llm.langchain_agent import SYSTEM_PROMPT
 from autotrade_service.pipelines import get_decision_pipeline, shutdown_decision_pipeline
 from autotrade_service.simulation import (
     SimulatedBroker,
@@ -72,7 +73,12 @@ async def run_simulation_cycle(
     decisions = result.response.decisions
     if decisions:
         logger.info(f"Executing {len(decisions)} decisions")
-        messages = broker.execute(decisions, market_snapshots)
+        messages = broker.execute(
+            decisions,
+            market_snapshots,
+            system_prompt=SYSTEM_PROMPT,
+            user_payload=result.prompt,
+        )
         for msg in messages:
             logger.info(f"  {msg}")
     else:
