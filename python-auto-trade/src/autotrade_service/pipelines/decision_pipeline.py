@@ -51,6 +51,8 @@ class DecisionPipeline:
         self._indicator_tool = indicator_tool
         self._logger = logging.getLogger("autotrade.pipeline.decision")
         self._settings = get_settings()
+        self._start_time = datetime.now(timezone.utc)
+        self._invocation_counter = 0
         self._agent_graph = create_langchain_agent(
             client=self._llm_client,
             tool_cache=self._tool_cache,
@@ -80,7 +82,16 @@ class DecisionPipeline:
             return None
 
         run_id = str(uuid4())
-        prompt = self._build_portfolio_prompt(portfolio, symbols)
+        self._invocation_counter += 1
+        minutes_since_start = max(
+            0, int((datetime.now(timezone.utc) - self._start_time).total_seconds() // 60)
+        )
+        prompt = self._build_portfolio_prompt(
+            portfolio,
+            symbols,
+            invocation_count=self._invocation_counter,
+            minutes_since_start=minutes_since_start,
+        )
 
         try:
             async with self._tool_cache.scope(run_id):
@@ -240,37 +251,73 @@ class DecisionPipeline:
         self,
         portfolio: AutoTradePortfolioSnapshot,
         symbols: Sequence[str],
+        *,
+        invocation_count: int,
+        minutes_since_start: int,
     ) -> str:
-        positions_payload = [
-            {
-                "symbol": pos.symbol,
-                "quantity": pos.quantity,
-                "entry_price": pos.entry_price,
-                "current_price": pos.mark_price,
-                "unrealized_pnl": pos.pnl,
-                "leverage": pos.leverage,
-                "profit_target": pos.exit_plan.profit_target,
-                "stop_loss": pos.exit_plan.stop_loss,
-                "invalidation_condition": pos.exit_plan.invalidation,
-                "confidence": pos.confidence,
-            }
-            for pos in portfolio.positions
-        ]
-        account_payload = {
-            "total_equity": portfolio.equity,
-            "available_cash": portfolio.available_cash,
-            "return_pct": portfolio.pnl_pct,
-            "sharpe": portfolio.sharpe,
-            "last_run_at": portfolio.last_run_at,
-            "positions": positions_payload,
-        }
-        prompt = (
-            "PORTFOLIO SNAPSHOT\n"
-            f"{json.dumps(account_payload, indent=2)}\n\n"
-            f"TARGET SYMBOLS: {', '.join(symbols)}\n"
-            "Use the tools to fetch current market data and indicators for each symbol before deciding."
+        symbol_contexts: list[SymbolContext] = []
+        for symbol in symbols:
+            position = next((pos for pos in portfolio.positions if pos.symbol.upper() == symbol.upper()), None)
+            current_price = position.mark_price if position else 0.0
+            symbol_contexts.append(
+                SymbolContext(
+                    symbol=symbol.upper(),
+                    current_price=current_price,
+                    ema20=0.0,
+                    macd=0.0,
+                    rsi7=0.0,
+                    oi_latest=0.0,
+                    oi_avg=0.0,
+                    funding=0.0,
+                    mids=[],
+                    ema20_series=[],
+                    macd_series=[],
+                    rsi7_series=[],
+                    rsi14_series=[],
+                    higher_timeframe=None,
+                )
+            )
+
+        position_contexts: list[PositionContext] = []
+        for pos in portfolio.positions:
+            notional = pos.quantity * pos.mark_price
+            position_contexts.append(
+                PositionContext(
+                    symbol=pos.symbol,
+                    quantity=pos.quantity,
+                    entry_price=pos.entry_price,
+                    current_price=pos.mark_price,
+                    liquidation_price=None,
+                    unrealized_pnl=pos.pnl,
+                    leverage=pos.leverage,
+                    profit_target=pos.exit_plan.profit_target,
+                    stop_loss=pos.exit_plan.stop_loss,
+                    invalidation_condition=pos.exit_plan.invalidation,
+                    confidence=pos.confidence,
+                    risk_usd=0.0,
+                    notional_usd=notional,
+                )
+            )
+
+        account_context = AccountContext(
+            value=portfolio.equity,
+            cash=portfolio.available_cash,
+            return_pct=portfolio.pnl_pct,
+            sharpe=portfolio.sharpe,
+            positions=position_contexts,
+            risk=None,
         )
-        return prompt
+
+        prompt_context = PromptContext(
+            minutes_since_start=minutes_since_start,
+            invocation_count=invocation_count,
+            current_timestamp=datetime.now(timezone.utc),
+            symbols=symbol_contexts,
+            account=account_context,
+        )
+
+        builder = PromptBuilder()
+        return builder.build(prompt_context)
 
 
 _decision_pipeline: DecisionPipeline | None = None

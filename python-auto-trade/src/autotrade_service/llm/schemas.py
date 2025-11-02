@@ -12,6 +12,7 @@ class DecisionAction(str, Enum):
     CLOSE = "CLOSE"
     BUY = "BUY"
     SELL = "SELL"
+    NO_ENTRY = "NO_ENTRY"  # No position and no entry signal
 
 
 class DecisionPayload(BaseModel):
@@ -19,6 +20,7 @@ class DecisionPayload(BaseModel):
     action: DecisionAction
     quantity: Optional[float] = None
     size_pct: Optional[float] = Field(None, ge=0, le=100)
+    leverage: Optional[float] = Field(None, ge=1, le=20)  # Leverage for the position
     confidence: Optional[float] = Field(None, ge=0, le=1)
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None

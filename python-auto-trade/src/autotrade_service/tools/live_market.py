@@ -110,15 +110,17 @@ class LiveMarketDataTool:
         self._cache = cache
         self._custom_exchange_factory = exchange_factory
         
-        # Intraday timeframe: use provided value, or config, or default to 1m
-        self._intraday_timeframe = intraday_timeframe or self._settings.ccxt_timeframe or "1m"
+        # Short-term timeframe: use provided value, or config, or default to 1m
+        self._intraday_timeframe = intraday_timeframe or self._settings.ccxt_short_term_timeframe or "1m"
         default_limit = self._settings.ccxt_ohlcv_limit or 200
         # Ensure we have at least enough bars for indicator calculations without forcing large history
         self._intraday_limit = intraday_limit or max(default_limit, 50)
         
-        # High timeframe: derive from config's indicator_high_timeframe_seconds if not explicitly provided
+        # Long-term timeframe: use provided value, or config ccxt_long_term_timeframe, or fall back to converting from seconds
         if high_timeframe is not None:
             self._high_timeframe = high_timeframe
+        elif hasattr(self._settings, 'ccxt_long_term_timeframe') and self._settings.ccxt_long_term_timeframe:
+            self._high_timeframe = self._settings.ccxt_long_term_timeframe
         else:
             try:
                 self._high_timeframe = seconds_to_ccxt_timeframe(self._settings.indicator_high_timeframe_seconds)
@@ -211,10 +213,10 @@ class LiveMarketDataTool:
                 last_price=last_price,
                 fetched_at=fetched_at,
                 metadata={
-                    "intraday_timeframe": self._intraday_timeframe,
-                    "high_timeframe": self._high_timeframe,
-                    "intraday_limit": self._intraday_limit,
-                    "high_limit": self._high_limit,
+                    "short_term_timeframe": self._intraday_timeframe,
+                    "long_term_timeframe": self._high_timeframe,
+                    "short_term_limit": self._intraday_limit,
+                    "long_term_limit": self._high_limit,
                     "ccxt_symbol": ccxt_symbol,
                 },
             )
@@ -262,8 +264,12 @@ class LiveMarketDataTool:
                 self._ccxt_config.exchange_id,
                 self._ccxt_config,
             )
-
-        await exchange.load_markets()
+        try:
+            await exchange.load_markets()
+        except Exception:
+            # Ensure transport resources are released if load_markets fails
+            await self._close_exchange(exchange)
+            raise
         return exchange
 
     async def _close_exchange(self, exchange: ccxt.Exchange) -> None:

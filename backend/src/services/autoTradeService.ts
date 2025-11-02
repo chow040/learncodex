@@ -114,14 +114,14 @@ const mapDecision = (decision: PythonDecision): AutoTradeDecision => ({
   sizePct: decision.size_pct,
   confidence: decision.confidence,
   rationale: decision.rationale,
-  createdAt: decision.created_at,
+  createdAt: decision.created_at.endsWith('Z') ? decision.created_at : decision.created_at + 'Z',
   prompt: mapDecisionPrompt(decision.prompt),
 })
 
 const mapEvent = (event: PythonEvent): AutoTradeEvent => ({
   id: event.id,
   label: event.label,
-  timestamp: event.timestamp,
+  timestamp: event.timestamp.endsWith('Z') ? event.timestamp : event.timestamp + 'Z',
 })
 
 const mapPortfolio = (portfolio: PythonPortfolio): AutoTradePortfolioSnapshot => ({
@@ -134,7 +134,7 @@ const mapPortfolio = (portfolio: PythonPortfolio): AutoTradePortfolioSnapshot =>
   pnlPct: portfolio.pnl_pct,
   sharpe: portfolio.sharpe,
   drawdownPct: portfolio.drawdown_pct,
-  lastRunAt: portfolio.last_run_at,
+  lastRunAt: portfolio.last_run_at.endsWith('Z') ? portfolio.last_run_at : portfolio.last_run_at + 'Z',
   nextRunInMinutes: portfolio.next_run_in_minutes,
   positions: portfolio.positions.map(mapPosition),
   decisions: portfolio.decisions.map(mapDecision),

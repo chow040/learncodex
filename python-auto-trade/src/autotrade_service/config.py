@@ -44,7 +44,8 @@ class Settings(BaseSettings):
     ccxt_trades_limit: int = 200
     ccxt_ohlcv_limit: int = 100
     ccxt_ohlcv_high_limit: int = 20  # Number of high timeframe candles to fetch (~5 days for 6h)
-    ccxt_timeframe: str = "5m"
+    ccxt_short_term_timeframe: str = "5m"  # Short-term timeframe for OHLCV data
+    ccxt_long_term_timeframe: str = "6h"  # Long-term timeframe for trend context
     ccxt_enable_trades: bool = True
     ccxt_enable_ohlcv: bool = True
     ccxt_timeout_seconds: float = 10.0

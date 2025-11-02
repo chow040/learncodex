@@ -119,6 +119,8 @@ class SimulatedBroker:
                     self._mark_evaluation_executed(symbol, timestamp)
                 elif action == DecisionAction.HOLD:
                     msg = self._execute_hold(decision, current_price)
+                elif action == DecisionAction.NO_ENTRY:
+                    msg = self._execute_no_entry(decision, current_price)
                 else:
                     msg = f"Unknown action {action} for {symbol}"
                     logger.warning(msg)
@@ -148,17 +150,22 @@ class SimulatedBroker:
     ) -> str:
         """Execute a BUY decision."""
         symbol = decision.symbol
+        leverage = decision.leverage or 1.0  # Default to 1x if not specified
         
         # Calculate position size
         if decision.size_pct is not None:
-            position_value = self.portfolio.equity * (decision.size_pct / 100.0)
+            # size_pct is the percentage of equity to use as MARGIN
+            # With leverage, notional = margin * leverage
+            margin = self.portfolio.equity * (decision.size_pct / 100.0)
+            position_value = margin * leverage
         elif decision.quantity is not None:
             position_value = decision.quantity * fill_price
         else:
-            # Default to 10% of equity
-            position_value = self.portfolio.equity * 0.10
+            # Default to 10% of equity as margin with given leverage
+            margin = self.portfolio.equity * 0.10
+            position_value = margin * leverage
         
-        # Apply position size limit
+        # Apply position size limit (notional value limit)
         max_position_value = self.portfolio.equity * (self.position_size_limit_pct / 100.0)
         if position_value > max_position_value:
             position_value = max_position_value
@@ -167,18 +174,21 @@ class SimulatedBroker:
             raise ValueError(f"Invalid fill price ({fill_price}) for BUY {symbol}")
         
         quantity = position_value / fill_price
-        cost = quantity * fill_price
+        
+        # Calculate margin/cost required (notional / leverage)
+        cost = position_value / leverage
+        
         if quantity <= 0 or cost <= 0:
             return (
                 f"Computed non-positive trade size for BUY {symbol} "
-                f"(quantity={quantity}, cost={cost}); skipping execution"
+                f"(quantity={quantity}, cost={cost}, leverage={leverage}x); skipping execution"
             )
         
-        # Check if we have enough cash
+        # Check if we have enough cash (only need margin, not full notional)
         if cost > self.portfolio.current_cash:
-            return f"Insufficient cash for BUY {symbol}: need ${cost:.2f}, have ${self.portfolio.current_cash:.2f}"
+            return f"Insufficient cash for BUY {symbol}: need ${cost:.2f} margin, have ${self.portfolio.current_cash:.2f}"
         
-        # Deduct cash
+        # Deduct margin from cash
         self.portfolio.current_cash -= cost
         
         # Create or update position
@@ -209,7 +219,7 @@ class SimulatedBroker:
                 entry_timestamp=timestamp,
                 current_price=fill_price,
                 confidence=decision.confidence or 0.0,
-                leverage=1.0,
+                leverage=leverage,  # Use leverage from decision
                 exit_plan=exit_plan,
             )
             action_desc = "opened"
@@ -227,9 +237,11 @@ class SimulatedBroker:
             )
         )
         
+        notional = quantity * fill_price
         return (
             f"BUY {action_desc} {symbol}: {quantity:.4f} @ ${fill_price:.2f} "
-            f"(cost: ${cost:.2f}, cash remaining: ${self.portfolio.current_cash:.2f})"
+            f"({leverage:.1f}x leverage, notional: ${notional:.2f}, margin used: ${cost:.2f}, "
+            f"cash remaining: ${self.portfolio.current_cash:.2f})"
         )
     
     def _execute_sell(
@@ -258,11 +270,20 @@ class SimulatedBroker:
             return f"CLOSE ignored for {symbol}: no position to close"
         
         position = self.portfolio.positions.pop(symbol)
-        proceeds = position.quantity * fill_price
+        
+        # Calculate notional value at close
+        notional = position.quantity * fill_price
+        
+        # Calculate realized PnL (from entry to close)
         realized_pnl = position.quantity * (fill_price - position.entry_price)
         
-        # Add proceeds to cash
-        self.portfolio.current_cash += proceeds
+        # Return margin to cash (notional / leverage)
+        # The margin we initially put in was: entry_notional / leverage
+        # Now we return: close_notional / leverage + PnL
+        margin_returned = notional / position.leverage
+        
+        # Add margin + PnL back to cash
+        self.portfolio.current_cash += margin_returned
         
         # Log trade
         self.portfolio.trade_log.append(
@@ -279,8 +300,8 @@ class SimulatedBroker:
         
         return (
             f"CLOSE {symbol}: {position.quantity:.4f} @ ${fill_price:.2f} "
-            f"(proceeds: ${proceeds:.2f}, realized PnL: ${realized_pnl:.2f}, "
-            f"cash: ${self.portfolio.current_cash:.2f})"
+            f"({position.leverage:.1f}x leverage, margin returned: ${margin_returned:.2f}, "
+            f"realized PnL: ${realized_pnl:.2f}, cash: ${self.portfolio.current_cash:.2f})"
         )
     
     def _execute_hold(self, decision: DecisionPayload, current_price: float) -> str:
@@ -303,6 +324,28 @@ class SimulatedBroker:
         return (
             f"HOLD {symbol}: price ${current_price:.2f}, "
             f"unrealized PnL: ${position.unrealized_pnl:.2f} ({position.unrealized_pnl_pct:.2f}%)"
+        )
+    
+    def _execute_no_entry(self, decision: DecisionPayload, current_price: float) -> str:
+        """
+        Log a NO_ENTRY decision when signal is too weak or conditions not met.
+        
+        This is different from HOLD:
+        - NO_ENTRY: No position exists and entry conditions not met
+        - HOLD: Position exists and we're keeping it
+        """
+        symbol = decision.symbol
+        
+        # Verify no position exists
+        if symbol in self.portfolio.positions:
+            logger.warning(
+                f"NO_ENTRY decision for {symbol} but position exists. "
+                f"Use HOLD to maintain position or CLOSE to exit."
+            )
+        
+        return (
+            f"NO_ENTRY {symbol}: price ${current_price:.2f}, "
+            f"signal too weak (confidence={decision.confidence or 0:.2f}, reason: {decision.rationale or 'N/A'})"
         )
     
     def _build_exit_plan(self, decision: DecisionPayload, current_price: float) -> ExitPlan:

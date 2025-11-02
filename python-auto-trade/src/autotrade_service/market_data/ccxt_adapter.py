@@ -105,7 +105,7 @@ class CCXTMarketConfig:
             poll_jitter_seconds=settings.ccxt_poll_jitter_seconds,
             trades_limit=settings.ccxt_trades_limit,
             ohlcv_limit=settings.ccxt_ohlcv_limit,
-            timeframe=settings.ccxt_timeframe,
+            timeframe=settings.ccxt_short_term_timeframe,
             enable_trades=settings.ccxt_enable_trades,
             enable_ohlcv=settings.ccxt_enable_ohlcv,
             timeout_seconds=settings.ccxt_timeout_seconds,

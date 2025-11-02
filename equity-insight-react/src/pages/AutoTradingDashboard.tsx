@@ -252,7 +252,7 @@ const AutoTradingDashboard = () => {
                       <div key={event.id} className="rounded-md border border-border/50 bg-background/80 p-3">
                         <p className="font-medium text-foreground">{event.label}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(event.timestamp).toLocaleString()}
+                          {new Date(event.timestamp).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}
                         </p>
                       </div>
                     ))}
@@ -392,7 +392,7 @@ const AutoTradingDashboard = () => {
                             </Badge>
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(decision.createdAt).toLocaleString()}
+                            {new Date(decision.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}
                           </span>
                         </div>
                         <Separator className="my-3" />

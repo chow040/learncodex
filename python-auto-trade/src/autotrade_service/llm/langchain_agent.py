@@ -27,10 +27,17 @@ SYSTEM_PROMPT = (
     "market data and technical indicators for each symbol before making any decisions. "
     "ALWAYS call `live_market_data` and `indicator_calculator` for every symbol you evaluate. "
     "After you finish reasoning, respond with ONLY a JSON array of decisions matching the schema:\n"
-    '  [{"symbol": "BTC-USD", "action": "HOLD|CLOSE|BUY|SELL", "quantity": 0.0, '
-    '"size_pct": 0.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
+    '  [{"symbol": "BTC-USD", "action": "HOLD|CLOSE|BUY|SELL|NO_ENTRY", "quantity": 0.0, '
+    '"size_pct": 0.0, "leverage": 1.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
     '"max_slippage_bps": 25, "invalidation_condition": "string", "rationale": "string"}]\n'
     "IMPORTANT: confidence must be a decimal between 0.0 and 1.0 (e.g., 0.65 for 65% confidence, NOT 65.0)\n"
+    "IMPORTANT: leverage should be between 1.0 and 10.0 based on confidence (higher confidence = higher leverage)\n"
+    "IMPORTANT: You MUST return a decision for EVERY symbol in the portfolio (both from AUTOTRADE_SYMBOLS config).\n"
+    "  - Use 'BUY' when opening a new position (no existing position + strong signal)\n"
+    "  - Use 'SELL' when opening a short position (if supported)\n"
+    "  - Use 'HOLD' when maintaining an existing position\n"
+    "  - Use 'CLOSE' when closing an existing position\n"
+    "  - Use 'NO_ENTRY' when no position exists AND entry conditions are not met (weak signal, insufficient confidence, etc.)\n"
     "Always include the latest invalidation_condition for every symbol (for HOLD actions, reuse it from the input data).\n"
     "Do not include any extra keys. If a field is not applicable, omit it."
 )
@@ -70,6 +77,10 @@ def create_langchain_agent(
                 "symbol": payload.symbol,
                 "last_price": payload.last_price,
                 "fetched_at": payload.fetched_at.isoformat(),
+                "short_term_timeframe": payload.metadata.get("short_term_timeframe"),
+                "long_term_timeframe": payload.metadata.get("long_term_timeframe"),
+                "short_term_candle_count": payload.metadata.get("short_term_limit"),
+                "long_term_candle_count": payload.metadata.get("long_term_limit"),
                 "intraday_candles": [
                     {
                         "timestamp": candle.timestamp.isoformat(),

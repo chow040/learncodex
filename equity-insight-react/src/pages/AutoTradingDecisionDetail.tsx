@@ -24,7 +24,7 @@ const actionBadgeClasses = (action: string) => {
   }
 }
 
-const formatDate = (iso: string) => new Date(iso).toLocaleString()
+const formatDate = (iso: string) => new Date(iso).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })
 
 const AutoTradingDecisionDetail = () => {
   const { decisionId = "" } = useParams<{ decisionId: string }>()
@@ -182,8 +182,10 @@ const AutoTradingDecisionDetail = () => {
                 <CardDescription>Fixed instructions given to DeepSeek</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-72 rounded-md border border-border/50 bg-background/70 p-4 text-sm text-muted-foreground">
-                  <pre className="whitespace-pre-wrap font-mono text-xs">{prompt.systemPrompt}</pre>
+                <ScrollArea className="h-[32rem] rounded-md border border-border/50 bg-background/70">
+                  <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs text-muted-foreground">
+                    {prompt.systemPrompt}
+                  </pre>
                 </ScrollArea>
               </CardContent>
             </Card>
@@ -194,8 +196,10 @@ const AutoTradingDecisionDetail = () => {
                 <CardDescription>Structured telemetry sent alongside the prompt</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-72 rounded-md border border-border/50 bg-background/70 p-4 text-sm text-muted-foreground">
-                  <pre className="whitespace-pre-wrap font-mono text-xs">{prompt.userPayload}</pre>
+                <ScrollArea className="h-[32rem] rounded-md border border-border/50 bg-background/70">
+                  <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs text-muted-foreground">
+                    {prompt.userPayload}
+                  </pre>
                 </ScrollArea>
               </CardContent>
             </Card>
@@ -208,8 +212,10 @@ const AutoTradingDecisionDetail = () => {
                 <CardDescription>Reasoning captured for audit replay</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-72 rounded-md border border-border/50 bg-background/70 p-4 text-sm text-muted-foreground">
-                  <pre className="whitespace-pre-wrap font-mono text-xs">{prompt.chainOfThought}</pre>
+                <ScrollArea className="h-[32rem] rounded-md border border-border/50 bg-background/70">
+                  <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs text-muted-foreground">
+                    {prompt.chainOfThought}
+                  </pre>
                 </ScrollArea>
               </CardContent>
             </Card>

@@ -35,9 +35,10 @@ export const useAutoTradingDecision = (
     queryKey: ["autoTradingDecision", decisionId, baseUrl],
     queryFn: () => fetchDecision(baseUrl, decisionId as string),
     enabled,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 0, // Always consider data stale to allow refetching
+    refetchInterval: 5_000, // Poll every 5 seconds for real-time updates
     refetchOnWindowFocus: true,
+    refetchIntervalInBackground: true, // Continue polling even when tab is not focused
     retry: 1,
   })
 }
