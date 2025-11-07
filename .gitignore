@@ -59,3 +59,7 @@ backend/chartlogs/chart_debate_2025-10-08T16-54-30-109Z_Unknown_hqwjod.json
 backend/chartlogs/chart_debate_2025-10-08T16-56-29-677Z_Unknown_i2m4gl.json
 backend/.env
 trading-agents-studio/
+
+# Auto-trade logs
+python-auto-trade/logs/*.log
+python-auto-trade/logs/*.json
