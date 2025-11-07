@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -13,6 +14,22 @@ from ..redis_client import get_redis
 from ..tools import IndicatorCalculatorTool, IndicatorComputationResult, LiveMarketDataTool, ToolCache
 
 router = APIRouter()
+
+
+def _to_camel_case(snake_str: str) -> str:
+    """Convert snake_case to camelCase."""
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+
+def _convert_keys_to_camel(data: Any) -> Any:
+    """Recursively convert dict keys from snake_case to camelCase."""
+    if isinstance(data, dict):
+        return {_to_camel_case(k): _convert_keys_to_camel(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_convert_keys_to_camel(item) for item in data]
+    else:
+        return data
 
 
 def _parse_indicator_hash(raw: dict[str, str]) -> dict[str, object]:
@@ -142,16 +159,17 @@ async def get_portfolio(settings: Settings = Depends(get_settings)) -> dict:
     snapshot = await fetch_latest_portfolio()
     if snapshot is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Portfolio data unavailable")
-    payload = asdict(snapshot)
+    payload = _convert_keys_to_camel(asdict(snapshot))
     payload["service"] = settings.service_name
-    payload["generated_at"] = datetime.now(timezone.utc).isoformat()
+    payload["generatedAt"] = datetime.now(timezone.utc).isoformat()
     return {"portfolio": payload}
 
 
 @router.get("/decisions", summary="List auto-trading decisions")
 async def list_decisions(symbol: str | None = None) -> dict:
     decisions = await fetch_decisions(symbol)
-    return {"items": [asdict(decision) for decision in decisions], "next_cursor": None}
+    items = [_convert_keys_to_camel(asdict(decision)) for decision in decisions]
+    return {"items": items, "next_cursor": None}
 
 
 @router.get("/decisions/{decision_id}", summary="Retrieve decision by id")
@@ -159,7 +177,7 @@ async def get_decision(decision_id: str) -> dict:
     decision = await fetch_decision_by_id(decision_id)
     if decision is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Decision not found")
-    return {"decision": asdict(decision)}
+    return {"decision": _convert_keys_to_camel(asdict(decision))}
 
 
 @router.get("/market/indicators/{symbol}", summary="Latest technical indicators for symbol")

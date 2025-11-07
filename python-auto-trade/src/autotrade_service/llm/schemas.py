@@ -54,3 +54,4 @@ class DecisionRequest(BaseModel):
 class DecisionResult(BaseModel):
     decisions: List[DecisionPayload]
     raw_json: str
+    tool_payload_json: Optional[str] = None  # JSON array of tool invocations

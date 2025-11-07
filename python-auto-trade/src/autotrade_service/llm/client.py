@@ -114,7 +114,8 @@ class AsyncDeepSeekClient:
                     )
                 data = response.json()
                 content = self._extract_content(data)
-                parsed = self._parse_json(content)
+                # Only parse JSON if response_format was specified
+                parsed = self._parse_json(content) if response_format else None
                 return DeepSeekResponse(
                     prompt=prompt,
                     system_prompt=system_prompt,

@@ -112,7 +112,7 @@ class LiveMarketDataTool:
         
         # Short-term timeframe: use provided value, or config, or default to 1m
         self._intraday_timeframe = intraday_timeframe or self._settings.ccxt_short_term_timeframe or "1m"
-        default_limit = self._settings.ccxt_ohlcv_limit or 200
+        default_limit = self._settings.ccxt_ohlcv_short_term_candles_no or 200
         # Ensure we have at least enough bars for indicator calculations without forcing large history
         self._intraday_limit = intraday_limit or max(default_limit, 50)
         
@@ -139,8 +139,8 @@ class LiveMarketDataTool:
             self._high_limit = high_limit
         else:
             # Use config setting, or calculate based on timeframe for ~5 days of data
-            if hasattr(self._settings, 'ccxt_ohlcv_high_limit'):
-                self._high_limit = self._settings.ccxt_ohlcv_high_limit
+            if hasattr(self._settings, "ccxt_ohlcv_long_term_candles_no"):
+                self._high_limit = self._settings.ccxt_ohlcv_long_term_candles_no
             else:
                 # Fallback calculation: 5 days = 120 hours
                 timeframe_hours = self._settings.indicator_high_timeframe_seconds / 3600

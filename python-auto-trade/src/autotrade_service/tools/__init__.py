@@ -1,6 +1,7 @@
 from .cache import ToolCache, ToolCacheEntry, ToolCacheSnapshot
 from .live_market import LiveMarketData, LiveMarketDataTool, OhlcCandle
 from .indicator import IndicatorCalculatorTool, IndicatorComputationResult, IndicatorSnapshotBundle
+from .derivatives_data import DerivativesDataTool, DerivativesToolSnapshot
 
 __all__ = [
     "ToolCache",
@@ -12,4 +13,6 @@ __all__ = [
     "IndicatorCalculatorTool",
     "IndicatorComputationResult",
     "IndicatorSnapshotBundle",
+    "DerivativesDataTool",
+    "DerivativesToolSnapshot",
 ]

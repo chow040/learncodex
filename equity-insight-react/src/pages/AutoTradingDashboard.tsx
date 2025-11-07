@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, PauseCircle, PlayCircle, RefreshCw } from "lucide-react"
+import { ArrowLeft, PauseCircle, PlayCircle, RefreshCw, ChevronDown } from "lucide-react"
 import { formatDistanceToNowStrict } from "date-fns"
 
 import { Container } from "../components/ui/container"
@@ -11,16 +11,42 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Switch } from "../components/ui/switch"
 import { Separator } from "../components/ui/separator"
 import { ScrollArea } from "../components/ui/scroll-area"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible"
 import { cn } from "../lib/utils"
 import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 import { useAutoTradingPortfolio } from "../hooks/useAutoTradingPortfolio"
 import { useAutoTradingScheduler } from "../hooks/useAutoTradingScheduler"
+import { usePortfolioHistory } from "../hooks/usePortfolioHistory"
 import { SimulationBanner } from "../components/trading/SimulationBanner"
-import type { AutoTradePortfolioSnapshot } from "../types/autotrade"
+import { PortfolioValueChart } from "../components/trading/PortfolioValueChart"
+import type { AutoTradePortfolioSnapshot, AutoTradeAction } from "../types/autotrade"
+
+const actionBadgeClasses = (action: AutoTradeAction | string) => {
+  switch (action) {
+    case "buy":
+      return "bg-emerald-500/20 text-emerald-200"
+    case "sell":
+      return "bg-rose-500/20 text-rose-200"
+    case "close":
+      return "bg-sky-500/20 text-sky-200"
+    case "no_entry":
+      return "bg-amber-500/20 text-amber-200"
+    default:
+      return "bg-slate-500/20 text-slate-200"
+  }
+}
 
 const AutoTradingDashboard = () => {
   const { data, isLoading, isError } = useAutoTradingPortfolio()
   const portfolio: AutoTradePortfolioSnapshot = data ?? mockAutoTradingPortfolio
+  
+  // Portfolio history hook - currently disabled until backend API is ready
+  // When enabled, pass the data to PortfolioValueChart component
+  const { data: historyData } = usePortfolioHistory({
+    portfolioId: portfolio.portfolioId,
+    enabled: false, // Enable this when backend endpoint is ready
+  })
+  
   const {
     scheduler,
     isLoading: isSchedulerLoading,
@@ -79,13 +105,54 @@ const AutoTradingDashboard = () => {
     [portfolio.positions],
   )
 
-  const sortedDecisions = useMemo(
-    () =>
-      [...portfolio.decisions].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      ),
-    [portfolio.decisions],
+  const totalUnrealizedPnl = useMemo(
+    () => portfolio.positions.reduce((acc, position) => acc + position.pnl, 0),
+    [portfolio.positions],
   )
+
+  const totalRealizedPnl = useMemo(
+    () => portfolio.closedPositions.reduce((acc, position) => acc + position.realizedPnl, 0),
+    [portfolio.closedPositions],
+  )
+
+  const [isClosedPositionsOpen, setIsClosedPositionsOpen] = useState(false)
+
+  const groupedDecisions = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        id: string
+        createdAt: string
+        decisions: typeof portfolio.decisions
+      }
+    >()
+
+    for (const decision of portfolio.decisions) {
+      const key =
+        decision.prompt?.userPayload ||
+        decision.prompt?.chainOfThought ||
+        decision.createdAt ||
+        decision.id
+      const existing = groups.get(key)
+      if (existing) {
+        existing.decisions.push(decision)
+        if (new Date(decision.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+          existing.createdAt = decision.createdAt
+          existing.id = decision.id
+        }
+      } else {
+        groups.set(key, {
+          id: decision.id,
+          createdAt: decision.createdAt,
+          decisions: [decision],
+        })
+      }
+    }
+
+    return Array.from(groups.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  }, [portfolio.decisions])
 
   return (
     <div className="min-h-screen bg-background">
@@ -149,6 +216,13 @@ const AutoTradingDashboard = () => {
               Live data unavailable. Displaying last known mock snapshot.
             </div>
           ) : null}
+          
+          <PortfolioValueChart 
+            data={historyData}
+            currentEquity={portfolio.equity}
+            initialEquity={20000}
+          />
+          
           <section className="grid gap-6 md:grid-cols-3">
             <Card className="border-border/60">
               <CardHeader>
@@ -272,9 +346,20 @@ const AutoTradingDashboard = () => {
                   <CardTitle>Open Positions</CardTitle>
                   <CardDescription>Live mark-to-market overview for each asset</CardDescription>
                 </div>
-                <Badge variant="secondary" className="uppercase tracking-widest">
-                  {portfolio.positions.length} assets
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="uppercase tracking-widest">
+                    {portfolio.positions.length} assets
+                  </Badge>
+                  <Badge
+                    className={cn(
+                      "uppercase tracking-widest",
+                      totalUnrealizedPnl >= 0 ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200",
+                    )}
+                  >
+                    {totalUnrealizedPnl >= 0 ? "+" : ""}$
+                    {totalUnrealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <Table>
@@ -307,7 +392,7 @@ const AutoTradingDashboard = () => {
                             position.pnl >= 0 ? "text-emerald-400" : "text-rose-400",
                           )}
                         >
-                          {position.pnl >= 0 ? "+" : "-"}${Math.abs(position.pnl).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          {position.pnl >= 0 ? "+" : ""}${position.pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell
                           className={cn(
@@ -315,8 +400,8 @@ const AutoTradingDashboard = () => {
                             position.pnlPct >= 0 ? "text-emerald-400" : "text-rose-400",
                           )}
                         >
-                          {position.pnlPct >= 0 ? "+" : "-"}
-                          {Math.abs(position.pnlPct).toFixed(2)}%
+                          {position.pnlPct >= 0 ? "+" : ""}
+                          {position.pnlPct.toFixed(2)}%
                         </TableCell>
                         <TableCell className="text-right">{position.leverage}×</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -360,6 +445,107 @@ const AutoTradingDashboard = () => {
           </section>
 
           <section className="grid gap-6 lg:grid-cols-3">
+            <Card className="border-border/60 lg:col-span-3">
+              <Collapsible open={isClosedPositionsOpen} onOpenChange={setIsClosedPositionsOpen}>
+                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <CollapsibleTrigger className="flex flex-1 items-center gap-3 text-left group">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        Closed Positions
+                        <ChevronDown className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          isClosedPositionsOpen && "rotate-180"
+                        )} />
+                      </CardTitle>
+                      <CardDescription>Realized trades from recent exits · Last 30 days</CardDescription>
+                    </div>
+                  </CollapsibleTrigger>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="uppercase tracking-widest">
+                      {portfolio.closedPositions.length} closed
+                    </Badge>
+                    <Badge
+                      className={cn(
+                        "uppercase tracking-widest",
+                        totalRealizedPnl >= 0 ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200",
+                      )}
+                    >
+                      {totalRealizedPnl >= 0 ? "+" : ""}$
+                      {totalRealizedPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent>
+                    {portfolio.closedPositions.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-border/60 bg-background/60 p-6 text-sm text-muted-foreground">
+                        No closed trades yet. Realized PnL will appear here once exits are triggered.
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-72 pr-6">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="text-xs uppercase tracking-[0.25em]">
+                              <TableHead className="w-[90px]">Symbol</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
+                              <TableHead className="text-right">Entry</TableHead>
+                              <TableHead className="text-right">Exit</TableHead>
+                              <TableHead className="text-right">PnL</TableHead>
+                              <TableHead className="text-right">PnL %</TableHead>
+                              <TableHead className="text-right">Closed</TableHead>
+                              <TableHead>Reason</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {portfolio.closedPositions.map((position) => (
+                              <TableRow key={`${position.symbol}-${position.exitTimestamp}`}>
+                                <TableCell className="font-medium">{position.symbol}</TableCell>
+                                <TableCell className="text-right">
+                                  {position.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  ${position.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  ${position.exitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                </TableCell>
+                                <TableCell
+                                  className={cn(
+                                    "text-right font-medium",
+                                    position.realizedPnl >= 0 ? "text-emerald-400" : "text-rose-400",
+                                  )}
+                                >
+                                  {position.realizedPnl >= 0 ? "+" : ""}$
+                                  {position.realizedPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                </TableCell>
+                                <TableCell
+                                  className={cn(
+                                    "text-right font-medium",
+                                    position.realizedPnlPct >= 0 ? "text-emerald-400" : "text-rose-400",
+                                  )}
+                                >
+                                  {position.realizedPnlPct >= 0 ? "+" : ""}
+                                  {position.realizedPnlPct.toFixed(2)}%
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {new Date(position.exitTimestamp).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
+                                </TableCell>
+                                <TableCell className="max-w-[260px] text-xs text-muted-foreground">
+                                  {position.reason ? position.reason : "—"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-3">
             <Card className="border-border/60 lg:col-span-2">
               <CardHeader>
                 <CardTitle>Decision Log</CardTitle>
@@ -368,42 +554,48 @@ const AutoTradingDashboard = () => {
               <CardContent className="space-y-4">
                 <ScrollArea className="h-72 pr-6">
                   <div className="space-y-3">
-                    {sortedDecisions.map((decision) => (
+                    {groupedDecisions.map((group) => (
                       <div
-                        key={decision.id}
+                        key={group.id}
                         className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className="uppercase tracking-widest">
-                              {decision.symbol}
+                              {group.decisions.map((d) => d.symbol).join(" · ")}
                             </Badge>
-                            <Badge
-                              className={cn(
-                                "uppercase tracking-wider",
-                                decision.action === "hold"
-                                  ? "bg-slate-500/20 text-slate-200"
-                                  : decision.action === "buy"
-                                    ? "bg-emerald-500/20 text-emerald-200"
-                                    : "bg-rose-500/20 text-rose-200",
-                              )}
-                            >
-                              {decision.action}
-                            </Badge>
+                            <span className="text-xs uppercase text-muted-foreground">
+                              {group.decisions.length} {group.decisions.length === 1 ? "asset" : "assets"}
+                            </span>
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(decision.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}
+                            {new Date(group.createdAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
                           </span>
                         </div>
                         <Separator className="my-3" />
-                        <p className="text-sm leading-6 text-muted-foreground">{decision.rationale}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span>Size {decision.sizePct}%</span>
-                          <span>Confidence {(decision.confidence * 100).toFixed(0)}%</span>
+                        <div className="space-y-3">
+                          {group.decisions.map((decision) => (
+                            <div key={decision.id} className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="uppercase tracking-wider">
+                                  {decision.symbol}
+                                </Badge>
+                                <Badge className={cn("uppercase tracking-wider", actionBadgeClasses(decision.action))}>
+                                  {decision.action.replace(/_/g, " ").toUpperCase()}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  Size {decision.sizePct}% · Confidence {(decision.confidence * 100).toFixed(0)}%
+                                </span>
+                              </div>
+                              <p className="text-sm leading-6 text-muted-foreground">{decision.rationale}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           <Button
                             variant="link"
                             className="h-auto px-0 text-xs text-primary"
-                            onClick={() => navigate(`/auto-trading/decision/${decision.id}`)}
+                            onClick={() => navigate(`/auto-trading/decision/${group.id}`)}
                           >
                             View prompt &amp; CoT
                           </Button>

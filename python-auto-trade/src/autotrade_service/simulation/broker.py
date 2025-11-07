@@ -5,10 +5,13 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ..llm.schemas import DecisionAction, DecisionPayload
-from .state import EvaluationLogEntry, ExitPlan, SimulatedPortfolio, SimulatedPosition, TradeLogEntry
+from .state import ClosedPosition, EvaluationLogEntry, ExitPlan, SimulatedPortfolio, SimulatedPosition, TradeLogEntry
+
+if TYPE_CHECKING:
+    from ..feedback.outcome_tracker import TradeOutcomeTracker
 
 logger = logging.getLogger("autotrade.simulation.broker")
 
@@ -29,6 +32,7 @@ class SimulatedBroker:
         portfolio: SimulatedPortfolio,
         max_slippage_bps: int = 5,
         position_size_limit_pct: float = 50.0,
+        outcome_tracker: Optional["TradeOutcomeTracker"] = None,
     ):
         """
         Initialize simulated broker.
@@ -37,10 +41,13 @@ class SimulatedBroker:
             portfolio: SimulatedPortfolio instance to manage
             max_slippage_bps: Maximum allowed slippage in basis points
             position_size_limit_pct: Maximum position size as % of equity
+            outcome_tracker: Optional TradeOutcomeTracker for feedback loop
         """
         self.portfolio = portfolio
         self.max_slippage_bps = max_slippage_bps
         self.position_size_limit_pct = position_size_limit_pct
+        self.outcome_tracker = outcome_tracker
+        self._pending_exit_event = None  # Stores coroutine for async processing
     
     def execute(
         self,
@@ -49,6 +56,7 @@ class SimulatedBroker:
         *,
         system_prompt: str = "",
         user_payload: str = "",
+        tool_payload_json: str | None = None,
     ) -> List[str]:
         """
         Execute a batch of trading decisions.
@@ -66,6 +74,10 @@ class SimulatedBroker:
         for decision in decisions:
             symbol = decision.symbol
             action = decision.action
+            
+            # Normalize action to enum if it's a string
+            if isinstance(action, str):
+                action = DecisionAction(action.upper())
             
             # Get current price
             if symbol not in market_snapshots:
@@ -92,9 +104,10 @@ class SimulatedBroker:
                     rationale=decision.rationale or "",
                     price=current_price,
                     executed=False,  # Will be set to True if trade is executed
-                    chain_of_thought=decision.chain_of_thought or "",  # Full LLM reasoning
+                    chain_of_thought=getattr(decision, 'chain_of_thought', None) or "",  # Full LLM reasoning
                     system_prompt=system_prompt,
                     user_payload=user_payload,
+                    tool_payload_json=tool_payload_json,  # Tool invocations
                 )
             )
             
@@ -150,7 +163,7 @@ class SimulatedBroker:
     ) -> str:
         """Execute a BUY decision."""
         symbol = decision.symbol
-        leverage = decision.leverage or 1.0  # Default to 1x if not specified
+        leverage = getattr(decision, 'leverage', None) or 1.0  # Default to 1x if not specified
         
         # Calculate position size
         if decision.size_pct is not None:
@@ -223,6 +236,24 @@ class SimulatedBroker:
                 exit_plan=exit_plan,
             )
             action_desc = "opened"
+            
+            # Register position entry with outcome tracker for feedback loop
+            if self.outcome_tracker:
+                try:
+                    # Extract decision metadata
+                    decision_log_id = getattr(decision, 'decision_log_id', None)
+                    
+                    self.outcome_tracker.register_position_entry(
+                        decision_id=decision_log_id,
+                        symbol=symbol,
+                        action="BUY",
+                        entry_price=fill_price,
+                        quantity=quantity,
+                        rationale=decision.rationale or "",
+                        rule_ids=[],  # TODO: Track which rules were applied to this decision
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to register position entry with tracker: {e}")
         
         # Log trade
         self.portfolio.trade_log.append(
@@ -276,6 +307,8 @@ class SimulatedBroker:
         
         # Calculate realized PnL (from entry to close)
         realized_pnl = position.quantity * (fill_price - position.entry_price)
+        entry_notional = abs(position.quantity * position.entry_price)
+        realized_pct = (realized_pnl / entry_notional * 100.0) if entry_notional else 0.0
         
         # Return margin to cash (notional / leverage)
         # The margin we initially put in was: entry_notional / leverage
@@ -297,6 +330,36 @@ class SimulatedBroker:
                 reason=reason or "",
             )
         )
+        self.portfolio.closed_positions.append(
+            ClosedPosition(
+                symbol=symbol,
+                quantity=position.quantity,
+                entry_price=position.entry_price,
+                exit_price=fill_price,
+                entry_timestamp=position.entry_timestamp,
+                exit_timestamp=timestamp,
+                realized_pnl=realized_pnl,
+                realized_pnl_pct=realized_pct,
+                leverage=position.leverage,
+                reason=reason or "",
+            )
+        )
+        
+        # Register position exit with outcome tracker for feedback loop
+        # Note: This returns a coroutine that should be awaited in an async context
+        # The scheduler should await this after the sync execute() completes
+        if self.outcome_tracker:
+            try:
+                # Store the exit event; actual async processing happens in scheduler
+                # We return the coroutine for the scheduler to await
+                self._pending_exit_event = self.outcome_tracker.register_position_exit(
+                    symbol=symbol,
+                    exit_price=fill_price,
+                    exit_action="CLOSE",
+                    exit_reason=reason or "Position closed",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to register position exit with tracker: {e}")
         
         return (
             f"CLOSE {symbol}: {position.quantity:.4f} @ ${fill_price:.2f} "
@@ -459,3 +522,17 @@ class SimulatedBroker:
         except Exception as e:
             logger.warning(f"Error evaluating invalidation condition '{condition}': {e}")
             return False
+
+    async def process_pending_feedback(self):
+        """
+        Process any pending feedback loop events.
+        
+        Should be called after execute() in an async context to trigger
+        the feedback loop for closed positions.
+        """
+        if self._pending_exit_event:
+            try:
+                await self._pending_exit_event
+                self._pending_exit_event = None
+            except Exception as e:
+                logger.error(f"Failed to process feedback loop: {e}", exc_info=True)

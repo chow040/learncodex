@@ -19,6 +19,10 @@ const actionBadgeClasses = (action: string) => {
       return "bg-emerald-500/20 text-emerald-200"
     case "sell":
       return "bg-rose-500/20 text-rose-200"
+    case "close":
+      return "bg-sky-500/20 text-sky-200"
+    case "no_entry":
+      return "bg-amber-500/20 text-amber-200"
     default:
       return "bg-slate-500/20 text-slate-200"
   }
@@ -33,6 +37,19 @@ const AutoTradingDecisionDetail = () => {
   const { data, isLoading, isError } = useAutoTradingDecision(decisionId)
 
   const decision = useMemo(() => data ?? getMockDecisionById(decisionId), [data, decisionId])
+
+  const toolPayloadPretty = useMemo(() => {
+    const raw = decision?.prompt?.toolCalls ?? decision?.prompt?.toolPayload ?? ""
+    if (!raw) {
+      return undefined
+    }
+    try {
+      const parsed = JSON.parse(raw)
+      return JSON.stringify(parsed, null, 2)
+    } catch {
+      return raw
+    }
+  }, [decision])
 
   const handleCopy = async (label: string, value: string) => {
     try {
@@ -102,7 +119,7 @@ const AutoTradingDecisionDetail = () => {
                   <CardTitle className="flex items-center gap-3">
                     <span className="text-sm uppercase tracking-[0.3em] text-muted-foreground/70">Decision</span>
                     <Badge className={cn("uppercase tracking-wider", actionBadgeClasses(decision.action))}>
-                      {decision.action}
+                      {decision.action.replace(/_/g, " ").toUpperCase()}
                     </Badge>
                   </CardTitle>
                   <CardDescription>
@@ -222,25 +239,15 @@ const AutoTradingDecisionDetail = () => {
 
             <Card className="border-border/60">
               <CardHeader>
-                <CardTitle>Next steps</CardTitle>
-                <CardDescription>Mock placeholders for downstream integrations</CardDescription>
+                <CardTitle>Tool calls</CardTitle>
+                <CardDescription>Responses captured from LangChain tool invocations</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="rounded-lg border border-border/60 bg-background/70 p-4">
-                  <p className="font-medium text-foreground">Telemetry</p>
-                  <p className="mt-1">
-                    In production this view links to object storage artefacts (prompt JSON, COT text) and correlates run
-                    IDs with order placement logs.
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border/60 bg-background/70 p-4">
-                  <p className="font-medium text-foreground">Upcoming enhancements</p>
-                  <ul className="mt-1 space-y-1">
-                    <li>• Show parsed JSON decision payload</li>
-                    <li>• Surface funding/open-interest inputs used in the prompt</li>
-                    <li>• Embed LangGraph dag run metadata</li>
-                  </ul>
-                </div>
+              <CardContent>
+                <ScrollArea className="h-[32rem] rounded-md border border-border/50 bg-background/70">
+                  <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs text-muted-foreground">
+                    {toolPayloadPretty ?? "Tool payload unavailable for this decision."}
+                  </pre>
+                </ScrollArea>
               </CardContent>
             </Card>
           </section>

@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import { captureScreenshot, shareScreenshot } from "../utils/screenshot"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
+import { Badge } from "../components/ui/badge"
+import { Container } from "../components/ui/container"
 import { ArrowLeft } from "lucide-react"
 
 const API_BASE_URL = (() => {
@@ -660,67 +662,65 @@ const TradeIdeas = () => {
   }, [analysis])
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-10 sm:px-6 lg:px-10">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(56,189,248,0.16),transparent_55%),radial-gradient(circle_at_90%_10%,rgba(59,130,246,0.15),transparent_55%),radial-gradient(circle_at_15%_90%,rgba(236,72,153,0.12),transparent_60%),linear-gradient(155deg,rgba(2,6,23,0.88),rgba(15,23,42,0.95))]" />
-      </div>
-      <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-200"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back
-        </Button>
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Pattern Lab</p>
-            <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">Trade Ideas Analyzer</h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-slate-300">
-              Upload any chart image for instant AI analysis with Signal Strength assessment, trade plans, and risk evaluation.
-            </p>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/60 bg-background/90 backdrop-blur">
+        <Container className="flex h-16 items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to platform
+          </Button>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">Chart Analysis</Badge>
           </div>
+        </Container>
+      </header>
+
+      <Container className="py-8">
+        <div className="space-y-8">
+          {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
             {(analysis || preview) && (
               <>
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-full border border-sky-400/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-sky-200 transition hover:border-sky-400/50 hover:bg-sky-400/10 disabled:opacity-40"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleScreenshot}
                   disabled={isCapturingScreenshot || (!analysis && !preview)}
                 >
                   {isCapturingScreenshot ? 'Capturing...' : '📸 Screenshot'}
-                </button>
+                </Button>
                 {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-full border border-green-400/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-green-200 transition hover:border-green-400/50 hover:bg-green-400/10 disabled:opacity-40"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleShare}
                     disabled={isCapturingScreenshot || (!analysis && !preview)}
                   >
                     {isCapturingScreenshot ? 'Processing...' : '📤 Share'}
-                  </button>
+                  </Button>
                 )}
               </>
             )}
-            <button
-              type="button"
-              className="inline-flex items-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 transition hover:border-white/30 hover:bg-white/10 disabled:opacity-40"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={resetState}
               disabled={!file && !preview && !analysis && !error}
             >
               Reset Workspace
-            </button>
+            </Button>
           </div>
-        </header>
 
-        <section
-          className="glass-panel space-y-6 p-6 sm:p-8"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={handleDrop}
-        >
+          <section
+            className="glass-panel space-y-6 p-6 sm:p-8"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDrop}
+          >
           <div className="max-w-sm mx-auto text-center">
             <span className="text-xs uppercase tracking-[0.3em] text-slate-400 block">Timeframe</span>
             <div className="mt-3 flex items-center justify-center gap-2">
@@ -1170,7 +1170,8 @@ const TradeIdeas = () => {
             </aside>
           </section>
         )}
-      </div>
+        </div>
+      </Container>
     </div>
   )
 }

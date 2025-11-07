@@ -201,6 +201,9 @@ class SchedulerManager:
         from autotrade_service.simulation.broker import SimulatedBroker
         from autotrade_service.simulation import load_state, save_state
         from autotrade_service.config import get_settings
+        from autotrade_service.feedback.feedback_engine import FeedbackLoopEngine
+        from autotrade_service.feedback.outcome_tracker import TradeOutcomeTracker
+        from autotrade_service.llm import AsyncDeepSeekClient
         
         settings = get_settings()
         decision_pipeline = get_decision_pipeline()
@@ -220,8 +223,34 @@ class SchedulerManager:
                 self._logger.error("Failed to load portfolio from state file")
                 return
             
-            # Create broker with loaded portfolio
-            broker = SimulatedBroker(portfolio)
+            # Initialize feedback loop components (if enabled)
+            outcome_tracker = None
+            if settings.feedback_loop_enabled:
+                try:
+                    # Create LLM client for feedback engine
+                    llm_client = AsyncDeepSeekClient()
+                    
+                    # Create feedback engine
+                    feedback_engine = FeedbackLoopEngine(
+                        llm_client=llm_client,
+                        settings=settings
+                    )
+                    
+                    # Create outcome tracker with feedback engine
+                    outcome_tracker = TradeOutcomeTracker(
+                        feedback_engine=feedback_engine
+                    )
+                    
+                    self._logger.info("Feedback loop initialized successfully")
+                except Exception as e:
+                    self._logger.warning(f"Failed to initialize feedback loop: {e}", exc_info=True)
+                    outcome_tracker = None
+            
+            # Create broker with loaded portfolio and optional outcome tracker
+            broker = SimulatedBroker(
+                portfolio=portfolio,
+                outcome_tracker=outcome_tracker
+            )
             
             # Collect market snapshots from tool messages (live_market_data / indicator_calculator)
             market_snapshots: dict[str, float] = {}
@@ -274,7 +303,11 @@ class SchedulerManager:
                 market_snapshots,
                 system_prompt=SYSTEM_PROMPT,
                 user_payload=result.prompt,
+                tool_payload_json=result.response.tool_payload_json,
             )
+            
+            # Process any pending feedback loop events (async)
+            await broker.process_pending_feedback()
             
             for msg in messages:
                 self._logger.info(msg)

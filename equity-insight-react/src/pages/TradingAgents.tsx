@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { MarkdownViewer } from '../components/MarkdownViewer'
-import { TradingAgentsLayout } from '../components/trading/TradingAgentsLayout'
 import { TradingProgress } from '../components/trading/TradingProgress'
+import { Container } from '../components/ui/container'
 import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
 import { Input } from '../components/ui/input'
@@ -124,38 +124,6 @@ const TradingAgents = () => {
   } = useTradingAssessments(ticker, {
     apiBaseUrl: API_BASE_URL
   })
-
-  const hero = (
-    <div className="space-y-6">
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => navigate('/')}
-        className="inline-flex items-center gap-2 self-start rounded-full border border-border/60 bg-background/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground transition hover:border-cyan-400/60 hover:bg-cyan-500/10 hover:text-cyan-200"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back
-      </Button>
-      <div className="max-w-3xl space-y-4">
-        <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">Trading Agents Command Center</h1>
-        <p className="text-base leading-7 text-muted-foreground sm:text-lg">
-          Configure the analyst cohort, choose your execution model, and watch LangGraph stages stream live as the desk
-          debates the trade. This is the dedicated workspace for agent-driven market calls.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-muted-foreground/70">
-        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1">
-          Real-time SSE updates
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1">
-          Analyst personas
-        </span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1">
-          LangGraph workflow
-        </span>
-      </div>
-    </div>
-  )
 
   const selectedAnalystDetails = useMemo(() => {
     const ids = tradingDecision?.analysts ?? selectedAnalysts
@@ -1091,7 +1059,40 @@ const TradingAgents = () => {
     </>
   )
 
-  return <TradingAgentsLayout hero={hero} configPanel={configPanel} mainContent={mainContent} />
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/60 bg-background/90 backdrop-blur">
+        <Container className="flex h-16 items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to platform
+          </Button>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">Trading Agents</Badge>
+          </div>
+        </Container>
+      </header>
+
+      <Container className="py-8">
+        <div className="space-y-6">
+          {/* Config Panel */}
+          <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-7 lg:p-8">
+            {configPanel}
+          </div>
+
+          {/* Main Content */}
+          <div className="space-y-6">
+            {mainContent}
+          </div>
+        </div>
+      </Container>
+    </div>
+  )
 }
 
 export default TradingAgents

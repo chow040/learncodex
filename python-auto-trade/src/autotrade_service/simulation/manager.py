@@ -11,6 +11,7 @@ from ..repositories import (
     AutoTradeDecisionPrompt,
     AutoTradeEvent,
     AutoTradeExitPlan,
+    AutoTradeClosedPosition,
     AutoTradePortfolioSnapshot,
     AutoTradePosition,
 )
@@ -69,6 +70,7 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
                 invalidations=[],
                 observation_window="PT5M",
             ),
+            tool_payload_json=eval_entry.tool_payload_json,  # Tool invocations
         )
         for eval_entry in portfolio.evaluation_log[-30:]  # Last 30 evaluations
     ]
@@ -81,6 +83,22 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
             timestamp=trade.timestamp.isoformat(),
         )
         for trade in portfolio.trade_log[-20:]  # Last 20 trades
+    ]
+
+    closed_positions = [
+        AutoTradeClosedPosition(
+            symbol=closed.symbol,
+            quantity=closed.quantity,
+            entry_price=closed.entry_price,
+            exit_price=closed.exit_price,
+            entry_timestamp=closed.entry_timestamp.isoformat(),
+            exit_timestamp=closed.exit_timestamp.isoformat(),
+            realized_pnl=closed.realized_pnl,
+            realized_pnl_pct=closed.realized_pnl_pct,
+            leverage=closed.leverage,
+            reason=closed.reason,
+        )
+        for closed in portfolio.closed_positions[-50:]  # Keep recent history for dashboard
     ]
     
     return AutoTradePortfolioSnapshot(
@@ -98,6 +116,7 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
         positions=positions,
         decisions=decisions,
         events=events,
+        closed_positions=closed_positions,
     )
 
 

@@ -128,6 +128,32 @@ export const mockAutoTradingPortfolio: MockAutoTradingPortfolio = {
       confidence: 0.65,
     },
   ],
+  closedPositions: [
+    {
+      symbol: "BTC",
+      quantity: 0.08,
+      entryPrice: 98500,
+      exitPrice: 108250,
+      entryTimestamp: "2025-10-20T02:15:00Z",
+      exitTimestamp: "2025-10-24T16:45:00Z",
+      realizedPnl: 779.99,
+      realizedPnlPct: 9.16,
+      leverage: 8,
+      reason: "Profit target hit as price broke above resistance.",
+    },
+    {
+      symbol: "ETH",
+      quantity: 4.2,
+      entryPrice: 4012.5,
+      exitPrice: 3925.0,
+      entryTimestamp: "2025-10-18T05:30:00Z",
+      exitTimestamp: "2025-10-22T09:10:00Z",
+      realizedPnl: -367.5,
+      realizedPnlPct: -2.18,
+      leverage: 6,
+      reason: "Invalidation triggered: 3-minute close below EMA20.",
+    },
+  ],
   decisions: [
     {
       id: "run-001",

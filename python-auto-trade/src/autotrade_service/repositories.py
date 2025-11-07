@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from datetime import datetime
 from typing import Any, Iterable, TypedDict
+from uuid import UUID
 
 try:
     import asyncpg
@@ -39,6 +41,20 @@ class AutoTradePosition:
 
 
 @dataclass
+class AutoTradeClosedPosition:
+    symbol: str
+    quantity: float
+    entry_price: float
+    exit_price: float
+    entry_timestamp: str
+    exit_timestamp: str
+    realized_pnl: float
+    realized_pnl_pct: float
+    leverage: float
+    reason: str
+
+
+@dataclass
 class AutoTradeDecisionPrompt:
     system_prompt: str
     user_payload: str
@@ -57,6 +73,7 @@ class AutoTradeDecision:
     rationale: str
     created_at: str
     prompt: AutoTradeDecisionPrompt
+    tool_payload_json: str | None = None  # JSON array of tool invocations
 
 
 @dataclass
@@ -80,6 +97,7 @@ class AutoTradePortfolioSnapshot:
     last_run_at: str
     next_run_in_minutes: int
     positions: list[AutoTradePosition]
+    closed_positions: list[AutoTradeClosedPosition]
     decisions: list[AutoTradeDecision]
     events: list[AutoTradeEvent]
 
@@ -300,6 +318,23 @@ def _map_position(row: asyncpg.Record) -> AutoTradePosition:
     )
 
 
+def _map_closed_position(row: asyncpg.Record) -> AutoTradeClosedPosition:
+    entry_timestamp = row.get("entry_timestamp")
+    exit_timestamp = row.get("exit_timestamp")
+    return AutoTradeClosedPosition(
+        symbol=row["symbol"],
+        quantity=_to_float(row.get("quantity"), 0.0),
+        entry_price=_to_float(row.get("entry_price"), 0.0),
+        exit_price=_to_float(row.get("exit_price"), 0.0),
+        entry_timestamp=entry_timestamp.isoformat() if entry_timestamp else "",
+        exit_timestamp=exit_timestamp.isoformat() if exit_timestamp else "",
+        realized_pnl=_to_float(row.get("realized_pnl"), 0.0),
+        realized_pnl_pct=_to_float(row.get("realized_pnl_pct"), 0.0),
+        leverage=_to_float(row.get("leverage"), 0.0),
+        reason=str(row.get("reason") or ""),
+    )
+
+
 def _map_event(row: asyncpg.Record) -> AutoTradeEvent:
     label = None
     payload = row.get("payload")
@@ -376,6 +411,7 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
             last_run_at="",
             next_run_in_minutes=3,
             positions=[],
+            closed_positions=[],
             decisions=[],
             events=[],
         )
@@ -410,10 +446,29 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
             """,
             portfolio_id,
         )
+        closed_rows: list[Any] = []
+        try:
+            closed_rows = await conn.fetch(
+                """
+                SELECT *
+                FROM portfolio_closed_positions
+                WHERE portfolio_id = $1
+                ORDER BY exit_timestamp DESC
+                """,
+                portfolio_id,
+            )
+        except Exception as exc:  # pragma: no cover - optional table
+            logging.getLogger("autotrade.repositories").debug(
+                "Closed positions unavailable for portfolio %s: %s", portfolio_id, exc
+            )
+            closed_rows = []
 
     positions = [_map_position(row) for row in positions_rows]
+    closed_positions = [_map_closed_position(row) for row in closed_rows]
     total_positions_value = sum(pos.mark_price * pos.quantity for pos in positions)
-    total_pnl = sum(pos.pnl for pos in positions)
+    open_pnl_total = sum(pos.pnl for pos in positions)
+    realized_pnl_total = sum(entry.realized_pnl for entry in closed_positions)
+    total_pnl = open_pnl_total + realized_pnl_total
     starting_capital = _to_float(portfolio.get("starting_capital"), 0.0)
     current_cash = _to_float(portfolio.get("current_cash"), 0.0)
     equity = current_cash + total_positions_value
@@ -435,6 +490,7 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
         last_run_at=portfolio.get("last_run_at").isoformat() if portfolio.get("last_run_at") else "",
         next_run_in_minutes=5,
         positions=positions,
+        closed_positions=closed_positions,
         decisions=decisions,
         events=events,
     )
@@ -495,6 +551,7 @@ async def fetch_decision_by_id(decision_id: str) -> AutoTradeDecision | None:
                     rationale=entry.rationale,
                     created_at=entry.timestamp.isoformat(),
                     prompt=prompt,
+                    tool_payload_json=entry.tool_payload_json,
                 )
         return None
 
@@ -519,3 +576,338 @@ async def fetch_decision_by_id(decision_id: str) -> AutoTradeDecision | None:
     if row is None:
         return None
     return _map_decision(row)
+
+
+# ============================================================================
+# FEEDBACK LOOP REPOSITORY FUNCTIONS
+# ============================================================================
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LearnedRuleRecord:
+    """Database record for a learned rule."""
+    id: UUID
+    rule_text: str
+    rule_type: str
+    created_at: datetime
+    active: bool
+    effectiveness_score: float
+    times_applied: int
+    metadata: dict[str, Any]
+
+
+async def save_learned_rule(
+    rule_text: str,
+    rule_type: str,
+    source_trade_id: UUID | None = None,
+    critique: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    created_by: str = "system",
+) -> UUID | None:
+    """
+    Save a new learned rule to the database.
+    
+    Note: Returns None if database is unavailable (e.g., simulation mode).
+    This allows rule generation to work without persistence.
+    
+    Args:
+        rule_text: Natural language rule text
+        rule_type: Category (risk_management, entry, exit, position_sizing)
+        source_trade_id: UUID of trade that generated this rule
+        critique: LLM critique that led to this rule
+        metadata: Additional context (PnL, symbol, etc.)
+        created_by: 'system' or 'manual'
+        
+    Returns:
+        UUID of the newly created rule, or None if database unavailable
+    """
+    db = get_db()
+    if not db.is_connected:
+        logger.warning("Database not connected - learned rule not persisted (simulation mode?)")
+        return None
+    
+    # Merge critique into metadata
+    full_metadata = metadata or {}
+    if critique:
+        full_metadata["critique"] = critique
+    
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO learned_rules 
+                (rule_text, rule_type, source_trade_id, created_by, metadata)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+            """,
+            rule_text,
+            rule_type,
+            source_trade_id,
+            created_by,
+            json.dumps(full_metadata),
+        )
+    
+    if row is None:
+        raise RuntimeError("Failed to insert learned rule")
+    
+    rule_id = row["id"]
+    logger.info(f"Saved learned rule {rule_id}: {rule_text[:50]}")
+    return rule_id
+
+
+async def fetch_active_rules(
+    limit: int = 20,
+    rule_type: str | None = None,
+) -> list[LearnedRuleRecord]:
+    """
+    Fetch active learned rules, ordered by creation date (newest first).
+    
+    Args:
+        limit: Maximum number of rules to return
+        rule_type: Optional filter by rule type
+        
+    Returns:
+        List of LearnedRuleRecord objects
+    """
+    db = get_db()
+    if not db.is_connected:
+        return []
+    
+    query = """
+        SELECT id, rule_text, rule_type, created_at, active, 
+               effectiveness_score, times_applied, metadata
+        FROM learned_rules
+        WHERE active = TRUE
+    """
+    
+    params: list[Any] = []
+    if rule_type:
+        query += " AND rule_type = $1"
+        params.append(rule_type)
+    
+    query += " ORDER BY created_at DESC"
+    
+    if limit:
+        query += f" LIMIT ${len(params) + 1}"
+        params.append(limit)
+    
+    async with db.acquire() as conn:
+        rows = await conn.fetch(query, *params)
+    
+    return [
+        LearnedRuleRecord(
+            id=row["id"],
+            rule_text=row["rule_text"],
+            rule_type=row["rule_type"],
+            created_at=row["created_at"],
+            active=row["active"],
+            effectiveness_score=float(row["effectiveness_score"]),
+            times_applied=int(row["times_applied"]),
+            metadata=row["metadata"] or {},
+        )
+        for row in rows
+    ]
+
+
+async def save_trade_outcome(
+    decision_id: UUID | None,
+    symbol: str,
+    action: str,
+    entry_price: float,
+    exit_price: float,
+    quantity: float,
+    pnl_usd: float,
+    pnl_pct: float,
+    entry_timestamp: datetime,
+    exit_timestamp: datetime,
+    duration_seconds: int,
+    rationale: str,
+    rule_ids: list[UUID],
+    portfolio_id: UUID | None = None,
+) -> UUID | None:
+    """
+    Save a completed trade outcome to the database.
+    
+    Note: Returns None if database is unavailable (e.g., simulation mode).
+    This allows the feedback loop to work in paper trading without persistence.
+    
+    Args:
+        decision_id: Reference to llm_decision_logs (if exists)
+        symbol: Trading symbol
+        action: BUY, SELL, CLOSE, HOLD
+        entry_price: Entry price
+        exit_price: Exit price
+        quantity: Position size
+        pnl_usd: Profit/loss in USD
+        pnl_pct: Profit/loss percentage
+        entry_timestamp: When position opened
+        exit_timestamp: When position closed
+        duration_seconds: Trade duration
+        rationale: Original decision rationale
+        rule_ids: List of rule UUIDs applied
+        portfolio_id: Optional portfolio reference
+        
+    Returns:
+        UUID of the trade outcome record, or None if database unavailable
+    """
+    db = get_db()
+    if not db.is_connected:
+        logger.warning("Database not connected - trade outcome not persisted (simulation mode?)")
+        return None
+    
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO trade_outcomes (
+                decision_id, portfolio_id, symbol, action,
+                entry_price, exit_price, quantity,
+                pnl_usd, pnl_pct,
+                entry_timestamp, exit_timestamp, duration_seconds,
+                rationale, rule_ids
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            RETURNING id
+            """,
+            decision_id,
+            portfolio_id,
+            symbol,
+            action,
+            entry_price,
+            exit_price,
+            quantity,
+            pnl_usd,
+            pnl_pct,
+            entry_timestamp,
+            exit_timestamp,
+            duration_seconds,
+            rationale,
+            rule_ids,
+        )
+    
+    if row is None:
+        raise RuntimeError("Failed to insert trade outcome")
+    
+    outcome_id = row["id"]
+    logger.info(f"Saved trade outcome {outcome_id}: {symbol} {action} PnL={pnl_pct:.2f}%")
+    return outcome_id
+
+
+async def update_learned_rule(
+    rule_id: UUID,
+    active: bool | None = None,
+    effectiveness_score: float | None = None,
+    times_applied: int | None = None,
+) -> None:
+    """
+    Update a learned rule's metadata.
+    
+    Args:
+        rule_id: UUID of the rule to update
+        active: New active status (optional)
+        effectiveness_score: New effectiveness score (optional)
+        times_applied: New application count (optional)
+    """
+    db = get_db()
+    if not db.is_connected:
+        raise RuntimeError("Database not connected")
+    
+    updates: list[str] = []
+    params: list[Any] = []
+    param_idx = 1
+    
+    if active is not None:
+        updates.append(f"active = ${param_idx}")
+        params.append(active)
+        param_idx += 1
+    
+    if effectiveness_score is not None:
+        updates.append(f"effectiveness_score = ${param_idx}")
+        params.append(effectiveness_score)
+        param_idx += 1
+    
+    if times_applied is not None:
+        updates.append(f"times_applied = ${param_idx}")
+        params.append(times_applied)
+        param_idx += 1
+    
+    if not updates:
+        return  # Nothing to update
+    
+    params.append(rule_id)
+    query = f"""
+        UPDATE learned_rules
+        SET {', '.join(updates)}
+        WHERE id = ${param_idx}
+    """
+    
+    async with db.acquire() as conn:
+        await conn.execute(query, *params)
+    
+    logger.info(f"Updated learned rule {rule_id}")
+
+
+async def fetch_trade_outcomes(
+    symbol: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    Fetch recent trade outcomes.
+    
+    Args:
+        symbol: Optional filter by symbol
+        limit: Maximum number of outcomes to return
+        
+    Returns:
+        List of trade outcome dictionaries
+    """
+    db = get_db()
+    if not db.is_connected:
+        return []
+    
+    query = """
+        SELECT * FROM trade_outcomes
+    """
+    
+    params: list[Any] = []
+    if symbol:
+        query += " WHERE symbol = $1"
+        params.append(symbol)
+    
+    query += " ORDER BY exit_timestamp DESC"
+    
+    if limit:
+        query += f" LIMIT ${len(params) + 1}"
+        params.append(limit)
+    
+    async with db.acquire() as conn:
+        rows = await conn.fetch(query, *params)
+    
+    return [dict(row) for row in rows]
+
+
+async def fetch_rule_applications(rule_id: UUID) -> list[dict[str, Any]]:
+    """
+    Fetch all applications of a specific rule.
+    
+    Args:
+        rule_id: UUID of the rule
+        
+    Returns:
+        List of rule application records
+    """
+    db = get_db()
+    if not db.is_connected:
+        return []
+    
+    async with db.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT * FROM rule_applications
+            WHERE rule_id = $1
+            ORDER BY applied_at DESC
+            """,
+            rule_id,
+        )
+    
+    return [dict(row) for row in rows]

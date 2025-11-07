@@ -70,6 +70,7 @@ export const users = pgTable(
     emailVerified: boolean('email_verified').default(false).notNull(),
     fullName: text('full_name'),
     avatarUrl: text('avatar_url'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

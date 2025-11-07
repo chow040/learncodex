@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Sequence
 
 from langchain.agents import create_agent
@@ -16,16 +17,23 @@ except ModuleNotFoundError as exc:  # pragma: no cover
     ) from exc
 
 from ..config import get_settings
-from ..tools import IndicatorCalculatorTool, LiveMarketDataTool, ToolCache
+from ..tools import (
+    DerivativesDataTool,
+    IndicatorCalculatorTool,
+    LiveMarketDataTool,
+    ToolCache,
+)
 from .client import AsyncDeepSeekClient  # retained for interface compatibility
 from .schemas import DecisionRequest
 
 logger = logging.getLogger("autotrade.llm.langchain")
 
 SYSTEM_PROMPT = (
-    "You are AutoTrader, an LLM portfolio manager. Use the available tools to gather the latest "
-    "market data and technical indicators for each symbol before making any decisions. "
-    "ALWAYS call `live_market_data` and `indicator_calculator` for every symbol you evaluate. "
+    "You are a professional swing trader. Use the available tools to gather the latest "
+    "market data, derivatives sentiment, and technical indicators for each symbol before making any decisions. "
+    "call `live_market_data` and `indicator_calculator` for every symbol you evaluate. "
+    "Call `derivatives_data` to inspect funding rates and open interest for any symbol you plan to trade; "
+    "use the results to judge sentiment, crowding, and leverage conditions. "
     "After you finish reasoning, respond with ONLY a JSON array of decisions matching the schema:\n"
     '  [{"symbol": "BTC-USD", "action": "HOLD|CLOSE|BUY|SELL|NO_ENTRY", "quantity": 0.0, '
     '"size_pct": 0.0, "leverage": 1.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
@@ -61,6 +69,7 @@ def create_langchain_agent(
     tool_cache: ToolCache,
     market_tool: LiveMarketDataTool,
     indicator_tool: IndicatorCalculatorTool,
+    derivatives_tool: DerivativesDataTool,
 ):
     _ = (client, tool_cache)  # maintained for interface compatibility
     settings = get_settings()
@@ -168,10 +177,46 @@ def create_langchain_agent(
             }
         return json.dumps(payload)
 
+    @tool("derivatives_data")
+    async def derivatives_data(query: str) -> str:
+        """
+        Fetch funding rate and open interest snapshots for one or more symbols.
+        Input must be JSON: {"symbols": ["BTC", "ETH"]}.
+        """
+
+        try:
+            payload = json.loads(query) if query else {}
+        except json.JSONDecodeError as exc:  # pragma: no cover - invalid tool usage
+            raise ValueError("Invalid JSON input for derivatives_data tool") from exc
+
+        symbols_field = payload.get("symbols")
+        if symbols_field is None:
+            symbols = settings.symbols or []
+        elif isinstance(symbols_field, Sequence) and not isinstance(symbols_field, (str, bytes)):
+            symbols = [str(symbol).upper() for symbol in symbols_field]
+        else:
+            raise ValueError("`symbols` must be an array of symbol strings")
+
+        if not symbols:
+            raise ValueError("No symbols provided for derivatives data request")
+
+        serialized = await derivatives_tool.fetch_serialized(symbols)
+        envelope = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "provider": "okx",
+            "symbols": symbols,
+            "data": serialized,
+            "notes": (
+                "funding_rate is the current 8h rate (decimal), funding_rate_pct is percent, "
+                "funding_rate_annual_pct annualizes assuming 3 funding events per day."
+            ),
+        }
+        return json.dumps(envelope)
+
     model = _build_chat_model()
     return create_agent(
         model=model,
-        tools=[live_market_data, indicator_calculator],
+        tools=[live_market_data, indicator_calculator, derivatives_data],
         system_prompt=SYSTEM_PROMPT,
         debug=settings.log_level == "debug",
     )

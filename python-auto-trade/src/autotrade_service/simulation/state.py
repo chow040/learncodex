@@ -99,6 +99,7 @@ class EvaluationLogEntry:
     chain_of_thought: str = ""  # Full LLM reasoning/thinking process
     system_prompt: str = ""
     user_payload: str = ""
+    tool_payload_json: str | None = None  # JSON array of tool invocations
     
     def to_dict(self) -> dict:
         """Serialize evaluation log entry to dictionary."""
@@ -114,6 +115,7 @@ class EvaluationLogEntry:
             "chain_of_thought": self.chain_of_thought,
             "system_prompt": self.system_prompt,
             "user_payload": self.user_payload,
+            "tool_payload_json": self.tool_payload_json,
         }
     
     @classmethod
@@ -131,6 +133,7 @@ class EvaluationLogEntry:
             chain_of_thought=data.get("chain_of_thought", ""),
             system_prompt=data.get("system_prompt", ""),
             user_payload=data.get("user_payload", ""),
+            tool_payload_json=data.get("tool_payload_json"),
         )
 
 
@@ -172,6 +175,52 @@ class TradeLogEntry:
 
 
 @dataclass
+class ClosedPosition:
+    """Represents a realized/closed position with PnL attribution."""
+    symbol: str
+    quantity: float
+    entry_price: float
+    exit_price: float
+    entry_timestamp: datetime
+    exit_timestamp: datetime
+    realized_pnl: float
+    realized_pnl_pct: float
+    leverage: float
+    reason: str = ""
+
+    def to_dict(self) -> dict:
+        """Serialize closed position to dictionary."""
+        return {
+            "symbol": self.symbol,
+            "quantity": self.quantity,
+            "entry_price": self.entry_price,
+            "exit_price": self.exit_price,
+            "entry_timestamp": self.entry_timestamp.isoformat(),
+            "exit_timestamp": self.exit_timestamp.isoformat(),
+            "realized_pnl": self.realized_pnl,
+            "realized_pnl_pct": self.realized_pnl_pct,
+            "leverage": self.leverage,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ClosedPosition:
+        """Deserialize closed position from dictionary."""
+        return cls(
+            symbol=data["symbol"],
+            quantity=data["quantity"],
+            entry_price=data["entry_price"],
+            exit_price=data["exit_price"],
+            entry_timestamp=datetime.fromisoformat(data["entry_timestamp"]),
+            exit_timestamp=datetime.fromisoformat(data["exit_timestamp"]),
+            realized_pnl=data.get("realized_pnl", 0.0),
+            realized_pnl_pct=data.get("realized_pnl_pct", 0.0),
+            leverage=data.get("leverage", 1.0),
+            reason=data.get("reason", ""),
+        )
+
+
+@dataclass
 class SimulatedPortfolio:
     """Complete simulated portfolio state."""
     portfolio_id: str
@@ -180,6 +229,7 @@ class SimulatedPortfolio:
     positions: Dict[str, SimulatedPosition] = field(default_factory=dict)
     trade_log: List[TradeLogEntry] = field(default_factory=list)
     evaluation_log: List[EvaluationLogEntry] = field(default_factory=list)
+    closed_positions: List[ClosedPosition] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     
@@ -231,6 +281,7 @@ class SimulatedPortfolio:
             "positions": {symbol: pos.to_dict() for symbol, pos in self.positions.items()},
             "trade_log": [entry.to_dict() for entry in self.trade_log],
             "evaluation_log": [entry.to_dict() for entry in self.evaluation_log],
+            "closed_positions": [entry.to_dict() for entry in self.closed_positions],
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
@@ -250,6 +301,10 @@ class SimulatedPortfolio:
             EvaluationLogEntry.from_dict(entry_data)
             for entry_data in data.get("evaluation_log", [])
         ]
+        closed_positions = [
+            ClosedPosition.from_dict(entry_data)
+            for entry_data in data.get("closed_positions", [])
+        ]
         return cls(
             portfolio_id=data["portfolio_id"],
             starting_cash=data["starting_cash"],
@@ -257,6 +312,7 @@ class SimulatedPortfolio:
             positions=positions,
             trade_log=trade_log,
             evaluation_log=evaluation_log,
+            closed_positions=closed_positions,
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
         )

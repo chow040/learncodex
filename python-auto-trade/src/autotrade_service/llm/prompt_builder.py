@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Iterable, Sequence
+from typing import Sequence
 
+from ..config import get_settings
+
+settings = get_settings()
+short_tf = settings.ccxt_short_term_timeframe or "3m"
 
 def _fmt_series(values: Sequence[float]) -> str:
     return json.dumps([round(v, 6) for v in values])
@@ -29,14 +33,21 @@ class SymbolContext:
     ema20: float
     macd: float
     rsi7: float
-    oi_latest: float
-    oi_avg: float
-    funding: float
-    mids: Sequence[float]
-    ema20_series: Sequence[float]
-    macd_series: Sequence[float]
-    rsi7_series: Sequence[float]
-    rsi14_series: Sequence[float]
+    oi_latest: float = 0.0
+    oi_avg: float = 0.0
+    oi_contracts: float | None = None
+    oi_timestamp: datetime | None = None
+    funding_rate: float = 0.0
+    funding_rate_pct: float | None = None
+    funding_rate_annual_pct: float | None = None
+    predicted_funding_rate: float | None = None
+    next_funding_time: datetime | None = None
+    funding_history: Sequence[float] = field(default_factory=list)
+    mids: Sequence[float] = field(default_factory=list)
+    ema20_series: Sequence[float] = field(default_factory=list)
+    macd_series: Sequence[float] = field(default_factory=list)
+    rsi7_series: Sequence[float] = field(default_factory=list)
+    rsi14_series: Sequence[float] = field(default_factory=list)
     higher_timeframe: SymbolHigherTimeframeContext | None = None
 
 
@@ -97,18 +108,14 @@ class PromptBuilder:
         lines.append(f"You are now being invoked for the {context.invocation_count}-th time.")
         lines.append("Below is the full market, indicator, and account state you must use to reason and decide your next actions.")
         lines.append("")
-        lines.append("All intraday data is sampled at 3-minute intervals, ordered OLDEST → NEWEST.")
+        lines.append(f"All intraday data is sampled at {short_tf} intervals, ordered OLDEST → NEWEST.")
         lines.append("If a different interval is used for a coin, it is explicitly stated in that section.")
         lines.append("")
-        lines.append("=" * 62)
         lines.append("### CURRENT MARKET STATE")
-        lines.append("=" * 62)
         lines.append("")
         for symbol_ctx in context.symbols:
             lines.extend(self._build_symbol_section(symbol_ctx))
-        lines.append("=" * 62)
-        lines.append("### ACCOUNT INFORMATION & PERFORMANCE")
-        lines.append("=" * 62)
+        lines.append("### ACCOUNT INFORMATION & PERFORMANCE ###")
         lines.append("")
         account = context.account
         lines.append(f"Account Value = {round(account.value, 2)}")
@@ -131,13 +138,10 @@ class PromptBuilder:
             lines.append(f"- max_risk_per_trade_usd = {risk.max_risk_per_trade_usd}")
             lines.append(f"- min_entry_notional_usd = {risk.min_entry_notional_usd}")
             lines.append("")
-        lines.append("=" * 62)
-        lines.append("### TASK")
-        lines.append("=" * 62)
+        lines.append("### TASK ###")
         lines.append("")
         lines.extend(
             [
-                "You are a risk-first crypto trading agent.",
                 "Act on **every tick** and follow **all rules** below **exactly**.",
                 "",
                 "--- 1. EXIT EVALUATION (per open position) ---",
@@ -147,7 +151,7 @@ class PromptBuilder:
                 "- If **invalidation_condition** is met (e.g., 3-minute candle close below threshold) → **CLOSE**",
                 "- Else → **HOLD**",
                 "",
-                "Use **3-minute chart** for:",
+                f"Use **{short_tf} chart** for:",
                 "  • Price vs EMA20",
                 "  • RSI (14)",
                 "  • MACD histogram",
@@ -160,7 +164,7 @@ class PromptBuilder:
                 "  - Free cash ≥ 15 % of total account value",
                 "  - Portfolio exposure ≤ 80 % of account value",
                 "  - Volatility (14-period ATR% **or** 3-candle range%) ≤ 4.0 %",
-                "  - Planned risk-reward ≥ 1.3 : 1",
+                "  - Planned risk-reward ≥ 3 : 1",
                 "  - Stop distance ≤ 8 % of entry price",
                 "",
                 "**If entry conditions are NOT met** (e.g., signal too weak, low confidence, high volatility):",
@@ -206,14 +210,19 @@ class PromptBuilder:
                 '- For **CLOSE**: add `"reason": "profit_target" | "stop_loss" | "invalidation"`',
                 '- For **NO_ENTRY**: include rationale explaining why entry was rejected (weak signal, low confidence, etc.)',
                 "",
-                "Example:",
+                "Response format:",
                 "```json",
-                "[",
-                '  {"symbol":"BTC-USD","action":"NO_ENTRY","confidence":0.25,"rationale":"Signal too weak (MACD negative, price below EMA20)"},',
-                '  {"symbol":"ETH-USD","action":"HOLD","quantity":4.87,"leverage":15,...},',
-                '  {"symbol":"SOL-USD","action":"CLOSE","reason":"stop_loss","quantity":81.81,...}',
-                "]",
+                "{",
+                '  "decisions": [',
+                '    {"symbol":"BTC-USD","action":"NO_ENTRY","confidence":0.25,"rationale":"Signal too weak (MACD negative, price below EMA20)"},',
+                '    {"symbol":"ETH-USD","action":"HOLD","quantity":4.87,"leverage":15,...},',
+                '    {"symbol":"SOL-USD","action":"CLOSE","reason":"stop_loss","quantity":81.81,...}',
+                "  ],",
+                '  "model_name": "<exact-model-name-returned-by-you>"',
+                "}",
                 "```",
+                "",
+                "Ensure the JSON object always includes both `decisions` and `model_name` keys, and set `model_name` to the deepseek model you are using.",
                 "",
                 "End of data.",
             ]
@@ -227,30 +236,24 @@ class PromptBuilder:
         lines.append(f"current_ema20 = {round(symbol_ctx.ema20, 6)}")
         lines.append(f"current_macd = {round(symbol_ctx.macd, 6)}")
         lines.append(f"current_rsi7 = {round(symbol_ctx.rsi7, 6)}")
-        lines.append(
-            f"Open Interest: Latest = {round(symbol_ctx.oi_latest, 6)}, Average = {round(symbol_ctx.oi_avg, 6)}"
-        )
-        lines.append(f"Funding Rate: {round(symbol_ctx.funding, 6)}")
+        lines.append(f"Open Interest (USD): Latest = {round(symbol_ctx.oi_latest, 6)}, Average = {round(symbol_ctx.oi_avg, 6)}")
+        if symbol_ctx.oi_contracts is not None:
+            lines.append(f"Open Interest (contracts): {round(symbol_ctx.oi_contracts, 6)}")
+        if symbol_ctx.oi_timestamp is not None:
+            lines.append(f"Open Interest Timestamp: {symbol_ctx.oi_timestamp.isoformat()}")
+        funding_line = f"Funding Rate (decimal): {round(symbol_ctx.funding_rate, 6)}"
+        if symbol_ctx.funding_rate_pct is not None:
+            funding_line = f"Funding Rate: {round(symbol_ctx.funding_rate_pct, 6)}% ({round(symbol_ctx.funding_rate, 6)})"
+        lines.append(funding_line)
+        if symbol_ctx.funding_rate_annual_pct is not None:
+            lines.append(f"Funding Rate Annualized: {round(symbol_ctx.funding_rate_annual_pct, 6)}%")
+        if symbol_ctx.predicted_funding_rate is not None:
+            lines.append(f"Predicted Next Funding Rate: {round(symbol_ctx.predicted_funding_rate, 6)}")
+        if symbol_ctx.next_funding_time is not None:
+            lines.append(f"Next Funding Time: {symbol_ctx.next_funding_time.isoformat()}")
+        if symbol_ctx.funding_history:
+            lines.append(f"Funding Rate History (recent): {_fmt_series(symbol_ctx.funding_history)}")
         lines.append("")
-        lines.append("Intraday (3-min) series:")
-        lines.append(f"mid_prices = {_fmt_series(symbol_ctx.mids)}")
-        lines.append(f"ema20_series = {_fmt_series(symbol_ctx.ema20_series)}")
-        lines.append(f"macd_series = {_fmt_series(symbol_ctx.macd_series)}")
-        lines.append(f"rsi7_series = {_fmt_series(symbol_ctx.rsi7_series)}")
-        lines.append(f"rsi14_series = {_fmt_series(symbol_ctx.rsi14_series)}")
-        lines.append("")
-        if symbol_ctx.higher_timeframe:
-            htf = symbol_ctx.higher_timeframe
-            lines.append("4-hour context:")
-            lines.append(f"ema20 = {round(htf.ema20, 6)}, ema50 = {round(htf.ema50, 6)}")
-            lines.append(f"atr3 = {round(htf.atr3, 6)}, atr14 = {round(htf.atr14, 6)}")
-            lines.append(f"volume = {round(htf.volume, 6)}, avg_volume = {round(htf.volume_avg, 6)}")
-            lines.append(f"macd_series = {_fmt_series(htf.macd_series)}")
-            lines.append(f"rsi14_series = {_fmt_series(htf.rsi14_series)}")
-            lines.append("")
-        else:
-            lines.append("4-hour context: n/a")
-            lines.append("")
         return lines
 
     def _build_position_entry(self, position: PositionContext, *, is_last: bool) -> list[str]:

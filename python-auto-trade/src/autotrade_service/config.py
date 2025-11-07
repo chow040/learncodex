@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     ccxt_poll_interval_seconds: float = 210.0
     ccxt_poll_jitter_seconds: float = 15.0
     ccxt_trades_limit: int = 200
-    ccxt_ohlcv_limit: int = 100
-    ccxt_ohlcv_high_limit: int = 20  # Number of high timeframe candles to fetch (~5 days for 6h)
-    ccxt_short_term_timeframe: str = "5m"  # Short-term timeframe for OHLCV data
-    ccxt_long_term_timeframe: str = "6h"  # Long-term timeframe for trend context
+    ccxt_ohlcv_short_term_candles_no: int = 50 # Number of short term candles to fetch
+    ccxt_ohlcv_long_term_candles_no: int = 100  # Number of long term candles to fetch (~5 days for 6h)
+    ccxt_short_term_timeframe: str = "15m"  # Short-term timeframe for OHLCV data
+    ccxt_long_term_timeframe: str = "1h"  # Long-term timeframe for trend context
     ccxt_enable_trades: bool = True
     ccxt_enable_ohlcv: bool = True
     ccxt_timeout_seconds: float = 10.0
@@ -74,12 +74,45 @@ class Settings(BaseSettings):
     funding_provider_api_key: str | None = None
     funding_provider_timeout_seconds: float = 5.0
 
+    # OKX derivatives configuration
+    okx_derivatives_enabled: bool = True
+    okx_exchange_id: str = "okx"
+    okx_funding_cache_ttl_seconds: float = 300.0
+    okx_oi_cache_ttl_seconds: float = 60.0
+    okx_rate_limit: int = 20
+    okx_timeout_seconds: float = 10.0
+    okx_max_retries: int = 3
+    okx_backoff_seconds: float = 1.0
+    okx_backoff_max_seconds: float = 10.0
+    okx_symbol_mapping: dict[str, str] = {
+        "BTC": "BTC-USDT-SWAP",
+        "BTC-USD": "BTC-USDT-SWAP",
+        "ETH": "ETH-USDT-SWAP",
+        "ETH-USD": "ETH-USDT-SWAP",
+        "SOL": "SOL-USDT-SWAP",
+        "SOL-USD": "SOL-USDT-SWAP",
+        "BNB": "BNB-USDT-SWAP",
+        "BNB-USD": "BNB-USDT-SWAP",
+        "XRP": "XRP-USDT-SWAP",
+        "XRP-USD": "XRP-USDT-SWAP",
+        "DOGE": "DOGE-USDT-SWAP",
+        "DOGE-USD": "DOGE-USDT-SWAP",
+    }
+
     # Simulation settings
     simulation_enabled: bool = False
     simulation_state_path: str = "logs/simulation_state.json"
     simulation_starting_cash: float = 10000.0
     simulation_max_slippage_bps: int = 5
     simulation_position_size_limit_pct: float = 50.0
+
+    # Feedback loop settings
+    feedback_loop_enabled: bool = True
+    feedback_max_rules_in_prompt: int = 8
+    feedback_max_history_trades: int = 5
+    feedback_rule_min_length: int = 10
+    feedback_rule_max_length: int = 200
+    feedback_similarity_threshold: float = 0.7
 
 
 @lru_cache
