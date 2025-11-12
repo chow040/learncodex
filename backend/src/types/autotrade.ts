@@ -16,7 +16,7 @@ export interface AutoTradePosition {
   exitPlan: AutoTradeExitPlan
 }
 
-export type AutoTradeAction = 'buy' | 'sell' | 'hold'
+export type AutoTradeAction = 'buy' | 'sell' | 'hold' | 'close' | 'no_entry'
 
 export interface AutoTradeDecision {
   id: string
@@ -33,6 +33,19 @@ export interface AutoTradeDecision {
     invalidations: string[]
     observationWindow: string
   }
+}
+
+export interface AutoTradeClosedPosition {
+  symbol: string
+  quantity: number
+  entryPrice: number
+  exitPrice: number
+  entryTimestamp: string
+  exitTimestamp: string
+  realizedPnl: number
+  realizedPnlPct: number
+  leverage: number
+  reason: string
 }
 
 export interface AutoTradeEvent {
@@ -54,6 +67,7 @@ export interface AutoTradePortfolioSnapshot {
   lastRunAt: string
   nextRunInMinutes: number
   positions: AutoTradePosition[]
+  closedPositions: AutoTradeClosedPosition[]
   decisions: AutoTradeDecision[]
   events: AutoTradeEvent[]
 }

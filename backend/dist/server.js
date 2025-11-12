@@ -7,6 +7,7 @@ import { assessmentRouter } from './routes/assessmentRoutes.js';
 import { financeRouter } from './routes/financeRoutes.js';
 import { socialRouter } from './routes/socialRoutes.js';
 import { tradingRouter } from './routes/tradingRoutes.js';
+import { autotradeRouter } from './routes/autotradeRoutes.js';
 import authRouter from './routes/auth.js';
 export const app = express();
 app.use(cors({
@@ -22,6 +23,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/assessment', assessmentRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/trading', tradingRouter);
+app.use('/api/autotrade', autotradeRouter);
 app.use('/api/social', socialRouter);
 app.use((error, _req, res, _next) => {
     console.error(error);

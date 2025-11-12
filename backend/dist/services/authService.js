@@ -94,6 +94,7 @@ export async function upsertUser(profile, tokens) {
                     emailVerified: profile.email_verified,
                     fullName: profile.name,
                     avatarUrl: profile.picture,
+                    lastLoginAt: new Date(),
                 })
                     .returning();
                 user = newUser;
@@ -106,6 +107,7 @@ export async function upsertUser(profile, tokens) {
                     fullName: profile.name,
                     avatarUrl: profile.picture,
                     emailVerified: profile.email_verified,
+                    lastLoginAt: new Date(),
                     updatedAt: new Date(),
                 })
                     .where(eq(users.id, user.id))
@@ -173,6 +175,13 @@ export async function createSession(userId, req) {
         userAgent: req.get('User-Agent'),
     })
         .returning();
+    await db
+        .update(users)
+        .set({
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+    })
+        .where(eq(users.id, userId));
     return session;
 }
 // Get user by session ID

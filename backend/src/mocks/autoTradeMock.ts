@@ -126,6 +126,32 @@ export const autoTradeMockPortfolio: AutoTradePortfolioSnapshot = {
       },
     },
   ],
+  closedPositions: [
+    {
+      symbol: 'BTC',
+      quantity: 0.08,
+      entryPrice: 98250,
+      exitPrice: 110420,
+      entryTimestamp: '2025-10-22T12:15:00Z',
+      exitTimestamp: '2025-10-26T10:05:00Z',
+      realizedPnl: 992.6,
+      realizedPnlPct: 11.2,
+      leverage: 5,
+      reason: 'Trailing take-profit hit while RSI > 75',
+    },
+    {
+      symbol: 'SOL',
+      quantity: 20,
+      entryPrice: 176.4,
+      exitPrice: 201.15,
+      entryTimestamp: '2025-10-20T04:30:00Z',
+      exitTimestamp: '2025-10-25T22:40:00Z',
+      realizedPnl: 495,
+      realizedPnlPct: 13.99,
+      leverage: 8,
+      reason: 'LLM signaled momentum exhaustion; position trimmed',
+    },
+  ],
   decisions: [
     {
       id: 'run-001',

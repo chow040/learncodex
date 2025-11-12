@@ -15,6 +15,16 @@ const normalizeAnalysts = (analysts) => {
     }
     return analysts;
 };
+const ANALYST_REPORT_FIELDS = [
+    { role: 'fundamental', field: 'fundamentalsReport' },
+    { role: 'market', field: 'marketReport' },
+    { role: 'news', field: 'newsReport' },
+    { role: 'social', field: 'sentimentReport' },
+];
+const buildAnalystAssessments = (row) => ANALYST_REPORT_FIELDS.map(({ role, field }) => ({
+    role,
+    content: typeof row[field] === 'string' ? row[field] : row[field] ?? null,
+}));
 const mapSummaryRow = (row) => ({
     runId: row.runId,
     symbol: row.symbol,
@@ -42,6 +52,11 @@ const mapDetailRow = (row) => ({
     conservativeArgument: row.conservativeArgument ?? null,
     neutralArgument: row.neutralArgument ?? null,
     riskDebate: row.riskDebate ?? null,
+    fundamentalsReport: row.fundamentalsReport ?? null,
+    marketReport: row.marketReport ?? null,
+    newsReport: row.newsReport ?? null,
+    sentimentReport: row.sentimentReport ?? null,
+    analystAssessments: buildAnalystAssessments(row),
 });
 export const getTradingAssessments = async (symbol, options = {}) => {
     const normalizedLimit = normalizeLimit(options.limit);

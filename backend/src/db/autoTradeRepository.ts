@@ -13,6 +13,8 @@ import type {
   AutoTradePosition,
   AutoTradeDecision,
   AutoTradeEvent,
+  AutoTradeAction,
+  AutoTradeClosedPosition,
 } from "../types/autotrade.js"
 
 const toNumber = (value: unknown, fallback = 0): number => {
@@ -71,7 +73,7 @@ const assembleDecision = (
   return {
     id: row.id,
     symbol: row.symbol,
-    action: row.action,
+    action: (row.action?.toLowerCase?.() ?? row.action ?? "hold") as AutoTradeAction,
     sizePct: toNumber(row.sizePct, 0),
     confidence: toNumber(row.confidence, 0),
     rationale: row.rationale ?? "",
@@ -135,6 +137,7 @@ export const getLatestAutoTradePortfolio = async (): Promise<AutoTradePortfolioS
 
   const decisions = decisionRows.map((row) => assembleDecision(row, promptMap))
   const events = eventsRows.map(mapEventRow)
+  const closedPositions: AutoTradeClosedPosition[] = []
 
   const snapshot: AutoTradePortfolioSnapshot = {
     portfolioId: portfolioRow.id,
@@ -149,6 +152,7 @@ export const getLatestAutoTradePortfolio = async (): Promise<AutoTradePortfolioS
     lastRunAt: toIsoString(portfolioRow.lastRunAt) ?? new Date().toISOString(),
     nextRunInMinutes: 5,
     positions,
+    closedPositions,
     decisions,
     events,
   }

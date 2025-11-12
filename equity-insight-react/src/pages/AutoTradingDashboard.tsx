@@ -77,11 +77,7 @@ const AutoTradingDashboard = () => {
   const navigate = useNavigate()
 
   const [selectedMode, setSelectedMode] = useState<AutoTradeRuntimeMode | undefined>(undefined)
-  const {
-    data: decisionList,
-    isLoading: isDecisionsLoading,
-    isError: isDecisionsError,
-  } = useAutoTradingDecisions()
+  const { data: decisionList } = useAutoTradingDecisions()
 
   useEffect(() => {
     if (runtimeMode) {

@@ -1,7 +1,37 @@
 import { desc } from 'drizzle-orm';
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum, date } from 'drizzle-orm/pg-core';
+import { bigserial, index, jsonb, pgTable, text, timestamp, uuid, boolean, pgEnum, date, numeric, integer, } from 'drizzle-orm/pg-core';
 // Auth-related enums
 export const providerEnum = pgEnum('provider', ['google']);
+export const autoPortfolioStatusEnum = pgEnum('auto_portfolio_status', [
+    'pending',
+    'active',
+    'paused',
+    'disabled',
+]);
+export const orderSideEnum = pgEnum('autotrade_order_side', ['buy', 'sell']);
+export const orderTypeEnum = pgEnum('autotrade_order_type', [
+    'market',
+    'limit',
+    'stop_market',
+    'stop_limit',
+]);
+export const orderStatusEnum = pgEnum('autotrade_order_status', [
+    'pending',
+    'submitted',
+    'partially_filled',
+    'filled',
+    'cancelled',
+    'failed',
+]);
+export const promptPayloadTypeEnum = pgEnum('autotrade_prompt_payload_type', ['prompt', 'cot']);
+export const autoEventTypeEnum = pgEnum('autotrade_event_type', [
+    'pause',
+    'resume',
+    'deposit',
+    'withdraw',
+    'order_error',
+    'risk_override',
+]);
 // Users table - canonical user records
 export const users = pgTable('users', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -9,6 +39,7 @@ export const users = pgTable('users', {
     emailVerified: boolean('email_verified').default(false).notNull(),
     fullName: text('full_name'),
     avatarUrl: text('avatar_url'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
@@ -71,6 +102,143 @@ export const personaMemories = pgTable('persona_memories', {
     personaSymbolIdx: index('idx_persona_memories_persona_symbol').on(table.persona, table.symbol),
     createdAtIdx: index('idx_persona_memories_created_at').on(desc(table.createdAt)),
 }));
+export const autoPortfolios = pgTable('auto_portfolios', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    status: autoPortfolioStatusEnum('status').default('pending').notNull(),
+    automationEnabled: boolean('automation_enabled').default(false).notNull(),
+    startingCapital: numeric('starting_capital', { precision: 18, scale: 2 })
+        .$type()
+        .notNull(),
+    currentCash: numeric('current_cash', { precision: 18, scale: 2 }).$type().notNull(),
+    sharpe: numeric('sharpe', { precision: 10, scale: 4 }).$type(),
+    drawdownPct: numeric('drawdown_pct', { precision: 6, scale: 3 }).$type(),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    userIdx: index('idx_auto_portfolios_user').on(table.userId),
+    statusIdx: index('idx_auto_portfolios_status').on(table.status),
+}));
+export const autoPortfolioSettings = pgTable('auto_portfolio_settings', {
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .primaryKey(),
+    maxLeverage: numeric('max_leverage', { precision: 6, scale: 3 }).$type().default(10),
+    maxPositionPct: numeric('max_position_pct', { precision: 6, scale: 3 })
+        .$type()
+        .default(50),
+    maxDailyLoss: numeric('max_daily_loss', { precision: 10, scale: 2 }).$type(),
+    maxDrawdownPct: numeric('max_drawdown_pct', { precision: 6, scale: 3 }).$type(),
+    cooldownMinutes: integer('cooldown_minutes').default(15),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export const portfolioPositions = pgTable('portfolio_positions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .notNull(),
+    symbol: text('symbol').notNull(),
+    quantity: numeric('quantity', { precision: 28, scale: 12 }).$type().notNull(),
+    avgCost: numeric('avg_cost', { precision: 18, scale: 8 }).$type().notNull(),
+    markPrice: numeric('mark_price', { precision: 18, scale: 8 }).$type().notNull(),
+    unrealizedPnl: numeric('unrealized_pnl', { precision: 18, scale: 4 }).$type(),
+    leverage: numeric('leverage', { precision: 6, scale: 3 }).$type(),
+    confidence: numeric('confidence', { precision: 6, scale: 3 }).$type(),
+    riskUsd: numeric('risk_usd', { precision: 18, scale: 4 }).$type(),
+    exitPlan: jsonb('exit_plan').$type(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    portfolioSymbolIdx: index('idx_positions_portfolio_symbol').on(table.portfolioId, table.symbol),
+}));
+export const tradeOrders = pgTable('trade_orders', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .notNull(),
+    clientOrderId: text('client_order_id').notNull().unique(),
+    venue: text('venue').notNull(),
+    symbol: text('symbol').notNull(),
+    side: orderSideEnum('side').notNull(),
+    orderType: orderTypeEnum('order_type').notNull(),
+    quantity: numeric('quantity', { precision: 28, scale: 12 }).$type().notNull(),
+    price: numeric('price', { precision: 18, scale: 8 }).$type(),
+    status: orderStatusEnum('status').default('pending').notNull(),
+    confidence: numeric('confidence', { precision: 6, scale: 3 }).$type(),
+    riskUsd: numeric('risk_usd', { precision: 18, scale: 4 }).$type(),
+    runId: uuid('run_id'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    metadata: jsonb('metadata').$type(),
+}, (table) => ({
+    portfolioIdx: index('idx_trade_orders_portfolio_created').on(table.portfolioId, desc(table.submittedAt)),
+    runIdx: index('idx_trade_orders_run').on(table.runId),
+}));
+export const tradeExecutions = pgTable('trade_executions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+        .references(() => tradeOrders.id, { onDelete: 'cascade' })
+        .notNull(),
+    fillPrice: numeric('fill_price', { precision: 18, scale: 8 }).$type().notNull(),
+    fillQuantity: numeric('fill_quantity', { precision: 28, scale: 12 }).$type().notNull(),
+    fee: numeric('fee', { precision: 18, scale: 8 }).$type(),
+    liquidity: text('liquidity'),
+    filledAt: timestamp('filled_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    orderIdx: index('idx_trade_executions_order').on(table.orderId, table.filledAt),
+}));
+export const portfolioSnapshots = pgTable('portfolio_snapshots', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .notNull(),
+    equity: numeric('equity', { precision: 18, scale: 2 }).$type().notNull(),
+    cash: numeric('cash', { precision: 18, scale: 2 }).$type().notNull(),
+    positionsValue: numeric('positions_value', { precision: 18, scale: 2 }).$type().notNull(),
+    realizedPnl: numeric('realized_pnl', { precision: 18, scale: 2 }).$type().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    portfolioCreatedIdx: index('idx_portfolio_snapshots_portfolio_created').on(table.portfolioId, desc(table.createdAt)),
+}));
+export const llmPromptPayloads = pgTable('llm_prompt_payloads', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    storageUri: text('storage_uri').notNull(),
+    sha256: text('sha256').notNull(),
+    payloadType: promptPayloadTypeEnum('payload_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    shaIdx: index('idx_llm_prompt_payloads_sha').on(table.sha256),
+}));
+export const llmDecisionLogs = pgTable('llm_decision_logs', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .notNull(),
+    runId: uuid('run_id').notNull(),
+    symbol: text('symbol').notNull(),
+    action: text('action').notNull(),
+    sizePct: numeric('size_pct', { precision: 6, scale: 3 }).$type(),
+    confidence: numeric('confidence', { precision: 6, scale: 3 }).$type(),
+    rationale: text('rationale'),
+    promptRef: uuid('prompt_ref').references(() => llmPromptPayloads.id),
+    cotRef: uuid('cot_ref').references(() => llmPromptPayloads.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    portfolioIdx: index('idx_llm_decision_logs_portfolio').on(table.portfolioId, desc(table.createdAt)),
+    runIdx: index('idx_llm_decision_logs_run').on(table.runId),
+}));
+export const autotradeEvents = pgTable('autotrade_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    portfolioId: uuid('portfolio_id')
+        .references(() => autoPortfolios.id, { onDelete: 'cascade' })
+        .notNull(),
+    eventType: autoEventTypeEnum('event_type').notNull(),
+    payload: jsonb('payload').$type(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+    eventIdx: index('idx_autotrade_events_portfolio').on(table.portfolioId, desc(table.createdAt)),
+}));
 export const schema = {
     tables: {
         users: users,
@@ -78,6 +246,15 @@ export const schema = {
         sessions: sessions,
         assessment_logs: assessmentLogs,
         persona_memories: personaMemories,
+        auto_portfolios: autoPortfolios,
+        auto_portfolio_settings: autoPortfolioSettings,
+        portfolio_positions: portfolioPositions,
+        trade_orders: tradeOrders,
+        trade_executions: tradeExecutions,
+        portfolio_snapshots: portfolioSnapshots,
+        llm_prompt_payloads: llmPromptPayloads,
+        llm_decision_logs: llmDecisionLogs,
+        autotrade_events: autotradeEvents,
     },
 };
 //# sourceMappingURL=schema.js.map

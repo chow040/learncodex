@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/$1"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/market-data",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/llm-decision",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/position-sync",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "env": {
+    "LOG_LEVEL": "INFO"
+  }
+}

@@ -469,7 +469,7 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
     settings = get_settings()
     runtime_mode = await get_runtime_mode(settings)
     if runtime_mode == "paper":
-        return await _build_okx_demo_snapshot(settings)
+        return await _build_okx_demo_snapshot(settings, runtime_mode=runtime_mode)
     
     # If simulation mode is selected, load from simulated state
     if runtime_mode == "simulator":
@@ -598,7 +598,10 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
     )
 
 
-async def _build_okx_demo_snapshot(settings: Settings) -> AutoTradePortfolioSnapshot:
+async def _build_okx_demo_snapshot(
+    settings: Settings,
+    runtime_mode: RuntimeMode | None = None,
+) -> AutoTradePortfolioSnapshot:
     client = await OKXClient.create(settings=settings)
     try:
         balance = await client.fetch_balance()
@@ -626,7 +629,11 @@ async def _build_okx_demo_snapshot(settings: Settings) -> AutoTradePortfolioSnap
         sharpe=0.0,
         drawdown_pct=0.0,
         last_run_at=last_run,
-        next_run_in_minutes=int(settings.decision_interval_minutes),
+        next_run_in_minutes=int(
+            settings.llm_scheduler_interval_minutes
+            if runtime_mode == "paper"
+            else settings.decision_interval_minutes
+        ),
         positions=mapped_positions,
         closed_positions=[],
         decisions=[],

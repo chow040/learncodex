@@ -87,6 +87,8 @@ export const env = {
     openAiBaseUrl: process.env.OPENAI_BASE_URL ?? undefined,
     nodeEnv: process.env.NODE_ENV ?? 'development',
     port: Number.parseInt(process.env.PORT ?? '4000', 10),
+    autotradeServiceUrl: process.env.AUTOTRADE_SERVICE_URL ?? undefined,
+    autotradeServiceKey: process.env.AUTOTRADE_SERVICE_KEY ?? undefined,
     openAiApiKey: process.env.OPENAI_API_KEY ?? '',
     openAiModel,
     grokApiKey,

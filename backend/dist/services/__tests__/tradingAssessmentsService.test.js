@@ -96,6 +96,10 @@ describe('getTradingAssessmentByRunId', () => {
             rawText: '{"decision":"HOLD"}',
             promptHash: 'hash',
             logsPath: '/tmp/logs.json',
+            fundamentalsReport: 'Fundamental analysis output',
+            marketReport: 'Market analysis output',
+            newsReport: 'News analysis output',
+            sentimentReport: null,
         });
         const result = await getTradingAssessmentByRunId('run-3');
         expect(result).not.toBeNull();
@@ -107,7 +111,17 @@ describe('getTradingAssessmentByRunId', () => {
             rawText: '{"decision":"HOLD"}',
             promptHash: 'hash',
             logsPath: '/tmp/logs.json',
+            fundamentalsReport: 'Fundamental analysis output',
+            marketReport: 'Market analysis output',
+            newsReport: 'News analysis output',
+            sentimentReport: null,
         });
+        expect(result?.analystAssessments).toEqual([
+            { role: 'fundamental', content: 'Fundamental analysis output' },
+            { role: 'market', content: 'Market analysis output' },
+            { role: 'news', content: 'News analysis output' },
+            { role: 'social', content: null },
+        ]);
     });
 });
 //# sourceMappingURL=tradingAssessmentsService.test.js.map

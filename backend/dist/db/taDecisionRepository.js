@@ -72,6 +72,10 @@ const parseDecisionPayload = (value) => {
             conservativeArgument: core.conservativeArgument ?? null,
             neutralArgument: core.neutralArgument ?? null,
             riskDebate: core.riskDebate ?? null,
+            fundamentalsReport: core.fundamentalsReport ?? null,
+            newsReport: core.newsReport ?? null,
+            marketReport: core.marketReport ?? null,
+            sentimentReport: core.sentimentReport ?? null,
         };
     }
     return { payload: source, debate: null };
@@ -132,6 +136,18 @@ export const insertTaDecision = async (input) => {
         }
         if (input.decision.riskDebate) {
             storedPayload.riskDebate = input.decision.riskDebate;
+        }
+        if (input.decision.marketReport) {
+            storedPayload.marketReport = input.decision.marketReport;
+        }
+        if (input.decision.newsReport) {
+            storedPayload.newsReport = input.decision.newsReport;
+        }
+        if (input.decision.sentimentReport) {
+            storedPayload.sentimentReport = input.decision.sentimentReport;
+        }
+        if (input.decision.fundamentalsReport) {
+            storedPayload.fundamentalsReport = input.decision.fundamentalsReport;
         }
         await pg.query(`INSERT INTO ta_decisions (
          run_id, symbol, trade_date, decision_token,
@@ -279,6 +295,10 @@ export const fetchTradingAssessmentByRunId = async (runId) => {
         conservativeArgument: storedPayload.conservativeArgument ?? null,
         neutralArgument: storedPayload.neutralArgument ?? null,
         riskDebate: storedPayload.riskDebate ?? null,
+        fundamentalsReport: storedPayload.fundamentalsReport ?? null,
+        newsReport: storedPayload.newsReport ?? null,
+        marketReport: storedPayload.marketReport ?? null,
+        sentimentReport: storedPayload.sentimentReport ?? null,
         ...(analysts ? { analysts } : {}),
     };
 };
