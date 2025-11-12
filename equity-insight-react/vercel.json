@@ -3,15 +3,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "devCommand": "npm run dev",
-  "env": {
-    "VITE_API_BASE_URL": {
-      "description": "Backend API base URL",
-      "value": "https://api.your-domain.com"
-    },
-    "VITE_AUTOTRADE_API_BASE_URL": {
-      "description": "Auto-trading API base URL", 
-      "value": "https://autotrade.your-domain.com"
-    }
-  }
+  "devCommand": "npm run dev"
 }
