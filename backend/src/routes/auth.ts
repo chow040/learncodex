@@ -80,10 +80,11 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const session = await createSession(user.id, req)
     
     // Set session cookie
+    const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.get('x-forwarded-proto') === 'https'
     res.cookie('sessionId', session!.id, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     })
     
