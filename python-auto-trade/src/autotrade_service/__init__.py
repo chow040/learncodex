@@ -1,5 +1,3 @@
 """Autonomous trading service package."""
 
-from .main import app
-
-__all__ = ["app"]
+__all__ = []

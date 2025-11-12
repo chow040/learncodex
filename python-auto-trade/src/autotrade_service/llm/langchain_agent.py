@@ -3,11 +3,29 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Sequence
+from typing import Sequence, Tuple
 
-from langchain.agents import create_agent
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.tools import tool
+try:
+    from langchain.agents import create_agent as _create_agent
+    from langchain_core.messages import AIMessage as _AIMessage, BaseMessage as _BaseMessage
+    from langchain_core.tools import tool as _tool
+except Exception as exc:  # pragma: no cover - optional dependency
+    _create_agent = None
+    _tool = None
+    _LANGCHAIN_IMPORT_ERROR = exc
+
+    class _FallbackBaseMessage:  # pragma: no cover - type placeholder
+        content: object = ""
+
+    class _FallbackAIMessage(_FallbackBaseMessage):  # pragma: no cover - type placeholder
+        ...
+
+    BaseMessage = _FallbackBaseMessage
+    AIMessage = _FallbackAIMessage
+else:
+    BaseMessage = _BaseMessage
+    AIMessage = _AIMessage
+    _LANGCHAIN_IMPORT_ERROR = None
 
 try:
     from langchain_deepseek import ChatDeepSeek
@@ -73,6 +91,11 @@ def create_langchain_agent(
 ):
     _ = (client, tool_cache)  # maintained for interface compatibility
     settings = get_settings()
+    if _create_agent is None or _tool is None:
+        raise ImportError(
+            "LangChain is required to build the trading agent. Install compatible langchain/langgraph versions."
+        ) from _LANGCHAIN_IMPORT_ERROR
+    tool = _tool
 
     @tool("live_market_data")
     async def live_market_data(symbol: str) -> str:
@@ -214,7 +237,7 @@ def create_langchain_agent(
         return json.dumps(envelope)
 
     model = _build_chat_model()
-    return create_agent(
+    return _create_agent(
         model=model,
         tools=[live_market_data, indicator_calculator, derivatives_data],
         system_prompt=SYSTEM_PROMPT,

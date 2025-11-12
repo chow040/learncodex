@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Any, Protocol
 
@@ -41,12 +42,26 @@ class Database:
         settings = get_settings()
         if not settings.db_url:
             return
-        self._pool = await asyncpg.create_pool(str(settings.db_url), min_size=1, max_size=5)
+        self._pool = await asyncpg.create_pool(
+            str(settings.db_url),
+            min_size=1,
+            max_size=5,
+            statement_cache_size=0,
+        )
 
     async def disconnect(self) -> None:
         if self._pool is not None:
-            await self._pool.close()
-            self._pool = None
+            try:
+                # Terminate all connections immediately instead of waiting for graceful close
+                await asyncio.wait_for(self._pool.close(), timeout=5.0)
+            except asyncio.TimeoutError:
+                # Force terminate if close() takes too long
+                self._pool.terminate()
+            except Exception:  # pragma: no cover
+                # Ensure we always terminate on any error
+                self._pool.terminate()
+            finally:
+                self._pool = None
 
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[Any]:

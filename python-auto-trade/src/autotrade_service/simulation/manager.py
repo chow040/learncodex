@@ -114,7 +114,6 @@ def simulated_to_snapshot(portfolio: SimulatedPortfolio) -> AutoTradePortfolioSn
         last_run_at=portfolio.updated_at.isoformat(),
         next_run_in_minutes=get_settings().decision_interval_minutes,
         positions=positions,
-        decisions=decisions,
         events=events,
         closed_positions=closed_positions,
     )

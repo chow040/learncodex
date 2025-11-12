@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ..llm.schemas import DecisionAction, DecisionPayload
+from ..brokers.base import BaseBroker
 from .state import ClosedPosition, EvaluationLogEntry, ExitPlan, SimulatedPortfolio, SimulatedPosition, TradeLogEntry
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("autotrade.simulation.broker")
 
 
-class SimulatedBroker:
+class SimulatedBroker(BaseBroker):
     """
     Simulated broker that processes trading decisions without real exchange interaction.
     
@@ -48,8 +49,28 @@ class SimulatedBroker:
         self.position_size_limit_pct = position_size_limit_pct
         self.outcome_tracker = outcome_tracker
         self._pending_exit_event = None  # Stores coroutine for async processing
+
+    async def get_portfolio_snapshot(self) -> SimulatedPortfolio:
+        return self.portfolio
     
-    def execute(
+    async def execute(
+        self,
+        decisions: List[DecisionPayload],
+        market_snapshots: Dict[str, float],
+        *,
+        system_prompt: str = "",
+        user_payload: str = "",
+        tool_payload_json: str | None = None,
+    ) -> List[str]:
+        return self._execute_batch(
+            decisions,
+            market_snapshots,
+            system_prompt=system_prompt,
+            user_payload=user_payload,
+            tool_payload_json=tool_payload_json,
+        )
+
+    def _execute_batch(
         self,
         decisions: List[DecisionPayload],
         market_snapshots: Dict[str, float],
@@ -419,7 +440,10 @@ class SimulatedBroker:
             invalidation_condition=decision.invalidation_condition,
         )
     
-    def mark_to_market(self, market_snapshots: Dict[str, float]) -> None:
+    async def mark_to_market(self, market_snapshots: Dict[str, float]) -> None:
+        self._mark_to_market_sync(market_snapshots)
+
+    def _mark_to_market_sync(self, market_snapshots: Dict[str, float]) -> None:
         """
         Update current prices for all positions and check exit triggers.
         

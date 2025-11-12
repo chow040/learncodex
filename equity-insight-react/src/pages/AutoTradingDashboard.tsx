@@ -12,14 +12,17 @@ import { Switch } from "../components/ui/switch"
 import { Separator } from "../components/ui/separator"
 import { ScrollArea } from "../components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { cn } from "../lib/utils"
 import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 import { useAutoTradingPortfolio } from "../hooks/useAutoTradingPortfolio"
+import { useAutoTradingDecisions } from "../hooks/useAutoTradingDecisions"
 import { useAutoTradingScheduler } from "../hooks/useAutoTradingScheduler"
 import { usePortfolioHistory } from "../hooks/usePortfolioHistory"
+import { useRuntimeMode } from "../hooks/useRuntimeMode"
 import { SimulationBanner } from "../components/trading/SimulationBanner"
 import { PortfolioValueChart } from "../components/trading/PortfolioValueChart"
-import type { AutoTradePortfolioSnapshot, AutoTradeAction } from "../types/autotrade"
+import type { AutoTradePortfolioSnapshot, AutoTradeAction, AutoTradeRuntimeMode } from "../types/autotrade"
 
 const actionBadgeClasses = (action: AutoTradeAction | string) => {
   switch (action) {
@@ -34,6 +37,12 @@ const actionBadgeClasses = (action: AutoTradeAction | string) => {
     default:
       return "bg-slate-500/20 text-slate-200"
   }
+}
+
+const RUNTIME_MODE_LABELS: Record<AutoTradeRuntimeMode, string> = {
+  simulator: "Simulator",
+  paper: "Paper Trading",
+  live: "Live Trading",
 }
 
 const AutoTradingDashboard = () => {
@@ -59,14 +68,30 @@ const AutoTradingDashboard = () => {
     isTriggering,
   } = useAutoTradingScheduler()
 
-  const [paperMode, setPaperMode] = useState(portfolio.mode.toLowerCase().includes("paper"))
+  const {
+    mode: runtimeMode,
+    isLoading: isModeLoading,
+    isUpdating: isModeUpdating,
+    setMode: setRuntimeMode,
+  } = useRuntimeMode()
   const navigate = useNavigate()
 
+  const [selectedMode, setSelectedMode] = useState<AutoTradeRuntimeMode | undefined>(undefined)
+  const {
+    data: decisionList,
+    isLoading: isDecisionsLoading,
+    isError: isDecisionsError,
+  } = useAutoTradingDecisions()
+
   useEffect(() => {
-    setPaperMode(portfolio.mode.toLowerCase().includes("paper"))
-  }, [portfolio])
+    if (runtimeMode) {
+      setSelectedMode(runtimeMode)
+    }
+  }, [runtimeMode])
 
   const automationEnabled = scheduler ? !scheduler.isPaused : portfolio.automationEnabled
+  const effectiveMode = selectedMode ?? runtimeMode
+  const currentModeLabel = effectiveMode ? RUNTIME_MODE_LABELS[effectiveMode] : "Detecting..."
   const lastRunIso = scheduler?.lastRunAt ?? portfolio.lastRunAt
   const nextRunIso = scheduler?.nextRunAt ?? null
 
@@ -117,17 +142,19 @@ const AutoTradingDashboard = () => {
 
   const [isClosedPositionsOpen, setIsClosedPositionsOpen] = useState(false)
 
+  const decisions = decisionList?.items ?? []
+
   const groupedDecisions = useMemo(() => {
     const groups = new Map<
       string,
       {
         id: string
         createdAt: string
-        decisions: typeof portfolio.decisions
+        decisions: typeof decisions
       }
     >()
 
-    for (const decision of portfolio.decisions) {
+    for (const decision of decisions) {
       const key =
         decision.prompt?.userPayload ||
         decision.prompt?.chainOfThought ||
@@ -152,7 +179,7 @@ const AutoTradingDashboard = () => {
     return Array.from(groups.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
-  }, [portfolio.decisions])
+  }, [decisions])
 
   return (
     <div className="min-h-screen bg-background">
@@ -178,8 +205,25 @@ const AutoTradingDashboard = () => {
               />
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Paper mode</span>
-              <Switch checked={paperMode} onCheckedChange={setPaperMode} aria-label="Toggle paper trading mode" />
+              <span className="text-muted-foreground">Mode</span>
+              <Select
+                value={effectiveMode}
+                onValueChange={(value) => {
+                  const modeValue = value as AutoTradeRuntimeMode
+                  setSelectedMode(modeValue)
+                  void setRuntimeMode(modeValue)
+                }}
+                disabled={isModeLoading || isModeUpdating}
+              >
+                <SelectTrigger className="h-9 w-[180px] border-border/60 bg-card/80 text-left text-sm font-medium text-foreground">
+                  <SelectValue placeholder="Select mode">{currentModeLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="border-border/50 bg-card/95 text-foreground backdrop-blur">
+                  <SelectItem value="simulator">Simulator</SelectItem>
+                  <SelectItem value="paper">Paper Trading</SelectItem>
+                  <SelectItem value="live">Live Trading</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               variant="outline"
@@ -271,7 +315,7 @@ const AutoTradingDashboard = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Current mode</span>
-                  <Badge variant="outline">{paperMode ? "Paper trading" : "Live trading"}</Badge>
+                  <Badge variant="outline">{currentModeLabel}</Badge>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Next evaluation</span>
@@ -554,9 +598,9 @@ const AutoTradingDashboard = () => {
               <CardContent className="space-y-4">
                 <ScrollArea className="h-72 pr-6">
                   <div className="space-y-3">
-                    {groupedDecisions.map((group) => (
+                    {groupedDecisions.map((group, groupIndex) => (
                       <div
-                        key={group.id}
+                        key={`${group.id}-${groupIndex}`}
                         className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -574,8 +618,8 @@ const AutoTradingDashboard = () => {
                         </div>
                         <Separator className="my-3" />
                         <div className="space-y-3">
-                          {group.decisions.map((decision) => (
-                            <div key={decision.id} className="space-y-1">
+                          {group.decisions.map((decision, decisionIndex) => (
+                            <div key={`${decision.id}-${decisionIndex}`} className="space-y-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" className="uppercase tracking-wider">
                                   {decision.symbol}

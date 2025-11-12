@@ -74,6 +74,8 @@ export interface AutoTradePortfolioSnapshot {
   events: AutoTradeEvent[]
 }
 
+export type AutoTradeRuntimeMode = "simulator" | "paper" | "live"
+
 export interface AutoTradeSchedulerJobStatus {
   jobId: string
   name: string

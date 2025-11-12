@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+.ticker-card[data-highlight="price-up"] {
+  animation: price-flash-up 0.6s ease;
+}
+
+.ticker-card[data-highlight="price-down"] {
+  animation: price-flash-down 0.6s ease;
+}
+
+@keyframes price-flash-up {
+  0% {
+    background-color: rgba(16, 185, 129, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes price-flash-down {
+  0% {
+    background-color: rgba(248, 113, 113, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: dark;

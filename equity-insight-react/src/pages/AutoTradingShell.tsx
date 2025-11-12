@@ -5,4 +5,3 @@ const AutoTradingShell = () => {
 }
 
 export default AutoTradingShell
-

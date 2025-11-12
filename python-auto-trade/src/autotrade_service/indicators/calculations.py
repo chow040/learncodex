@@ -148,6 +148,41 @@ class IndicatorCalculations:
     def ema(self, closes: Iterable[float], period: int) -> float:
         return _last_value(_ema(_to_series(closes), period))
 
+    def sma(self, values: Iterable[float], period: int) -> float:
+        series = _to_series(values)
+        if len(series) < period or period <= 0:
+            return 0.0
+        window = series.tail(period)
+        mean_value = window.mean()
+        if pd.isna(mean_value):
+            return 0.0
+        return float(mean_value)
+
+    def volume_average(self, volumes: Iterable[float], period: int) -> float:
+        return self.sma(volumes, period)
+
+    def trend_direction(
+        self,
+        values: Iterable[float],
+        *,
+        lookback: int | None = None,
+        tolerance: float = 0.0,
+    ) -> str:
+        series = _to_series(values)
+        if series.empty:
+            return "sideways"
+        if lookback and len(series) > lookback:
+            series = series.tail(lookback)
+        start = float(series.iloc[0])
+        end = float(series.iloc[-1])
+        delta = end - start
+        tol = abs(tolerance)
+        if delta > tol:
+            return "uptrend"
+        if delta < -tol:
+            return "downtrend"
+        return "sideways"
+
     def macd(self, closes: Iterable[float]) -> tuple[float, float, float]:
         close_series = _to_series(closes)
         if close_series.empty:
@@ -159,11 +194,19 @@ class IndicatorCalculations:
         macd_hist = macd_line - macd_signal
         return _last_value(macd_line), _last_value(macd_signal), _last_value(macd_hist)
 
-    def rsi(self, closes: Iterable[float]) -> float:
-        return _last_value(_rsi(_to_series(closes), self.rsi_period))
+    def rsi(self, closes: Iterable[float], period: int | None = None) -> float:
+        target_period = period or self.rsi_period
+        return _last_value(_rsi(_to_series(closes), target_period))
 
-    def atr(self, highs: Iterable[float], lows: Iterable[float], closes: Iterable[float]) -> float:
-        return _last_value(_atr(_to_series(highs), _to_series(lows), _to_series(closes), self.atr_period))
+    def atr(
+        self,
+        highs: Iterable[float],
+        lows: Iterable[float],
+        closes: Iterable[float],
+        period: int | None = None,
+    ) -> float:
+        target_period = period or self.atr_period
+        return _last_value(_atr(_to_series(highs), _to_series(lows), _to_series(closes), target_period))
 
     def volatility(self, closes: Iterable[float], period: int = 30) -> float:
         close_series = _to_series(closes)

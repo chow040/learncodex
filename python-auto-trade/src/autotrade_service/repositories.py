@@ -4,9 +4,9 @@ import json
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from datetime import datetime
-from typing import Any, Iterable, TypedDict
-from uuid import UUID
+from datetime import datetime, timezone
+from typing import Any, Iterable, TypedDict, cast
+from uuid import UUID, uuid4
 
 try:
     import asyncpg
@@ -16,8 +16,10 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for local/test enviro
 
     asyncpg = _AsyncPGStub()  # type: ignore[assignment]
 
-from .config import get_settings
+from .config import Settings, get_settings
 from .db import get_db
+from .providers import OKXClient
+from .runtime import RuntimeMode, MODE_TO_BROKER, mode_to_broker, broker_to_mode
 
 
 @dataclass
@@ -100,6 +102,100 @@ class AutoTradePortfolioSnapshot:
     closed_positions: list[AutoTradeClosedPosition]
     decisions: list[AutoTradeDecision]
     events: list[AutoTradeEvent]
+
+
+RUNTIME_SETTINGS_TABLE = "autotrade_runtime_settings"
+VALID_RUNTIME_MODES: tuple[str, ...] = tuple(MODE_TO_BROKER.keys())
+
+
+async def get_runtime_mode(settings: Settings | None = None) -> RuntimeMode:
+    settings = settings or get_settings()
+    db = get_db()
+    if db.is_connected:
+        async with db.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT mode FROM {RUNTIME_SETTINGS_TABLE} WHERE id = 1"
+            )
+            mode_value = row["mode"] if row else None
+            if mode_value in MODE_TO_BROKER:
+                return cast(RuntimeMode, mode_value)
+    return broker_to_mode(getattr(settings, "trading_broker", None))
+
+
+async def set_runtime_mode(mode: str, settings: Settings | None = None) -> RuntimeMode:
+    if mode not in MODE_TO_BROKER:
+        raise ValueError(f"Invalid runtime mode: {mode}")
+    runtime_mode = cast(RuntimeMode, mode)
+    settings = settings or get_settings()
+    db = get_db()
+    if not db.is_connected:
+        raise RuntimeError("Database is not connected; cannot persist runtime mode")
+    async with db.acquire() as conn:
+        await conn.execute(
+            f"""
+            INSERT INTO {RUNTIME_SETTINGS_TABLE} (id, mode, updated_at)
+            VALUES (1, $1, NOW())
+            ON CONFLICT (id)
+            DO UPDATE SET mode = EXCLUDED.mode, updated_at = NOW()
+            """,
+            runtime_mode,
+        )
+    return runtime_mode
+
+
+async def fetch_active_portfolio_id(conn: asyncpg.Connection | None = None) -> str | None:
+    """
+    Return the most recently updated auto_portfolios.id to use as the active portfolio.
+
+    Args:
+        conn: Optional existing asyncpg connection to reuse.
+    """
+    db = get_db()
+    if conn is None:
+        if not db.is_connected:
+            return None
+        async with db.acquire() as connection:  # type: ignore[assignment]
+            row = await connection.fetchrow(
+                "SELECT id FROM auto_portfolios ORDER BY updated_at DESC LIMIT 1"
+            )
+            return str(row["id"]) if row and row.get("id") else None
+    row = await conn.fetchrow("SELECT id FROM auto_portfolios ORDER BY updated_at DESC LIMIT 1")
+    if row and row.get("id"):
+        return str(row["id"])
+    return None
+
+
+async def _ensure_portfolio_user_id(conn: asyncpg.Connection) -> str | None:
+    settings = get_settings()
+    explicit = getattr(settings, "auto_portfolio_user_id", None)
+    if explicit:
+        return explicit
+
+    row = await conn.fetchrow("SELECT user_id FROM auto_portfolios ORDER BY updated_at DESC LIMIT 1")
+    if row and row.get("user_id"):
+        return str(row["user_id"])
+
+    row = await conn.fetchrow("SELECT id FROM users ORDER BY created_at ASC LIMIT 1")
+    if row and row.get("id"):
+        return str(row["id"])
+
+    user_id = str(uuid4())
+    email = f"autotrade-system+{user_id[:8]}@autotrade.local"
+    try:
+        await conn.execute(
+            """
+            INSERT INTO users (id, email, email_verified)
+            VALUES ($1, $2, true)
+            """,
+            user_id,
+            email,
+        )
+    except Exception as exc:  # pragma: no cover - failsafe for unknown schema
+        logging.getLogger("autotrade.repositories").warning(
+            "Failed to auto-provision user for portfolio persistence: %s", exc
+        )
+        return None
+    return user_id
 
 
 @dataclass(slots=True)
@@ -365,14 +461,18 @@ def _map_decision(row: DecisionRow) -> AutoTradeDecision:
         rationale=row.get("rationale") or "",
         created_at=created_at,
         prompt=prompt,
+        tool_payload_json=row.get("tool_payload_json"),
     )
 
 
 async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
     settings = get_settings()
+    runtime_mode = await get_runtime_mode(settings)
+    if runtime_mode == "paper":
+        return await _build_okx_demo_snapshot(settings)
     
-    # If simulation mode is enabled, load from simulated state
-    if settings.simulation_enabled:
+    # If simulation mode is selected, load from simulated state
+    if runtime_mode == "simulator":
         from .simulation import load_state, simulated_to_snapshot, create_initial_state
         
         logger = logging.getLogger("autotrade.repositories")
@@ -391,7 +491,9 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
                 path=settings.simulation_state_path,
             )
         
-        return simulated_to_snapshot(portfolio)
+        snapshot = simulated_to_snapshot(portfolio)
+        await persist_portfolio_snapshot(snapshot, runtime_mode="simulator")
+        return snapshot
     
     # Otherwise, use production database logic
     db = get_db()
@@ -494,6 +596,252 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
         decisions=decisions,
         events=events,
     )
+
+
+async def _build_okx_demo_snapshot(settings: Settings) -> AutoTradePortfolioSnapshot:
+    client = await OKXClient.create(settings=settings)
+    try:
+        balance = await client.fetch_balance()
+        positions = await client.fetch_positions()
+    finally:
+        await client.close()
+
+    resolved_portfolio_id = await fetch_active_portfolio_id()
+    portfolio_id = resolved_portfolio_id or str(uuid4())
+
+    available_cash = _extract_balance(balance, bucket="free")
+    equity = _extract_balance(balance, bucket="total") or available_cash
+    mapped_positions = [pos for pos in (_map_okx_position(p) for p in positions) if pos is not None]
+    total_pnl = sum(pos.pnl for pos in mapped_positions)
+    last_run = datetime.now(timezone.utc).isoformat()
+
+    snapshot = AutoTradePortfolioSnapshot(
+        portfolio_id=portfolio_id,
+        automation_enabled=True,
+        mode="OKX Demo Trading",
+        available_cash=available_cash,
+        equity=equity,
+        total_pnl=total_pnl,
+        pnl_pct=0.0 if equity == 0 else (total_pnl / equity) * 100.0,
+        sharpe=0.0,
+        drawdown_pct=0.0,
+        last_run_at=last_run,
+        next_run_in_minutes=int(settings.decision_interval_minutes),
+        positions=mapped_positions,
+        closed_positions=[],
+        decisions=[],
+        events=[],
+    )
+
+    await persist_portfolio_snapshot(snapshot, runtime_mode="paper")
+    return snapshot
+
+
+def _extract_balance(balance: dict[str, Any], *, bucket: str) -> float:
+    container = balance.get(bucket) if isinstance(balance, dict) else None
+    if not isinstance(container, dict):
+        return 0.0
+    if "USDT" in container:
+        return _to_float(container.get("USDT"), 0.0)
+    total = 0.0
+    for value in container.values():
+        total += _to_float(value, 0.0)
+    return total
+
+
+def _map_okx_position(payload: dict[str, Any]) -> AutoTradePosition | None:
+    info = payload.get("info", {}) if isinstance(payload, dict) else {}
+    symbol = payload.get("symbol") or info.get("instId")
+    if not symbol:
+        return None
+
+    entry_price = _to_float(payload.get("entryPrice") or info.get("avgPx"), 0.0)
+    mark_price = _to_float(payload.get("markPrice") or info.get("markPx"), entry_price)
+    quantity = _to_float(
+        payload.get("contracts")
+        or payload.get("size")
+        or info.get("pos")
+        or info.get("baseAmt"),
+        0.0,
+    )
+    pnl = _to_float(payload.get("unrealizedPnl") or info.get("upl"), 0.0)
+    leverage = _to_float(payload.get("leverage") or info.get("lever"), 1.0)
+    pnl_pct = 0.0 if entry_price == 0 else ((mark_price - entry_price) / entry_price) * 100.0
+
+    exit_plan = AutoTradeExitPlan(
+        profit_target=mark_price,
+        stop_loss=mark_price,
+        invalidation="",
+    )
+
+    return AutoTradePosition(
+        symbol=symbol,
+        quantity=quantity,
+        entry_price=entry_price,
+        mark_price=mark_price,
+        pnl=pnl,
+        pnl_pct=pnl_pct,
+        leverage=leverage,
+        confidence=0.0,
+        exit_plan=exit_plan,
+    )
+
+
+async def persist_portfolio_snapshot(snapshot: AutoTradePortfolioSnapshot, runtime_mode: RuntimeMode) -> None:
+    db = get_db()
+    if not db.is_connected:
+        return
+    if runtime_mode == "simulator":
+        return
+    portfolio_id = snapshot.portfolio_id
+    async with db.acquire() as conn:  # type: ignore[assignment]
+        try:
+            user_id = await _ensure_portfolio_user_id(conn)
+            if not user_id:
+                logging.getLogger("autotrade.repositories").warning(
+                    "Unable to resolve portfolio user id; skipping persistence"
+                )
+                return
+            last_run_at = snapshot.last_run_at
+            if isinstance(last_run_at, str):
+                try:
+                    last_run_at = datetime.fromisoformat(last_run_at.replace("Z", "+00:00"))
+                except ValueError:
+                    last_run_at = None
+
+            await conn.execute(
+                """
+                INSERT INTO auto_portfolios (
+                    id,
+                    user_id,
+                    status,
+                    automation_enabled,
+                    starting_capital,
+                    current_cash,
+                    sharpe,
+                    drawdown_pct,
+                    last_run_at,
+                    updated_at
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    automation_enabled = EXCLUDED.automation_enabled,
+                    starting_capital = EXCLUDED.starting_capital,
+                    current_cash = EXCLUDED.current_cash,
+                    sharpe = EXCLUDED.sharpe,
+                    drawdown_pct = EXCLUDED.drawdown_pct,
+                    last_run_at = EXCLUDED.last_run_at,
+                    updated_at = NOW()
+                """,
+                portfolio_id,
+                user_id,
+                "active",
+                snapshot.automation_enabled,
+                snapshot.available_cash,
+                snapshot.available_cash,
+                snapshot.sharpe,
+                    snapshot.drawdown_pct,
+                    last_run_at,
+            )
+            await conn.execute("DELETE FROM portfolio_positions WHERE portfolio_id = $1", portfolio_id)
+            if snapshot.positions:
+                position_rows = [
+                    (
+                        portfolio_id,
+                        position.symbol,
+                        position.quantity,
+                        position.entry_price,
+                        position.mark_price,
+                        position.pnl,
+                        position.leverage,
+                        position.confidence,
+                        json.dumps(
+                            {
+                                "profitTarget": position.exit_plan.profit_target,
+                                "stopLoss": position.exit_plan.stop_loss,
+                                "invalidation": position.exit_plan.invalidation,
+                            }
+                        ),
+                        position.pnl_pct,
+                    )
+                    for position in snapshot.positions
+                ]
+                await conn.executemany(
+                    """
+                    INSERT INTO portfolio_positions (
+                        portfolio_id,
+                        symbol,
+                        quantity,
+                        avg_cost,
+                        mark_price,
+                        unrealized_pnl,
+                        leverage,
+                        confidence,
+                        exit_plan,
+                        pnl_pct
+                    ) VALUES (
+                        $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10
+                    )
+                    """,
+                    position_rows,
+                )
+        except Exception as exc:  # pragma: no cover - DB optional in some envs
+            logging.getLogger("autotrade.repositories").warning(
+                "Failed to persist portfolio snapshot for %s: %s", portfolio_id, exc
+            )
+
+
+async def persist_closed_position(
+    *,
+    portfolio_id: str,
+    symbol: str,
+    quantity: float,
+    entry_price: float,
+    exit_price: float,
+    pnl: float,
+    pnl_pct: float,
+    leverage: float,
+    reason: str,
+) -> None:
+    db = get_db()
+    if not db.is_connected:
+        return
+    async with db.acquire() as conn:
+        try:
+            await conn.execute(
+                """
+                INSERT INTO portfolio_closed_positions (
+                    portfolio_id,
+                    symbol,
+                    quantity,
+                    entry_price,
+                    exit_price,
+                    realized_pnl,
+                    realized_pnl_pct,
+                    leverage,
+                    reason,
+                    exit_timestamp
+                ) VALUES (
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()
+                )
+                """,
+                portfolio_id,
+                symbol,
+                quantity,
+                entry_price,
+                exit_price,
+                pnl,
+                pnl_pct,
+                leverage,
+                reason,
+            )
+        except Exception as exc:  # pragma: no cover - optional table
+            logging.getLogger("autotrade.repositories").debug(
+                "Failed to persist closed position for %s: %s", portfolio_id, exc
+            )
 
 
 async def fetch_decisions(symbol: str | None = None) -> list[AutoTradeDecision]:

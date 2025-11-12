@@ -23,6 +23,7 @@ from ..llm.prompt_builder import (
 from ..llm.langchain_agent import create_langchain_agent, parse_agent_output
 from ..repositories import AutoTradePortfolioSnapshot, fetch_latest_portfolio
 from ..providers import DerivativesProviderError, DerivativesSnapshot, OKXDerivativesFetcher
+from ..schedulers.types import CachedSymbolData
 from ..tools import (
     DerivativesDataTool,
     IndicatorCalculatorTool,
@@ -37,6 +38,7 @@ class DecisionPipelineResult:
     prompt: str
     response: DecisionResult
     generated_at: datetime
+    portfolio_id: str
     run_id: str
     tool_cache_snapshot: list[ToolCacheSnapshot]
     agent_trace: list[dict[str, str]]
@@ -76,7 +78,11 @@ class DecisionPipeline:
         else:
             self._trace_log_path = None
 
-    async def run_once(self) -> DecisionPipelineResult | None:
+    async def run_once(
+        self,
+        *,
+        cached_market_data: dict[str, CachedSymbolData] | None = None,
+    ) -> DecisionPipelineResult | None:
         if not self._settings.deepseek_api_key:
             self._logger.info("DeepSeek API key not configured; skipping decision evaluation")
             return None
@@ -96,7 +102,11 @@ class DecisionPipeline:
         minutes_since_start = max(
             0, int((datetime.now(timezone.utc) - self._start_time).total_seconds() // 60)
         )
-        symbol_contexts = await self._gather_symbol_contexts(portfolio, symbols)
+        symbol_contexts = await self._gather_symbol_contexts(
+            portfolio,
+            symbols,
+            cached_market_data=cached_market_data,
+        )
 
         # Load learned rules and recent trade history for feedback loop
         learned_rules = await self._load_active_rules(limit=8)
@@ -161,6 +171,7 @@ class DecisionPipeline:
                     prompt=prompt,
                     response=decision_result,
                     generated_at=datetime.now(timezone.utc),
+                    portfolio_id=portfolio.portfolio_id,
                     run_id=run_id,
                     tool_cache_snapshot=snapshot,
                     agent_trace=trace,
@@ -593,16 +604,24 @@ class DecisionPipeline:
         self,
         portfolio: AutoTradePortfolioSnapshot,
         symbols: Sequence[str],
+        *,
+        cached_market_data: dict[str, CachedSymbolData] | None = None,
     ) -> list[SymbolContext]:
         upper_symbols = [symbol.upper() for symbol in symbols]
 
         market_data: dict[str, Any] = {}
-        try:
-            market_data = await self._market_tool.fetch(upper_symbols)
-        except Exception as exc:  # pragma: no cover - network failure path
-            self._logger.warning("Failed to fetch live market data: %s", exc)
-
         indicator_results: dict[str, Any] = {}
+        cached_lookup = {symbol: cached_market_data[symbol] for symbol in upper_symbols if cached_market_data and symbol in cached_market_data}
+        fallback_symbols = [symbol for symbol in upper_symbols if symbol not in cached_lookup]
+
+        if not cached_market_data or fallback_symbols:
+            symbols_to_fetch = fallback_symbols if cached_market_data else upper_symbols
+            try:
+                fetched = await self._market_tool.fetch(symbols_to_fetch)
+                market_data.update(fetched)
+            except Exception as exc:  # pragma: no cover - network failure path
+                self._logger.warning("Failed to fetch live market data: %s", exc)
+
         if market_data:
             try:
                 indicator_results = await self._indicator_tool.compute(market_data)
@@ -630,13 +649,22 @@ class DecisionPipeline:
 
         contexts: list[SymbolContext] = []
         for symbol in symbols:
-            context = self._build_symbol_context(
-                symbol=symbol,
-                portfolio_position=position_lookup.get(symbol.upper()),
-                market_payload=market_data.get(symbol.upper()) if market_data else None,
-                indicator_result=indicator_results.get(symbol.upper()) if indicator_results else None,
-                derivatives_snapshot=self._resolve_derivatives_snapshot(symbol, derivatives_data),
-            )
+            cached_entry = cached_lookup.get(symbol.upper()) if cached_lookup else None
+            if cached_entry is not None:
+                context = self._build_symbol_context_from_cache(
+                    symbol=symbol,
+                    portfolio_position=position_lookup.get(symbol.upper()),
+                    cached_entry=cached_entry,
+                    derivatives_snapshot=self._resolve_derivatives_snapshot(symbol, derivatives_data),
+                )
+            else:
+                context = self._build_symbol_context(
+                    symbol=symbol,
+                    portfolio_position=position_lookup.get(symbol.upper()),
+                    market_payload=market_data.get(symbol.upper()) if market_data else None,
+                    indicator_result=indicator_results.get(symbol.upper()) if indicator_results else None,
+                    derivatives_snapshot=self._resolve_derivatives_snapshot(symbol, derivatives_data),
+                )
             contexts.append(context)
         return contexts
 
@@ -739,6 +767,83 @@ class DecisionPipeline:
             rsi14_series=[],
             higher_timeframe=None,
         )
+
+    def _build_symbol_context_from_cache(
+        self,
+        *,
+        symbol: str,
+        portfolio_position: Any,
+        cached_entry: CachedSymbolData,
+        derivatives_snapshot: DerivativesSnapshot | None,
+    ) -> SymbolContext:
+        ticker = cached_entry.ticker or {}
+        indicators = cached_entry.indicators or {}
+        short_term = indicators.get("short_term", {})
+        long_term = indicators.get("long_term", {})
+
+        current_price = _safe_float(
+            ticker.get("last_price")
+            or ticker.get("price")
+            or ticker.get("last")
+        )
+        if not current_price and portfolio_position is not None:
+            current_price = portfolio_position.mark_price
+
+        funding_rate = 0.0
+        funding_history: list[float] = []
+        if cached_entry.funding:
+            funding_rate = _safe_float(cached_entry.funding.get("funding_rate"))
+            if funding_rate:
+                funding_history.append(funding_rate)
+
+        higher_context: SymbolHigherTimeframeContext | None = None
+        if long_term:
+            higher_context = SymbolHigherTimeframeContext(
+                ema20=_safe_float(long_term.get("ema_20")),
+                ema50=_safe_float(long_term.get("ema_50")),
+                atr3=_safe_float(long_term.get("atr_3")),
+                atr14=_safe_float(long_term.get("atr_14")),
+                volume=_safe_float(long_term.get("volume")),
+                volume_avg=_safe_float(long_term.get("volume_avg")),
+                macd_series=[],
+                rsi14_series=[],
+            )
+
+        macd_block = short_term.get("macd") or {}
+        macd_value = _safe_float(macd_block.get("macd"))
+
+        return SymbolContext(
+            symbol=symbol.upper(),
+            current_price=current_price,
+            ema20=_safe_float(short_term.get("ema_20")),
+            macd=macd_value,
+            rsi7=_safe_float(short_term.get("rsi_7")),
+            oi_latest=derivatives_snapshot.open_interest_usd if derivatives_snapshot else 0.0,
+            oi_avg=derivatives_snapshot.open_interest_usd if derivatives_snapshot else 0.0,
+            oi_contracts=derivatives_snapshot.open_interest_contracts if derivatives_snapshot else None,
+            oi_timestamp=derivatives_snapshot.open_interest_timestamp if derivatives_snapshot else None,
+            funding_rate=funding_rate,
+            funding_rate_pct=_safe_float(cached_entry.funding.get("funding_rate_pct")) if cached_entry.funding else None,
+            funding_rate_annual_pct=None,
+            predicted_funding_rate=None,
+            next_funding_time=cached_entry.funding.get("next_funding_time") if cached_entry.funding else None,
+            funding_history=funding_history,
+            mids=[],
+            ema20_series=[],
+            macd_series=[],
+            rsi7_series=[],
+            rsi14_series=[],
+            higher_timeframe=higher_context,
+        )
+
+
+def _safe_float(value: Any) -> float:
+    if value is None:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 _decision_pipeline: DecisionPipeline | None = None

@@ -193,12 +193,8 @@ Why did this trade {outcome_verb}? Be specific and actionable.
 Critique:"""
         
         try:
-            # Use LLM client's generate_completion method
-            response = await self.llm.generate_completion(
-                prompt=prompt,
-                temperature=0.7
-            )
-            critique = response.content.strip()
+            critique_response = await self._llm_completion(prompt, temperature=0.7)
+            critique = critique_response.strip()
             
             # Fallback if LLM returns empty
             if not critique or len(critique) < 10:
@@ -249,11 +245,8 @@ Requirements:
 New Rule:"""
         
         try:
-            response = await self.llm.generate_completion(
-                prompt=prompt,
-                temperature=0.8
-            )
-            rule = response.content.strip()
+            rule_response = await self._llm_completion(prompt, temperature=0.8)
+            rule = rule_response.strip()
             
             # Clean up common prefixes
             for prefix in ["New Rule:", "Rule:", "Decision Rule:"]:
@@ -270,6 +263,30 @@ New Rule:"""
         except Exception as e:
             logger.error(f"Error generating rule: {e}")
             return None
+
+    async def _llm_completion(self, prompt: str, *, temperature: float) -> str:
+        """
+        Helper to invoke the configured LLM client while being compatible with multiple client APIs.
+        """
+        response = None
+        if hasattr(self.llm, "generate_completion"):
+            response = await self.llm.generate_completion(prompt=prompt, temperature=temperature)
+        elif hasattr(self.llm, "generate"):
+            response = await self.llm.generate(prompt, temperature=temperature)
+        elif callable(getattr(self.llm, "__call__", None)):
+            response = await self.llm(prompt=prompt, temperature=temperature)
+        else:
+            raise AttributeError("LLM client must implement generate_completion, generate, or be callable")
+
+        if response is None:
+            return ""
+        if isinstance(response, str):
+            return response
+        if hasattr(response, "content"):
+            return str(response.content or "")
+        if isinstance(response, dict) and "content" in response:
+            return str(response["content"] or "")
+        return str(response)
     
     def _validate_rule(self, rule_text: str) -> bool:
         """

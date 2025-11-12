@@ -3,22 +3,27 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
-    "scripts": {
+  "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "test": "vitest run"
     },
     "devDependencies": {
-        "@types/html2canvas": "^0.5.35",
-        "@types/node": "^24.7.2",
-        "@types/react": "^19.1.15",
-        "@types/react-dom": "^19.1.9",
-        "@vitejs/plugin-react": "^5.0.4",
-        "autoprefixer": "^10.4.20",
-        "postcss": "^8.4.49",
-        "tailwindcss": "^3.4.13",
-        "typescript": "~5.8.3",
-        "vite": "^7.1.7"
+      "@types/html2canvas": "^0.5.35",
+      "@types/node": "^24.7.2",
+      "@types/react": "^19.1.15",
+      "@types/react-dom": "^19.1.9",
+      "@vitejs/plugin-react": "^5.0.4",
+      "autoprefixer": "^10.4.20",
+      "postcss": "^8.4.49",
+      "tailwindcss": "^3.4.13",
+      "@testing-library/react": "^16.0.1",
+      "@testing-library/jest-dom": "^6.4.8",
+      "jsdom": "^25.0.0",
+      "vitest": "^1.6.0",
+      "typescript": "~5.8.3",
+      "vite": "^7.1.7"
     },
     "dependencies": {
         "@hookform/resolvers": "^5.2.2",

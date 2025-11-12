@@ -5,6 +5,7 @@ from .okx_derivatives import (
     DerivativesSnapshot,
     OKXDerivativesFetcher,
 )
+from .okx_client import OKXClient, OKXClientConfig, OKXClientError
 
 __all__ = [
     "FundingFetcher",
@@ -14,4 +15,7 @@ __all__ = [
     "DerivativesProviderError",
     "DerivativesSnapshot",
     "OKXDerivativesFetcher",
+    "OKXClient",
+    "OKXClientConfig",
+    "OKXClientError",
 ]

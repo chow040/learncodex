@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { resolveApiBaseUrl } from "../lib/api"
+import { resolveAutotradeApiBaseUrl } from "../lib/api"
 import type { AutoTradeDecision } from "../types/autotrade"
 import { mockAutoTradingPortfolio } from "../mocks/autoTradingMockData"
 
@@ -9,7 +9,9 @@ interface ApiResponse {
 }
 
 const fetchDecision = async (baseUrl: string, decisionId: string): Promise<AutoTradeDecision> => {
-  const response = await fetch(`${baseUrl}/api/autotrade/v1/decisions/${encodeURIComponent(decisionId)}`, {
+  const response = await fetch(
+    `${baseUrl}/internal/autotrade/v1/decisions/${encodeURIComponent(decisionId)}`,
+    {
     credentials: "include",
   })
 
@@ -28,7 +30,7 @@ export const useAutoTradingDecision = (
   decisionId: string | undefined,
   options?: { apiBaseUrl?: string; enabled?: boolean },
 ) => {
-  const baseUrl = resolveApiBaseUrl(options?.apiBaseUrl)
+  const baseUrl = resolveAutotradeApiBaseUrl(options?.apiBaseUrl)
   const enabled = (options?.enabled ?? true) && Boolean(decisionId)
 
   return useQuery({

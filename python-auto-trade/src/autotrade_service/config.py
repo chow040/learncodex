@@ -3,6 +3,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +20,30 @@ class Settings(BaseSettings):
     service_port: int = 8085
     scheduler_impl: Literal["apscheduler", "asyncio"] = "apscheduler"
     decision_interval_minutes: float = 3.0
+    dual_scheduler_enabled: bool = False
+    trading_broker: Literal["simulated", "okx_demo"] = "simulated"
+    llm_scheduler_interval_minutes: float = 5.0
+    llm_data_stale_threshold_seconds: float = 30.0
+    market_data_symbols: list[str] = Field(
+        default_factory=lambda: [
+            "BTC-USDT-SWAP",
+            "ETH-USDT-SWAP",
+            "SOL-USDT-SWAP",
+            "BNB-USDT-SWAP",
+            "DOGE-USDT-SWAP",
+            "XRP-USDT-SWAP",
+        ]
+    )
+    llm_trading_symbols: list[str] | None = None
+    market_data_refresh_interval_seconds: float = 5.0
+    market_data_ticker_ttl_seconds: int = 10
+    market_data_orderbook_ttl_seconds: int = 10
+    market_data_funding_ttl_seconds: int = 300
+    market_data_short_timeframe: str = "15m"
+    market_data_long_timeframe: str = "1h"
+    market_data_short_ttl_seconds: int = 60
+    market_data_long_ttl_seconds: int = 300
+    market_data_indicator_ttl_seconds: int = 60
     tool_cache_ttl_seconds: float | None = 30.0
     decision_trace_log_path: str | None = "logs/decision-traces.log"
 
@@ -74,6 +100,13 @@ class Settings(BaseSettings):
     funding_provider_api_key: str | None = None
     funding_provider_timeout_seconds: float = 5.0
 
+    cors_allow_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://localhost:4000",
+        ]
+    )
+
     # OKX derivatives configuration
     okx_derivatives_enabled: bool = True
     okx_exchange_id: str = "okx"
@@ -84,6 +117,11 @@ class Settings(BaseSettings):
     okx_max_retries: int = 3
     okx_backoff_seconds: float = 1.0
     okx_backoff_max_seconds: float = 10.0
+    okx_demo_mode: bool = True
+    okx_api_key: str | None = None
+    okx_secret_key: str | None = None
+    okx_passphrase: str | None = None
+    okx_base_url: str = "https://my.okx.com"  # Use my.okx.com for regions where www.okx.com is blocked
     okx_symbol_mapping: dict[str, str] = {
         "BTC": "BTC-USDT-SWAP",
         "BTC-USD": "BTC-USDT-SWAP",
@@ -106,6 +144,10 @@ class Settings(BaseSettings):
     simulation_max_slippage_bps: int = 5
     simulation_position_size_limit_pct: float = 50.0
 
+    # Portfolio persistence
+    auto_portfolio_user_id: str | None = None
+    log_dir: str | None = "logs"
+
     # Feedback loop settings
     feedback_loop_enabled: bool = True
     feedback_max_rules_in_prompt: int = 8
@@ -113,6 +155,14 @@ class Settings(BaseSettings):
     feedback_rule_min_length: int = 10
     feedback_rule_max_length: int = 200
     feedback_similarity_threshold: float = 0.7
+    position_sync_interval_seconds: float = 15.0
+
+    def resolved_llm_symbols(self) -> list[str]:
+        """
+        Return the list of symbols the LLM should evaluate/trade.
+        Falls back to market_data_symbols when a custom list is not provided.
+        """
+        return self.llm_trading_symbols or self.market_data_symbols
 
 
 @lru_cache

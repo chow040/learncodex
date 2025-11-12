@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { resolveApiBaseUrl } from "../lib/api"
+import { resolveAutotradeApiBaseUrl } from "../lib/api"
 
 export interface PortfolioHistoryDataPoint {
   timestamp: string
@@ -20,7 +20,7 @@ const fetchPortfolioHistory = async (
   daysBack: number = 7
 ): Promise<PortfolioHistoryDataPoint[]> => {
   const response = await fetch(
-    `${baseUrl}/api/autotrade/v1/portfolio/${portfolioId}/history?days=${daysBack}`,
+    `${baseUrl}/internal/autotrade/v1/portfolio/${portfolioId}/history?days=${daysBack}`,
     {
       credentials: "include",
     }
@@ -43,7 +43,7 @@ export const usePortfolioHistory = (options?: {
   daysBack?: number
   enabled?: boolean
 }) => {
-  const baseUrl = resolveApiBaseUrl(options?.apiBaseUrl)
+  const baseUrl = resolveAutotradeApiBaseUrl(options?.apiBaseUrl)
   const portfolioId = options?.portfolioId ?? "default"
   const daysBack = options?.daysBack ?? 7
   const enabled = options?.enabled ?? false // Disabled by default until API is ready

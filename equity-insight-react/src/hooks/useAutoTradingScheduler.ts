@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { resolveApiBaseUrl } from "../lib/api"
+import { resolveAutotradeApiBaseUrl } from "../lib/api"
 import type { AutoTradeSchedulerStatus } from "../types/autotrade"
 
 interface SchedulerEnvelope {
@@ -15,7 +15,7 @@ interface TriggerResponse {
 const schedulerQueryKey = (baseUrl: string) => ["autoTradingScheduler", baseUrl] as const
 
 const fetchSchedulerStatus = async (baseUrl: string): Promise<AutoTradeSchedulerStatus> => {
-  const response = await fetch(`${baseUrl}/api/autotrade/v1/scheduler/status`, {
+  const response = await fetch(`${baseUrl}/internal/autotrade/v1/scheduler/status`, {
     credentials: "include",
   })
   if (!response.ok) {
@@ -44,7 +44,7 @@ const callSchedulerEndpoint = async (baseUrl: string, path: string): Promise<Aut
 }
 
 const triggerSchedulerEndpoint = async (baseUrl: string): Promise<TriggerResponse> => {
-  const response = await fetch(`${baseUrl}/api/autotrade/v1/scheduler/trigger`, {
+  const response = await fetch(`${baseUrl}/internal/autotrade/v1/scheduler/trigger`, {
     method: "POST",
     credentials: "include",
   })
@@ -59,7 +59,7 @@ const triggerSchedulerEndpoint = async (baseUrl: string): Promise<TriggerRespons
 }
 
 export const useAutoTradingScheduler = (options?: { apiBaseUrl?: string; enabled?: boolean }) => {
-  const baseUrl = resolveApiBaseUrl(options?.apiBaseUrl)
+  const baseUrl = resolveAutotradeApiBaseUrl(options?.apiBaseUrl)
   const enabled = options?.enabled ?? true
   const queryClient = useQueryClient()
 
@@ -72,12 +72,12 @@ export const useAutoTradingScheduler = (options?: { apiBaseUrl?: string; enabled
   })
 
   const pauseMutation = useMutation({
-    mutationFn: () => callSchedulerEndpoint(baseUrl, "/api/autotrade/v1/scheduler/pause"),
+    mutationFn: () => callSchedulerEndpoint(baseUrl, "/internal/autotrade/v1/scheduler/pause"),
     onSuccess: (data) => queryClient.setQueryData(schedulerQueryKey(baseUrl), data),
   })
 
   const resumeMutation = useMutation({
-    mutationFn: () => callSchedulerEndpoint(baseUrl, "/api/autotrade/v1/scheduler/resume"),
+    mutationFn: () => callSchedulerEndpoint(baseUrl, "/internal/autotrade/v1/scheduler/resume"),
     onSuccess: (data) => queryClient.setQueryData(schedulerQueryKey(baseUrl), data),
   })
 

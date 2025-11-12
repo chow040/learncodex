@@ -59,8 +59,6 @@ export const autoEventTypeEnum = pgEnum('autotrade_event_type', [
   'risk_override',
 ]);
 
-export const decisionActionEnum = pgEnum('autotrade_decision_action', ['buy', 'sell', 'hold']);
-
 // Users table - canonical user records
 export const users = pgTable(
   'users',
@@ -313,7 +311,7 @@ export const llmDecisionLogs = pgTable(
       .notNull(),
     runId: uuid('run_id').notNull(),
     symbol: text('symbol').notNull(),
-    action: decisionActionEnum('action').notNull(),
+    action: text('action').notNull(),
     sizePct: numeric('size_pct', { precision: 6, scale: 3 }).$type<number | null>(),
     confidence: numeric('confidence', { precision: 6, scale: 3 }).$type<number | null>(),
     rationale: text('rationale'),

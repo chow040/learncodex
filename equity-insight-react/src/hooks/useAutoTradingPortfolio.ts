@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { resolveApiBaseUrl } from "../lib/api"
+import { resolveAutotradeApiBaseUrl } from "../lib/api"
 import type { AutoTradePortfolioSnapshot } from "../types/autotrade"
 
 interface ApiResponse {
@@ -8,7 +8,22 @@ interface ApiResponse {
 }
 
 const fetchPortfolio = async (baseUrl: string): Promise<AutoTradePortfolioSnapshot> => {
-  const response = await fetch(`${baseUrl}/api/autotrade/v1/portfolio`, {
+  // Attempt to refresh the portfolio snapshot before reading it so the data reflects
+  // the latest OKX state even when the LLM loop runs infrequently.
+  try {
+    await fetch(`${baseUrl}/internal/autotrade/v1/portfolio/sync`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ broadcast: true }),
+    })
+  } catch (error) {
+    console.warn("Portfolio sync request failed", error)
+  }
+
+  const response = await fetch(`${baseUrl}/internal/autotrade/v1/portfolio`, {
     credentials: "include",
   })
 
@@ -24,7 +39,7 @@ const fetchPortfolio = async (baseUrl: string): Promise<AutoTradePortfolioSnapsh
 }
 
 export const useAutoTradingPortfolio = (options?: { apiBaseUrl?: string; enabled?: boolean }) => {
-  const baseUrl = resolveApiBaseUrl(options?.apiBaseUrl)
+  const baseUrl = resolveAutotradeApiBaseUrl(options?.apiBaseUrl)
   const enabled = options?.enabled ?? true
 
   return useQuery({

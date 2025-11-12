@@ -4,7 +4,7 @@
 
 **Goal**: Enable OKX demo exchange execution for the existing LLM-based auto-trading system without changing core trading logic.
 
-**Approach**: Implement OKX as a **broker adapter** that plugs into the current system's execution layer.
+**Approach**: Implement OKX as a **broker adapter** that plugs into the current system's execution layer, using CCXT for all OKX demo REST/WebSocket interactions to stay consistent with existing exchange utilities.
 
 **Impact**: 
 - ✅ All LLM decisions execute on OKX demo exchange
@@ -18,7 +18,14 @@
 ## Overview
 This blueprint outlines the integration of OKX API as a **broker implementation** for the existing auto-trading LLM system. OKX provides a demo trading environment that will replace the in-memory simulated broker while keeping all LLM decision-making, prompt engineering, and trading logic intact.
 
-**Key Design Principle**: OKX integration is a **drop-in replacement** for the simulated broker. The LLM decision pipeline, feedback loop, risk management, and all existing auto-trading logic remains unchanged.
+**Key Design Principle**: OKX integration is a **drop-in replacement** for the simulated broker. The LLM decision pipeline, feedback loop, risk management, and all existing auto-trading logic remains unchanged. CCXT remains the transport layer, so switching between demo/live only requires configuration updates.
+
+**Runtime Mode Selection**: Trading mode (Simulator, Paper Trading, Live Trading) is controlled from the frontend. The backend exposes an API to switch brokers at runtime, mapping each UI mode to a broker implementation:
+- `Simulator` → `SimulatedBroker`
+- `Paper Trading` → `OKXDemoBroker`
+- `Live Trading` → (future) `OKXLiveBroker`
+
+The `.env` file now only provides credentials; the active mode is persisted server-side and set via the UI.
 
 ## Objectives
 - Replace `SimulatedBroker` with `OKXDemoBroker` implementation
@@ -31,7 +38,7 @@ This blueprint outlines the integration of OKX API as a **broker implementation*
 ## Current State
 - ✅ **Auto-trading LLM system** with DeepSeek decision engine
 - ✅ **Decision pipeline** with prompt builder and feedback loop
-- ✅ **Risk management** with guardrails and constraints
+- ✅ **Risk management** handled inside LLM prompts/constraints
 - ✅ **SimulatedBroker** (in-memory) for testing
 - ✅ **Portfolio snapshot** and PnL tracking
 - ✅ **Scheduler** for periodic evaluation cycles
@@ -46,7 +53,7 @@ This blueprint outlines the integration of OKX API as a **broker implementation*
 - ✅ **Existing scheduler** routes decisions to OKX broker
 - ✅ **Portfolio snapshots** reflect OKX demo account state
 - ✅ **Feedback loop** learns from actual OKX trade outcomes
-- ✅ **Same risk guardrails** applied to OKX orders
+- ✅ **LLM-defined risk rules** executed unchanged on OKX orders
 - ✅ **WebSocket feeds** for live prices in decision context
 
 ## Integration Architecture
@@ -171,85 +178,301 @@ This blueprint outlines the integration of OKX API as a **broker implementation*
 
 ## Implementation Checklist
 
+### Phase 0: Trading Symbol Configuration
+- [ ] Add new config/env (`AUTOTRADE_LLM_SYMBOLS`) that defines the subset of symbols the LLM should assess/trade
+- [ ] Default to `market_data_symbols` when unset to preserve current behaviour
+- [ ] Update cache readers/tools to pull only the configured trading symbols from Redis to reduce token usage
+- [ ] Document how banner symbols (market data) and LLM trading symbols can diverge
+
+
 ### Phase 1: OKX API Client Setup
-- [ ] Create OKX API credentials (demo environment)
-- [ ] Implement OKX REST API client
-- [ ] Add authentication (API key, secret, passphrase)
-- [ ] Implement request signing mechanism
-- [ ] Add rate limiting and retry logic
-- [ ] Create configuration for demo vs. live endpoints
-- [ ] Write unit tests for API client
+- [x] Create OKX API credentials (demo environment)
+- [x] Implement OKX REST API client (ccxt-backed)
+- [x] Add authentication (API key, secret, passphrase)
+- [x] Implement request signing mechanism (ccxt handles signing)
+- [x] Add rate limiting and retry logic
+- [x] Create configuration for demo vs. live endpoints (sandbox toggle)
+- [x] Write unit tests for API client
 
 ### Phase 2: Market Data Integration
-- [ ] Implement ticker data fetching
-- [ ] Add candlestick/OHLCV data retrieval
-- [ ] Integrate funding rate data
-- [ ] Add open interest data
-- [ ] Implement order book snapshot retrieval
-- [ ] Create WebSocket client for real-time prices
-- [ ] Cache market data appropriately
-- [ ] Handle WebSocket reconnection
+- [x] Implement ticker data fetching *(reused existing CCXT market data scheduler)*
+- [x] Add candlestick/OHLCV data retrieval *(already cached by scheduler)*
+- [x] Integrate funding rate data *(covered by OKXDerivativesFetcher)*
+- [x] Add open interest data *(covered by OKXDerivativesFetcher)*
+- [x] Implement order book snapshot retrieval *(existing scheduler)*
+- [x] Create WebSocket client for real-time prices *(FastAPI `/ws/market-data` already in place)*
+- [x] Cache market data appropriately *(Redis caching complete)*
+- [x] Handle WebSocket reconnection *(frontend + scheduler logic already implemented)*
 
 ### Phase 3: Demo Trading Operations
-- [ ] Implement place order endpoint
-- [ ] Add cancel order functionality
-- [ ] Create modify order endpoint
-- [ ] Add order status checking
-- [ ] Implement position query
-- [ ] Add balance/account info retrieval
-- [ ] Create trading history fetching
-- [ ] Add fills and executions tracking
+- [x] Implement place order endpoint (`OKXDemoBroker.place_order`)
+- [x] Add cancel order functionality
+- [x] Create modify order endpoint (edit order wrapper)
+- [x] Add order status checking (`fetch_order`, `fetch_open_orders`)
+- [x] Implement position query (`fetch_positions`)
+- [x] Add balance/account info retrieval (`fetch_balance`)
+- [x] Create trading history fetching (`fetch_trade_history`)
+- [x] Add fills and executions tracking (broker maintains execution log)
 
 ### Phase 4: Broker Abstraction Layer
-- [ ] Extract `BaseBroker` interface from existing code
-- [ ] Refactor `SimulatedBroker` to implement `BaseBroker`
-- [ ] Implement `OKXDemoBroker` with same interface
-- [ ] Create broker factory in existing scheduler
-- [ ] Add broker selection via configuration
-- [ ] Ensure consistent API across brokers
-- [ ] Add broker-specific error handling
-- [ ] Test broker switching without code changes
+- [x] Extract `BaseBroker` interface from existing code
+- [x] Refactor `SimulatedBroker` to implement `BaseBroker`
+- [x] Implement `OKXDemoBroker` with same interface
+- [x] Create broker factory in existing scheduler
+- [x] Add broker selection via configuration (`AUTOTRADE_TRADING_BROKER`)
+- [x] Ensure consistent API across brokers (async `execute`, feedback hooks)
+- [x] Add broker-specific error handling (OKXClient exceptions surfaced as `OKXClientError`)
+- [x] Test broker switching without code changes (unit tests cover simulated vs OKX paths)
 
 ### Phase 5: Integration with Existing Decision Pipeline
-- [ ] **Use existing market data** from OKX in prompt builder
-- [ ] **Route LLM decisions** through broker factory to OKX
-- [ ] **Keep decision pipeline** completely unchanged
-- [ ] Update `Scheduler.run_evaluation()` to use broker factory
-- [ ] Pass OKX positions to `SimulationManager.build_snapshot()`
-- [ ] Feed OKX market data to `PromptBuilder`
-- [ ] Implement position synchronization with portfolio state
-- [ ] Add order execution validation from LLM decisions
-- [ ] Keep existing feedback loop with OKX trade results
+- [x] **Use existing market data** from OKX in prompt builder
+- [x] **Route LLM decisions** through broker factory to OKX
+- [x] **Keep decision pipeline** completely unchanged
+- [x] Update `Scheduler.run_evaluation()` to use broker factory
+- [x] Pass OKX positions to `SimulationManager.build_snapshot()`
+- [x] Implement position synchronization with portfolio state
+- Notes:
+  - Demo/live modes must stay entirely separate from the simulator JSON; OKX data is the single source of truth.
+  - Add reconciliation logic that compares exchange positions to our cache and raises alerts if they drift.
+  - Record an audit entry whenever runtime mode switches between simulator/paper/live.
+  - OKX broker now records per-order latency; stats are available via `/internal/autotrade/v1/metrics/latency/okx-order` for ops dashboards (no FE consumption planned yet).
+  - Frontend dashboard now exposes a Simulator/Paper/Live dropdown wired to the runtime-mode API.
+- [x] Add order execution validation from LLM decisions
+- [x] Keep existing feedback loop with OKX trade results
+- [x] Expose Simulator / Paper / Live mode selection via API + UI to control broker choice
+  - [x] Store selected mode in Postgres (`autotrade_runtime_settings` table)
+  - [x] `GET/PATCH /internal/autotrade/v1/runtime-mode` endpoints for FE
+  - [x] Broker factory/decision runner read mode from DB at startup (no Redis mirror)
 - [ ] Preserve execution latency monitoring
 
 ### Phase 6: Portfolio Management Integration
-- [ ] Update `SimulationManager` to work with both brokers
-- [ ] Sync OKX positions to existing portfolio snapshot
-- [ ] Track demo account balance in existing structure
-- [ ] Calculate unrealized PnL from OKX positions
-- [ ] Store realized PnL from closed OKX trades
-- [ ] Keep existing snapshot format for API response
-- [ ] Add reconciliation between OKX and local state
-- [ ] Handle position updates via WebSocket in scheduler
-- [ ] Preserve `get_portfolio_snapshot()` return structure
+- [x] Update `SimulationManager` to work with both brokers
+- [x] Sync OKX positions to existing portfolio snapshot
+- [x] Track demo account balance in existing structure
+- [x] Calculate unrealized PnL from OKX positions
+- [x] Store realized PnL from closed OKX trades
+- [x] Keep existing snapshot format for API response
+- [x] Add reconciliation between OKX and local state
+- [x] Handle position updates via WebSocket in scheduler
+- [x] Preserve `get_portfolio_snapshot()` return structure
+- Notes:
+  - Simulator stays on `SimulatedPortfolio`, while demo/live snapshots come straight from OKX (balances + positions).
+  - Track realized/unrealized PnL per OKX position to feed the dashboard charts.
+  - Use OKX WebSocket (or tight polling) to push fills/position changes to the UI in near real-time.
+  - Both simulator and OKX snapshots are persisted to `auto_portfolios` / `portfolio_positions` so every consumer reads the same source of truth.
+  - PositionSyncService polls OKX every 15s and broadcasts `portfolio_update` messages over the existing WebSocket channel (no UI yet).
+  - Closed OKX trades now populate `portfolio_closed_positions` using fetched fills so the dashboard's history view stays accurate.
 
-### Phase 7: Risk Management
-- [ ] Implement pre-trade risk checks
-- [ ] Add position size validation
-- [ ] Create leverage limit enforcement
-- [ ] Add maximum drawdown monitoring
-- [ ] Implement emergency liquidation handling
-- [ ] Add circuit breaker for repeated failures
-- [ ] Create risk alerts and notifications
+### Phase 7: Risk Management (LLM-Native, Deferred)
+- Status: paused by product decision; engineering work documented below for when/if we re-enable it.
+- [ ] Enrich LLM prompt with full risk context (equity, exposure, historical drawdown)
+- [ ] Teach LLM to output explicit risk rationale + planned mitigations
+- [ ] Persist LLM risk reasoning alongside each trade intent
+- [ ] Create monitoring dashboard that visualizes model-stated risk vs. realized results
+- [ ] Surface “LLM risk confidence” in the UI / logs for human review
+- [ ] Implement optional human override (pause) without automated guardrails
+
+#### Design Overview
+- **Principle**: the LLM is solely responsible for sizing, leverage, and kill-switch logic. The backend trusts the LLM output and does not alter orders unless the broker/API rejects them.
+- **Prompting**: a dedicated “Risk Governance” section forces the LLM to summarize current portfolio health, articulate worst-case scenarios, and justify how the proposed trade keeps the book within bounds.
+- **State Sharing**: scheduler passes richer context (`equity`, `realized/unrealized PnL`, `exposure by asset`, `rolling drawdown`, `open orders`), enabling the LLM to reason about risk like a human PM.
+- **Observability**: instead of code-level validations, we log the LLM’s risk assessment verbatim so ops can replay decisions and audit whether the model followed its own rules.
+- **Human Control**: the only backend control is a manual “pause trading” flag operators can flip through the runtime-mode endpoint; no automatic stoppage occurs.
+
+#### LLM Prompt Additions
+1. **Risk Snapshot Block**
+   - Tabular summary injected into the system prompt:
+     ```
+     Equity: $123,450 | Cash: $45,000 | Maintenance Margin Ratio: 28%
+     BTC Exposure: 32% (+$15k Unrealized) | ETH Exposure: 8%
+     Rolling 24h Drawdown: 3.2% | Max Allowed Drawdown: 6% (soft target)
+     ```
+   - Includes funding, volatility, and order-book depth metrics so the model can judge liquidity.
+2. **Decision Template**
+   - Model must answer:
+     - `Proposed Trade`
+     - `Risk Thesis`
+     - `Max Pain Scenario`
+     - `Recovery / Hedge Plan`
+     - `Confidence (0-1)`
+   - Scheduler parses this structure and forwards orders blindly if `confidence >= configured minimum`.
+3. **Memory of Prior Breaches**
+   - Feedback loop stores past “risk mistakes” (e.g., oversized bet, poor hedge) and reminds the LLM so it self-corrects over time.
+
+#### Data Flow
+```
+LLM Decision (with embedded risk plan) ──▶ OKXDemoBroker
+              │
+              ├── Risk narrative stored in Postgres (audit + analytics)
+              └── Dashboard displays rationale + realized PnL deltas
+```
+
+#### Observability & Tooling
+- **Risk Ledger Table**: `autotrade_llm_risk_journal` captures model reasoning, confidence, and post-trade metrics for comparisons.
+- **Dashboard Widgets**: charts show “LLM target exposure vs. actual,” “Confidence vs. realized PnL,” and highlight when the LLM ignores its own stated limits.
+- **Alerts**: Instead of automated halts, ops receive notifications when realized drawdown exceeds the LLM’s forecast, prompting manual intervention if desired.
+- **Replay Tool**: CLI/Notebook utility replays prompt + model response for any trade to understand why the model took a risky stance.
+
+#### API Payload Split (Portfolio vs. Market Data)
+- `/internal/autotrade/v1/portfolio` now returns *only* account state (cash, equity, positions, closed trades, recent decisions/events). This keeps the payload lightweight for frequent polling and clarifies separation of concerns.
+- Market data continues to flow through the dedicated REST + WebSocket endpoints (`/api/market/v1/prices` and `/ws/market-data`), which the frontend already consumes for the price banner and charts.
+- Frontend changes: components no longer read `portfolio.marketData`; they rely on the existing market-data hooks/WebSocket pipeline to stay up to date.
+- Benefit: smaller responses, reduced duplication, and clearer API boundaries (portfolio = account info, market endpoints = ticker/candle data).
+
+#### Decisions API Consumption
+- Dashboard’s decision log now reads from `/internal/autotrade/v1/decisions` instead of the portfolio payload. Portfolio snapshots stay focused on balances/positions while decisions are fetched via the dedicated endpoint already exposed by the backend.
+- A new React hook (`useAutoTradingDecisions`) handles the fetch and caching via React Query, keeping the UI responsive even when evaluations produce large decision batches.
+- This separation makes it easier to page/stream decisions later without bloating the portfolio response.
+#### 🔧 Decision Persistence Gap
+
+**Problem**: Paper + simulator runs only refresh the in-memory/JSON snapshot. The decision stream exposed via `/internal/autotrade/v1/decisions` reads from `llm_decision_logs`, so every new evaluation looks invisible to the dashboard/API until someone backfills the table manually.
+
+**Objective**: Each evaluation cycle must emit a durable row per decision (plus prompt + chain-of-thought references) within the same async task that already handles execution. The log should exist before orders are handed to the broker so observability does not depend on execution success.
+
+**Why it matters**
+- UI regressions: the React decision log shows stale data, making paper trading look idle.
+- Feedback loop starvation: outcome trackers cannot link fills to the original reasoning when `decision_id` is missing.
+- Compliance/audit: we lose the prompt + model response history, which should be immutable per run.
+
+**Implementation Plan**
+1. **Add persistence helper**
+   - New module `autotrade_service/persistence/decision_logs.py` with `async def persist_decision_logs(result: DecisionPipelineResult, portfolio_id: str, runtime_mode: RuntimeMode) -> list[str]`.
+   - Helper wraps a single DB transaction that:
+     1. Upserts prompt + chain-of-thought blobs into `llm_prompt_payloads` (reuse inline `storage_uri` scheme from `docs/tool-payload-live-trading-persistence.md`).
+     2. Inserts one row per decision into `llm_decision_logs` including `tool_payload_json`.
+     3. Returns the generated UUIDs so brokers/outcome trackers can tag orders/events with the originating `decision_id`.
+2. **Hook scheduler output**
+   - In `execute_decision_cycle()` call the helper immediately after `decision_pipeline.run_once()` returns and **before** broker execution.
+   - Fetch `portfolio_id` from the portfolio snapshot (paper/live) or fall back to `"simulation"` when running offline. When Postgres is unavailable, short-circuit with a warning but keep evaluation running.
+   - Attach returned `decision_id`s back onto each `DecisionPayload` (e.g., `decision.decision_log_id = persisted_ids[i]`) so downstream code (brokers, feedback loop, `portfolio_closed_positions`) can reference the correct row.
+3. **Schema delta**
+   - Ensure `llm_decision_logs.tool_payload_json JSONB NULL` exists (see `docs/tool-payload-live-trading-persistence.md` for migration DDL + index recommendation).
+   - No other columns change; reuse existing enums for `action`.
+4. **API alignment**
+   - `_map_decision()` in `repositories.py` already hydrates prompts; extend it to include `tool_payload_json` (done for simulator parity).
+   - `/internal/autotrade/v1/decisions` automatically reflects the new rows because it queries `llm_decision_logs`. No frontend changes besides verifying the feed now updates in lockstep with evaluations.
+5. **Backfill (optional)**
+   - One-off script `scripts/backfill_decision_logs.py` can read the latest `logs/simulation_state.json` entries and insert them into Postgres to avoid empty history after the deploy.
+
+**Pseudocode**
+
+```python
+result = await decision_pipeline.run_once(...)
+if result and result.response.decisions:
+    portfolio = await fetch_latest_portfolio()
+    portfolio_id = portfolio.portfolio_id if portfolio else settings.portfolio_id
+    decision_ids = await persist_decision_logs(
+        result=result,
+        portfolio_id=portfolio_id,
+        runtime_mode=runtime_mode,
+    )
+    for decision, decision_id in zip(result.response.decisions, decision_ids):
+        decision.decision_log_id = decision_id
+    await broker.execute(...)
+```
+
+**Testing**
+- Unit test persistence helper with `asyncpg` test double to ensure prompt + COT rows are created once per run and that tool payload JSON survives round-trips.
+- Extend `tests/test_scheduler_execution_loop.py` to assert that triggering an evaluation in paper mode inserts the expected `llm_decision_logs` row and surfaces the `decision_log_id` on the returned portfolio snapshot.
+- Add regression test for DB-down scenario: helper should log and skip without crashing the scheduler.
+
+**Rollout**
+1. Ship migration → deploy backend → verify `/internal/autotrade/v1/decisions` increments after a manual evaluation.
+2. Run (optional) backfill script so historical simulator runs populate the table.
+3. Enable dashboard polling (already done) to prove the persistence gap is closed.
+
+#### Example Scenarios
+
+| Scenario | LLM Risk Output | Backend Behavior |
+|----------|-----------------|------------------|
+| Aggressive BTC long | “Target 40% equity, leverage 6×, confidence 0.78, stop at 5% drawdown.” | Scheduler submits order exactly as requested; logs rationale. |
+| Market stress spotted | “Volatility spike, standing down until drawdown ≤3%. Confidence 0.32.” | No order placed because the LLM chose to abstain; system waits for next cycle. |
+| Self-imposed kill switch | “Equity fell 6.4%, initiating self-pause for 2 cycles.” | Scheduler respects the instruction by skipping the next two runs without extra code-level checks. |
+| Hedged pair trade | “Long BTC 20%, short ETH 10% to neutralize beta; expected VaR $800.” | Broker receives both orders; monitoring dashboard compares stated VaR vs. realized loss later. |
+| Missed risk target | Model promised ≤5% exposure but executed 12%. | No automatic block; dashboard flags discrepancy so humans can retrain/adjust prompts. |
+
+By concentrating risk logic inside the LLM prompt + reasoning, Phase 7 maximizes flexibility and experimentation speed. The backend simply reflects, records, and visualizes what the model decided, leaving judgment—and accountability—inside the model’s control loop.
 
 ### Phase 8: Testing & Monitoring
-- [ ] Write integration tests with OKX demo API
-- [ ] Create end-to-end trading workflow tests
+- [x] Write integration tests with OKX demo API *(scheduler/broker flow covered in `tests/test_scheduler_execution_loop.py`)*
+- [x] Create end-to-end trading workflow tests *(headless runner in `scripts/e2e_okx_demo.py` + mock-backed test `tests/test_e2e_runner.py`)*
 - [ ] Add performance benchmarks
 - [ ] Implement comprehensive logging
 - [ ] Create dashboards for monitoring
 - [ ] Add alerting for API failures
-- [ ] Test failover scenarios
+- [x] Test failover scenarios *(failover drill script + mock-backed tests)*
+
+#### Testing Strategy
+1. **Deterministic Fixtures**
+   - Stand up WireMock (or FastAPI mock) that replays recorded OKX responses, enabling fully deterministic CI runs without live demo credentials.
+   - Capture fixtures for: ticker, order placement, cancel, positions, balance, and error responses (e.g., insufficient margin).
+   - ✅ Covered in codebase via the in-memory `MockOKXExchange` helper (`tests/utils/mock_okx_exchange.py`) leveraged by integration tests.
+2. **Integration Suite (pytest)**
+   - `tests/test_scheduler_execution_loop.py` *(added)* — spins up the scheduler decision runner with a stubbed pipeline + broker to ensure evaluation → execution → portfolio snapshot flow works deterministically.
+   - `tests/integration/test_okx_demo_broker_integration.py` *(added)* — runs `OKXDemoBroker` against `MockOKXExchange` to validate order placement, balance/position sync, and trade history without touching real OKX endpoints.
+   - `tests/integration/brokers/test_okx_demo.py`
+     - Place → fetch → cancel order flow using live demo keys (flagged as `@pytest.mark.okx_demo`).
+     - Balance/position sync parity assertions vs. known demo account snapshot.
+   - `tests/integration/scheduler/test_execution_loop.py`
+     - Spin up scheduler with mocked LLM + OKX client to validate evaluation→broker→feedback flow.
+   - CI runs mocks only; a nightly cron job hits live OKX demo to detect API regressions.
+3. **End-to-End Workflow Test**
+   - ✅ Headless script `scripts/e2e_okx_demo.py`:
+     1. Sets runtime mode (`/runtime-mode` PATCH) to Paper Trading.
+     2. Triggers scheduler evaluation via `/scheduler/trigger`.
+     3. Polls `/portfolio` + latency metrics to ensure data refreshed; prints summary JSON for ops.
+   - Automated verification via `tests/test_e2e_runner.py`, which uses an HTTPX mock transport to exercise the workflow without a live server.
+4. **Performance & Load**
+   - Benchmark `OKXDemoBroker.place_order` + `fetch_positions` under burst conditions (20 concurrent tasks) to ensure async client + rate limiting survive.
+   - Capture p95 latency + success rate; fail pipeline if latency >2s in demo env.
+
+#### Monitoring & Observability
+1. **Structured Logging**
+   - Use JSON logs with correlation IDs (`evaluation_id`, `order_id`) so Kibana/Grafana can trace a trade from LLM intent → OKX result.
+   - Log categories:
+     - `trade.intent`
+     - `trade.execution`
+     - `market.data`
+     - `system.error`
+2. **Metrics**
+   - Prometheus exporters inside FastAPI:
+     - `okx_orders_total{status}` — count successes/failures.
+     - `okx_order_latency_seconds_bucket` — histogram per order type.
+     - `scheduler_evaluations_total{result}` — success/skip/failure.
+     - `portfolio_drawdown_pct` gauge.
+   - Retain existing simulator metrics for comparison dashboards.
+3. **Dashboards**
+   - Grafana board “Autotrade OKX Demo” with panels:
+     - Evaluation throughput + success rate.
+     - OKX API latency + error codes.
+     - Portfolio equity curve vs. PnL breakdown.
+     - LLM confidence vs. realized PnL scatter plot (ties back to Phase 7 data even if deferred).
+4. **Alerting**
+   - PagerDuty/Slack alerts wired via Prometheus Alertmanager:
+     - `okx_orders_total{status="failed"} > 3 in 5m`
+     - `scheduler_evaluations_total{result="failure"} > 2 in 10m`
+     - `portfolio_drawdown_pct > 0.07` for awareness (manual action required).
+   - Include runbook links to restart services or switch runtime mode.
+
+#### Failover Tests
+- **Broker fallback drill**: simulate OKX outage. Implemented via `scripts/failover_drill.py`, which triggers the workflow, detects failures, and automatically flips runtime mode to `simulator`. Verified with `tests/test_failover_drill.py`.
+- **WebSocket drop**: kill WS connection and ensure reconnection logic re-subscribes within 5s; verify portfolio updates resume.
+- **Database outage**: disable Postgres briefly; confirm scheduler queues pending evaluations and resumes without data loss once DB returns.
+
+#### Example Test Case (pytest)
+```python
+@pytest.mark.asyncio
+async def test_okx_demo_order_lifecycle(okx_mock_server, broker_settings):
+    broker = OKXDemoBroker(**broker_settings, base_url=okx_mock_server.url)
+    order = await broker.place_order("BTC-USDT-SWAP", "buy", "market", Decimal("0.01"))
+    assert order.status == "filled"
+    positions = await broker.get_positions()
+    assert any(p.symbol == "BTC-USDT-SWAP" for p in positions)
+    cancel = await broker.cancel_order("BTC-USDT-SWAP", order.id)
+    assert cancel.success is True
+```
+
+With Phase 8 complete, the team will have reproducible CI coverage, observability into real-time operations, and confidence that OKX demo trading behaves like production before moving toward live trading.
 
 ### Phase 9: Documentation
 - [ ] Document OKX API setup process

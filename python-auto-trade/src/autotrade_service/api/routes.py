@@ -3,13 +3,23 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
-from typing import Any
+from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from ..config import Settings, get_settings
-from ..repositories import fetch_decision_by_id, fetch_decisions, fetch_latest_portfolio
+from ..repositories import (
+    fetch_decision_by_id,
+    fetch_decisions,
+    fetch_latest_portfolio,
+    get_runtime_mode as get_runtime_mode_from_db,
+    set_runtime_mode as set_runtime_mode_in_db,
+)
+from ..runtime import RuntimeMode
+from ..metrics import get_okx_order_latency_stats
 from ..scheduler import get_scheduler
+from ..position_sync import refresh_portfolio_snapshot
 from ..redis_client import get_redis
 from ..tools import IndicatorCalculatorTool, IndicatorComputationResult, LiveMarketDataTool, ToolCache
 
@@ -145,6 +155,88 @@ def _indicator_payload_from_result(
     return payload
 
 
+async def _load_cached_market_data(symbols: Sequence[str]) -> dict[str, dict[str, object]]:
+    if not symbols:
+        return {}
+    redis_client = get_redis()
+    if not redis_client.is_connected:
+        return {}
+    async with redis_client.acquire() as conn:
+        results: dict[str, dict[str, object]] = {}
+        for symbol in symbols:
+            ticker = await _read_json(conn, f"market:{symbol}:ticker")
+            if not ticker:
+                continue
+            age_seconds, stale = _calculate_age(ticker.get("timestamp"))
+            ticker["age_seconds"] = age_seconds
+            entry = {
+                "symbol": symbol,
+                "ticker": ticker,
+                "orderbook": await _read_json(conn, f"market:{symbol}:orderbook"),
+                "funding": await _read_json(conn, f"market:{symbol}:funding"),
+                "ohlcv_short": await _read_json(conn, f"market:{symbol}:ohlcv:15m"),
+                "ohlcv_long": await _read_json(conn, f"market:{symbol}:ohlcv:1h"),
+                "indicators": await _read_json(conn, f"market:{symbol}:indicators"),
+                "stale": stale,
+            }
+            results[symbol] = _convert_keys_to_camel(entry)
+        return results
+
+
+async def _read_json(conn: Any, key: str) -> dict[str, Any] | list[Any] | None:
+    payload = await conn.get(key)
+    if not payload:
+        return None
+    try:
+        return json.loads(payload)
+    except (TypeError, json.JSONDecodeError):
+        return None
+
+
+def _calculate_age(timestamp: str | None) -> tuple[float | None, bool]:
+    if not timestamp:
+        return None, True
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        try:
+            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            return None, True
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - parsed).total_seconds()
+    return age, age > 60
+
+
+@router.get("/runtime-mode")
+async def get_runtime_mode_endpoint(settings: Settings = Depends(get_settings)) -> dict[str, RuntimeMode]:
+    mode = await get_runtime_mode_from_db(settings)
+    return {"mode": mode}
+
+
+@router.patch("/runtime-mode", status_code=status.HTTP_200_OK)
+async def set_runtime_mode_endpoint(
+    payload: RuntimeModeRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, RuntimeMode]:
+    try:
+        mode = await set_runtime_mode_in_db(payload.mode, settings=settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return {"mode": mode}
+
+
+@router.get("/metrics/latency/okx-order", summary="OKX order latency stats")
+async def get_okx_latency_metrics() -> dict[str, object]:
+    stats = get_okx_order_latency_stats()
+    if stats is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No latency samples yet")
+    return {"stats": stats}
+
+
 @router.get("/health", summary="Service health check")
 def health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {
@@ -162,7 +254,24 @@ async def get_portfolio(settings: Settings = Depends(get_settings)) -> dict:
     payload = _convert_keys_to_camel(asdict(snapshot))
     payload["service"] = settings.service_name
     payload["generatedAt"] = datetime.now(timezone.utc).isoformat()
+    payload.pop("decisions", None)
     return {"portfolio": payload}
+
+
+@router.post("/portfolio/sync", summary="Force portfolio snapshot refresh")
+async def trigger_portfolio_sync(
+    broadcast: bool = True,
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    snapshot = await refresh_portfolio_snapshot(settings=settings, broadcast=broadcast)
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Portfolio sync unavailable")
+
+    payload = _convert_keys_to_camel(asdict(snapshot))
+    payload["service"] = settings.service_name
+    payload["generatedAt"] = datetime.now(timezone.utc).isoformat()
+    payload.pop("decisions", None)
+    return {"portfolio": payload, "broadcast": broadcast}
 
 
 @router.get("/decisions", summary="List auto-trading decisions")
@@ -256,3 +365,5 @@ async def trigger_scheduler() -> dict:
         "triggered_at": triggered_at.isoformat(),
         "scheduler": scheduler.status().as_dict(),
     }
+class RuntimeModeRequest(BaseModel):
+    mode: RuntimeMode

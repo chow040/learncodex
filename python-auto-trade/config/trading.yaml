@@ -1,0 +1,37 @@
+# Dual Scheduler trading configuration (sample)
+schedulers:
+  dual_enabled: true
+  decision_interval_minutes: 5          # LLM decision cadence
+  market_data_refresh_seconds: 5        # Market data loop cadence
+
+market_data:
+  symbols:
+    - BTC-USDT-SWAP
+    - ETH-USDT-SWAP
+    - SOL-USDT-SWAP
+    - BNB-USDT-SWAP
+    - DOGE-USDT-SWAP
+    - XRP-USDT-SWAP
+  ttl_seconds:
+    ticker: 10
+    orderbook: 10
+    funding: 300
+    ohlcv_short: 60
+    ohlcv_long: 300
+    indicators: 60
+
+ccxt:
+  exchange_id: okx
+  api_key: "${AUTOTRADE_CCXT_API_KEY}"
+  secret: "${AUTOTRADE_CCXT_SECRET}"
+  password: "${AUTOTRADE_CCXT_PASSWORD}"
+  timeout_seconds: 10
+
+redis:
+  url: "${AUTOTRADE_REDIS_URL}"
+
+broker:
+  mode: "simulation"
+  leverage_cap: 10
+  max_position_pct: 50                 # percent of equity per position
+  min_confidence: 0.6

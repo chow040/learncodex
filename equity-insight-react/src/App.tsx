@@ -10,6 +10,7 @@ import TradingAgentsHistoryDetail from "./pages/TradingAgentsHistoryDetail"
 import AutoTradingDashboard from "./pages/AutoTradingDashboard"
 import AutoTradingDecisionDetail from "./pages/AutoTradingDecisionDetail"
 import AutoTradingShell from "./pages/AutoTradingShell"
+import PriceBanner from "./components/trading/PriceBanner"
 import { Toaster } from "./components/ui/toaster"
 
 const App = () => {
@@ -35,7 +36,10 @@ const App = () => {
           } />
           <Route path="/auto-trading" element={
             <ProtectedRoute>
-              <AutoTradingShell />
+              <div className="bg-background text-foreground">
+                <PriceBanner />
+                <AutoTradingShell />
+              </div>
             </ProtectedRoute>
           }>
             <Route index element={<AutoTradingDashboard />} />

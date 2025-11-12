@@ -28,6 +28,7 @@ class DecisionPayload(BaseModel):
     rationale: Optional[str] = None
     invalidation_condition: Optional[str] = None
     chain_of_thought: Optional[str] = None  # Full LLM reasoning before decision
+    decision_log_id: Optional[str] = None  # References llm_decision_logs.id when persisted
 
     @field_validator("symbol")
     @classmethod

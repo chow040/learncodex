@@ -5,11 +5,10 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Literal, Optional
-import json
-
 from .config import get_settings
-from .pipelines import get_decision_pipeline, shutdown_decision_pipeline
-from .llm.langchain_agent import SYSTEM_PROMPT
+from .observability import record_scheduler_evaluation
+from .pipelines import shutdown_decision_pipeline
+from .schedulers.decision_runner import execute_decision_cycle
 
 
 @dataclass(slots=True)
@@ -173,6 +172,7 @@ class SchedulerManager:
     async def _execute_job(self, *, forced_time: Optional[datetime] = None) -> None:
         async with self._run_lock:
             if self._is_paused:
+                record_scheduler_evaluation("skipped")
                 return
 
             start = forced_time or datetime.now(timezone.utc)
@@ -183,10 +183,12 @@ class SchedulerManager:
                 await self._job_handler()
                 self._consecutive_failures = 0
                 self._job.consecutive_failures = 0
+                record_scheduler_evaluation("success")
             except Exception as exc:  # pragma: no cover - failure path
                 self._consecutive_failures += 1
                 self._job.consecutive_failures = self._consecutive_failures
                 self._logger.exception("Scheduler job failed: %s", exc)
+                record_scheduler_evaluation("failure")
             finally:
                 if not self._is_paused:
                     self._job.status = "idle"
@@ -198,126 +200,7 @@ class SchedulerManager:
         self._job.next_run_at = self._next_run_at
 
     async def _default_job_handler(self) -> None:
-        from autotrade_service.simulation.broker import SimulatedBroker
-        from autotrade_service.simulation import load_state, save_state
-        from autotrade_service.config import get_settings
-        from autotrade_service.feedback.feedback_engine import FeedbackLoopEngine
-        from autotrade_service.feedback.outcome_tracker import TradeOutcomeTracker
-        from autotrade_service.llm import AsyncDeepSeekClient
-        
-        settings = get_settings()
-        decision_pipeline = get_decision_pipeline()
-        
-        # Run the decision pipeline to get LLM decisions
-        result = await decision_pipeline.run_once()
-        
-        if result is None or not result.response.decisions:
-            self._logger.info("No decisions generated from pipeline")
-            return
-        
-        # If simulation mode is enabled, execute trades via simulated broker
-        if settings.simulation_enabled:
-            # Load portfolio from state file
-            portfolio = load_state(settings.simulation_state_path)
-            if portfolio is None:
-                self._logger.error("Failed to load portfolio from state file")
-                return
-            
-            # Initialize feedback loop components (if enabled)
-            outcome_tracker = None
-            if settings.feedback_loop_enabled:
-                try:
-                    # Create LLM client for feedback engine
-                    llm_client = AsyncDeepSeekClient()
-                    
-                    # Create feedback engine
-                    feedback_engine = FeedbackLoopEngine(
-                        llm_client=llm_client,
-                        settings=settings
-                    )
-                    
-                    # Create outcome tracker with feedback engine
-                    outcome_tracker = TradeOutcomeTracker(
-                        feedback_engine=feedback_engine
-                    )
-                    
-                    self._logger.info("Feedback loop initialized successfully")
-                except Exception as e:
-                    self._logger.warning(f"Failed to initialize feedback loop: {e}", exc_info=True)
-                    outcome_tracker = None
-            
-            # Create broker with loaded portfolio and optional outcome tracker
-            broker = SimulatedBroker(
-                portfolio=portfolio,
-                outcome_tracker=outcome_tracker
-            )
-            
-            # Collect market snapshots from tool messages (live_market_data / indicator_calculator)
-            market_snapshots: dict[str, float] = {}
-            for trace_entry in result.agent_trace:
-                if trace_entry.get("message_type") != "ToolMessage":
-                    continue
-                content = trace_entry.get("content") or ""
-                if not content:
-                    continue
-                try:
-                    payload = json.loads(content)
-                except json.JSONDecodeError:
-                    continue
-
-                tool_name = trace_entry.get("tool_name")
-                symbol = (payload.get("symbol") or "").upper()
-                if not symbol:
-                    continue
-
-                price_value: float | None = None
-                if tool_name == "live_market_data":
-                    price = payload.get("last_price")
-                    if isinstance(price, (int, float)):
-                        price_value = float(price)
-                elif tool_name == "indicator_calculator":
-                    price = payload.get("price")
-                    if isinstance(price, (int, float)):
-                        price_value = float(price)
-
-                if price_value is not None and price_value > 0:
-                    market_snapshots[symbol] = price_value
-
-            # Ensure every decision symbol has a positive snapshot
-            for decision in result.response.decisions:
-                symbol = decision.symbol
-                if symbol not in market_snapshots or market_snapshots[symbol] <= 0:
-                    fallback = decision.take_profit or decision.stop_loss or decision.quantity or 0.0
-                    if isinstance(fallback, (int, float)) and fallback > 0:
-                        market_snapshots[symbol] = float(fallback)
-                    else:
-                        self._logger.warning(
-                            "No market price available for %s; trade execution will be skipped",
-                            symbol,
-                        )
-                        # Leave symbol absent so broker skips invalid prices
-            
-            # Execute the decisions (this will log to evaluation_log)
-            messages = broker.execute(
-                result.response.decisions,
-                market_snapshots,
-                system_prompt=SYSTEM_PROMPT,
-                user_payload=result.prompt,
-                tool_payload_json=result.response.tool_payload_json,
-            )
-            
-            # Process any pending feedback loop events (async)
-            await broker.process_pending_feedback()
-            
-            for msg in messages:
-                self._logger.info(msg)
-            
-            # Refresh unrealized PnL with latest prices
-            broker.mark_to_market(market_snapshots)
-            
-            # Save the updated portfolio state to disk
-            save_state(broker.portfolio, settings.simulation_state_path)
-            self._logger.info(f"Saved portfolio state with {len(broker.portfolio.evaluation_log)} evaluations")
+        await execute_decision_cycle(logger=self._logger)
 
 
 _scheduler: SchedulerManager | None = None

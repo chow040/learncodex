@@ -234,6 +234,14 @@ class CCXTMarketDataAdapter:
             "enableRateLimit": True,
             "timeout": int(config.timeout_seconds * 1000),
         }
+        
+        # OKX demo trading support
+        if exchange_id == "okx" and self._settings.okx_demo_mode:
+            options["demo"] = True
+            # Set regional base URL if configured
+            if self._settings.okx_base_url:
+                options["hostname"] = self._settings.okx_base_url.replace("https://", "")
+        
         exchange = exchange_class(options)
         if config.api_key:
             exchange.apiKey = config.api_key

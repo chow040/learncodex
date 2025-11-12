@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
+import os
 from pathlib import Path
 import sys
 import types
@@ -21,6 +22,7 @@ if "langchain_deepseek" not in sys.modules:
     langchain_deepseek.__all__ = ["ChatDeepSeek"]
     sys.modules["langchain_deepseek"] = langchain_deepseek
 
+from autotrade_service.config import Settings
 from autotrade_service.providers.okx_derivatives import (
     DerivativesProviderConfig,
     DerivativesProviderError,
@@ -203,6 +205,37 @@ def test_derivatives_tool_fetch_serialized_structure() -> None:
         assert isinstance(eth_payload["next_funding_time"], str)
 
     asyncio.run(scenario())
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    os.environ.get("AUTOTRADE_OKX_LIVE_SMOKE") != "1",
+    reason="Live OKX smoke test disabled (set AUTOTRADE_OKX_LIVE_SMOKE=1 to enable)",
+)
+async def test_okx_derivatives_live_smoke() -> None:
+    """
+    Call the real OKX endpoints using CCXT to ensure funding/open-interest data is reachable.
+    Requires public market access; credentials may unlock higher rate limits but are optional.
+    """
+    settings = Settings()
+    if not settings.okx_derivatives_enabled:
+        pytest.skip("OKX derivatives disabled in settings")
+
+    fetcher = OKXDerivativesFetcher(settings=settings)
+    try:
+        snapshot = await fetcher.fetch_snapshot("BTC")
+        assert snapshot.funding_rate is not None
+        assert snapshot.open_interest_usd is not None
+        assert snapshot.open_interest_usd > 0
+        # mark price can occasionally be missing from the API, but when present it must be positive
+        if snapshot.mark_price is not None:
+            assert snapshot.mark_price > 0
+        # open-interest timestamp should be recent (within 1 day)
+        assert snapshot.open_interest_timestamp is not None
+        age = datetime.now(timezone.utc) - snapshot.open_interest_timestamp
+        assert age.total_seconds() < 86_400
+    finally:
+        await fetcher.close()
 
 
 def test_derivatives_tool_symbol_normalization_variants() -> None:
