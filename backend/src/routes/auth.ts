@@ -164,7 +164,15 @@ router.post('/logout', async (req: Request, res: Response) => {
     
     if (sessionId) {
       await invalidateSession(sessionId)
-      res.clearCookie('sessionId')
+      
+      // Clear cookie with same domain settings as when it was set
+      const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.get('x-forwarded-proto') === 'https'
+      const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined
+      
+      res.clearCookie('sessionId', {
+        domain: cookieDomain,
+        path: '/',
+      })
     }
     
     res.json({ success: true })
