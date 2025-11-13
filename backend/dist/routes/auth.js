@@ -1,27 +1,56 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { generateState, generatePKCE, getAuthUrl, exchangeCodeForTokens, upsertUser, createSession, invalidateSession, } from '../services/authService.js';
 import { requireAuth } from '../middleware/auth.js';
 const router = Router();
-// Store PKCE verifiers temporarily (in production, use Redis or similar)
-const pkceStore = new Map();
-// Cleanup expired PKCE entries every 5 minutes
-setInterval(() => {
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    for (const [key, value] of pkceStore.entries()) {
-        if (value.timestamp < fiveMinutesAgo) {
-            pkceStore.delete(key);
-        }
+// Encryption key for PKCE cookie (use env var in production)
+const ENCRYPTION_KEY = process.env.PKCE_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+// Encrypt data for secure cookie storage
+function encrypt(text) {
+    const key = Buffer.from(ENCRYPTION_KEY.slice(0, 64), 'hex');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted;
+}
+// Decrypt data from secure cookie
+function decrypt(text) {
+    const key = Buffer.from(ENCRYPTION_KEY.slice(0, 64), 'hex');
+    const parts = text.split(':');
+    if (parts.length !== 2) {
+        throw new Error('Invalid encrypted data format');
     }
-}, 5 * 60 * 1000);
+    const iv = Buffer.from(parts[0], 'hex');
+    const encryptedText = parts[1];
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
 // GET /auth/google - Initiate OAuth flow
 router.get('/google', (req, res) => {
     try {
         const state = generateState();
         const { codeVerifier, codeChallenge } = generatePKCE();
-        // Store code verifier with state for later verification
-        pkceStore.set(state, {
+        // Store code verifier in encrypted cookie (serverless-safe)
+        const pkceData = JSON.stringify({
+            state,
             codeVerifier,
             timestamp: Date.now(),
+        });
+        const encryptedPKCE = encrypt(pkceData);
+        const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.get('x-forwarded-proto') === 'https';
+        // Cookie domain for custom domain support (subdomains share cookies)
+        // Use .alphaflux.app in production to share between alphaflux.app and api.alphaflux.app
+        const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
+        res.cookie('oauth_pkce', encryptedPKCE, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'lax' : 'lax', // Can use 'lax' with same root domain
+            domain: cookieDomain,
+            maxAge: 5 * 60 * 1000, // 5 minutes
+            path: '/api/auth',
         });
         const authUrl = getAuthUrl(state, codeChallenge);
         // Redirect to Google OAuth
@@ -43,25 +72,49 @@ router.get('/google/callback', async (req, res) => {
         if (!code || !state || typeof code !== 'string' || typeof state !== 'string') {
             return res.redirect(`${process.env.FRONTEND_URL}?error=invalid_callback`);
         }
-        // Retrieve and validate PKCE verifier
-        const storedPKCE = pkceStore.get(state);
-        if (!storedPKCE) {
+        // Retrieve PKCE data from encrypted cookie
+        const encryptedPKCE = req.cookies?.oauth_pkce;
+        if (!encryptedPKCE) {
+            console.error('PKCE cookie missing');
             return res.redirect(`${process.env.FRONTEND_URL}?error=invalid_state`);
         }
-        // Remove used PKCE entry
-        pkceStore.delete(state);
+        let pkceData;
+        try {
+            const decryptedData = decrypt(encryptedPKCE);
+            pkceData = JSON.parse(decryptedData);
+        }
+        catch (err) {
+            console.error('Failed to decrypt PKCE data:', err);
+            return res.redirect(`${process.env.FRONTEND_URL}?error=invalid_state`);
+        }
+        // Validate state matches
+        if (pkceData.state !== state) {
+            console.error('State mismatch:', { expected: pkceData.state, received: state });
+            return res.redirect(`${process.env.FRONTEND_URL}?error=invalid_state`);
+        }
+        // Check timestamp (5 minute expiry)
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+        if (pkceData.timestamp < fiveMinutesAgo) {
+            console.error('PKCE data expired');
+            return res.redirect(`${process.env.FRONTEND_URL}?error=expired_state`);
+        }
+        // Clear PKCE cookie
+        res.clearCookie('oauth_pkce', { path: '/api/auth' });
         // Exchange code for tokens
-        const { profile, tokens } = await exchangeCodeForTokens(code, storedPKCE.codeVerifier);
+        const { profile, tokens } = await exchangeCodeForTokens(code, pkceData.codeVerifier);
         // Create or update user
         const user = await upsertUser(profile, tokens);
         // Create session
         const session = await createSession(user.id, req);
         // Set session cookie
         const isProduction = process.env.NODE_ENV === 'production' || req.secure || req.get('x-forwarded-proto') === 'https';
+        // Cookie domain for custom domain support (subdomains share cookies)
+        const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
         res.cookie('sessionId', session.id, {
             httpOnly: true,
             secure: isProduction,
-            sameSite: isProduction ? 'none' : 'lax',
+            sameSite: isProduction ? 'lax' : 'lax', // Can use 'lax' with same root domain
+            domain: cookieDomain,
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
         // Redirect to frontend
