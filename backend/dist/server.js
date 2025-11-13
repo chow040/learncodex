@@ -10,8 +10,24 @@ import { tradingRouter } from './routes/tradingRoutes.js';
 import { autotradeRouter } from './routes/autotradeRoutes.js';
 import authRouter from './routes/auth.js';
 export const app = express();
+// Allow both alphaflux.app and www.alphaflux.app
+const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    'https://alphaflux.app',
+    'https://www.alphaflux.app'
+];
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman, curl)
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
 }));
 app.use(express.json());
