@@ -262,37 +262,16 @@ AUTOTRADE_LOG_LEVEL=info
 AUTOTRADE_DECISION_TRACE_LOG_PATH=logs/decision-traces.log
 ```
 
-### Step 4: Configure Vercel Cron Jobs
+### Step 4: Configure External Cron Jobs
 
-Create `python-auto-trade/vercel.json`:
+Vercel no longer runs our schedulers. Instead, we expose a dedicated cron-only trigger endpoint and let cronjob.org (or any HTTPS cron service) call it.
 
-```json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/*.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/market-data",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/llm-decision",
-      "schedule": "*/30 * * * *"
-    }
-  ]
-}
-```
+1. Set `AUTOTRADE_CRON_TRIGGER_TOKEN` in the Vercel project so that external calls can be authenticated.
+2. Deploy so the FastAPI route `/internal/autotrade/v1/scheduler/cron-trigger` is live.
+3. In cronjob.org create a POST job that hits `https://your-autotrade.vercel.app/internal/autotrade/v1/scheduler/cron-trigger` on your desired cadence (e.g., */3 * * * * for every 3 minutes). Add the header `X-Cron-Token: $AUTOTRADE_CRON_TRIGGER_TOKEN`.
+4. Monitor the cronjob dashboard to confirm 200 responses.
 
-> **Note**: Vercel Free tier supports **2 cron jobs maximum**. We're using both optimally:
-> - **Market Data** (every 5 minutes) - Caches market data (ticker, orderbook, funding) in Redis for LLM analysis
-> - **LLM Decision** (every 30 minutes) - Makes AI trading decisions using cached market data
-> 
-> **Live Price Updates**: The dashboard banner and position data refresh every **30 seconds** via frontend polling (React Query), which fetches fresh data directly from OKX. This is much more frequent than the cron jobs and provides near-real-time updates.
+The UI continues to poll every ~30 seconds for health, so even with an external cron cadence the screen remains up to date. See `docs/external-cron-setup.md` for a full walkthrough and checklist.
 
 ### Step 5: Deploy
 

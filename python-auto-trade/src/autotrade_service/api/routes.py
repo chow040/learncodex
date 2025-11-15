@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
+import secrets
 from typing import Any, Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..config import Settings, get_settings
@@ -357,8 +358,28 @@ async def resume_scheduler() -> dict:
     return {"status": "running", "scheduler": scheduler.status().as_dict()}
 
 
+def _require_cron_token(request: Request, settings: Settings) -> None:
+    secret = settings.cron_trigger_token
+    if not secret:
+        return
+    provided = request.headers.get("x-cron-token")
+    if not provided or not secrets.compare_digest(provided, secret):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron token")
+
+
 @router.post("/scheduler/trigger", summary="Trigger immediate evaluation")
 async def trigger_scheduler() -> dict:
+    scheduler = get_scheduler()
+    triggered_at = await scheduler.trigger_run()
+    return {
+        "triggered_at": triggered_at.isoformat(),
+        "scheduler": scheduler.status().as_dict(),
+    }
+
+
+@router.post("/scheduler/cron-trigger", summary="Trigger evaluation via external cron job")
+async def cron_trigger_scheduler(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    _require_cron_token(request, settings)
     scheduler = get_scheduler()
     triggered_at = await scheduler.trigger_run()
     return {

@@ -16,16 +16,6 @@
       "dest": "/api/$1"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/cron/market-data",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/llm-decision",
-      "schedule": "*/30 * * * *"
-    }
-  ],
   "env": {
     "LOG_LEVEL": "INFO"
   }

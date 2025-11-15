@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     market_data_indicator_ttl_seconds: int = 60
     tool_cache_ttl_seconds: float | None = 30.0
     decision_trace_log_path: str | None = "logs/decision-traces.log"
+    cron_trigger_token: str | None = None
 
     db_url: str | None = None
     redis_url: str | None = None
