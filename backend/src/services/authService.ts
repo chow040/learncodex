@@ -54,6 +54,7 @@ export function getAuthUrl(state: string, codeChallenge: string): string {
     code_challenge: codeChallenge,
     code_challenge_method: CodeChallengeMethod.S256,
     include_granted_scopes: true,
+    prompt: 'consent',
   })
 }
 

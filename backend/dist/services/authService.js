@@ -26,6 +26,7 @@ export function getAuthUrl(state, codeChallenge) {
         code_challenge: codeChallenge,
         code_challenge_method: CodeChallengeMethod.S256,
         include_granted_scopes: true,
+        prompt: 'consent',
     });
 }
 // Exchange authorization code for tokens and verify ID token
