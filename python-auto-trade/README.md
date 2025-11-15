@@ -62,7 +62,7 @@ Key variables for the scheduler-driven architecture:
 - `AUTOTRADE_DEEPSEEK_*` variables manage the LLM configuration.
 - `AUTOTRADE_OBJECT_STORAGE_URI` and credentials configure prompt/log storage.
 
-LangChain integration now targets the 1.x stack. Be sure your environment has `langchain==1.0.3` and `langchain-deepseek` installed (the editable install via `pip install -e .` pulls the pinned versions).
+LangChain integration now targets the 1.x stack. Be sure your environment has `langchain==1.0.3` and `langchain-deepseek>=1.0.0` installed (the editable install via `pip install -e .` pulls the pinned versions).
 
 The LangChain agent calls `LiveMarketDataTool` and `IndicatorCalculatorTool` on demand during each run. Any caching is scoped to the job (process memory) unless Redis is explicitly enabled. Legacy Redis streams/compaction jobs are being sunset; dashboards should consume the API responses or the optional shared cache layer behind feature flags.
 

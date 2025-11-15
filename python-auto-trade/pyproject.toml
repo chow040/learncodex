@@ -22,7 +22,7 @@ dependencies = [
   "ccxt>=4.2,<5.0",
   "pandas>=2.0,<3.0",
   "langchain==1.0.3",
-  "langchain-deepseek>=0.1.0,<0.2",
+  "langchain-deepseek>=1.0.0,<2.0",
   "prometheus-client>=0.20,<1.0"
 ]
 
