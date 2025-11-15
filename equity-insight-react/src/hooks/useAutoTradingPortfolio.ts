@@ -46,8 +46,8 @@ export const useAutoTradingPortfolio = (options?: { apiBaseUrl?: string; enabled
     queryKey: ["autoTradingPortfolio", baseUrl],
     queryFn: () => fetchPortfolio(baseUrl),
     enabled,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000, // Poll every 30 seconds to stay within Upstash free tier (2,880 calls/day)
     refetchOnWindowFocus: true,
     retry: 1,
   })

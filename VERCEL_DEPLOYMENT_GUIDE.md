@@ -190,12 +190,15 @@ Check `backend/package.json` has the correct build script:
 ### Step 3: Get Redis Credentials
 
 1. Click on your database
-2. Go to **"Details"** tab
-3. Copy these values:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
+2. Go to **"Connect"** tab
+3. Find the **Redis** section (NOT the REST API section)
+4. Copy the **connection string** that looks like:
+   ```
+   rediss://default:AbC123XyZ...@cool-name-12345.upstash.io:6379
+   ```
+5. This will be your `AUTOTRADE_REDIS_URL` value
 
-> **Note**: Upstash uses REST API which works perfectly with Vercel serverless functions!
+> **Important**: The Python service uses the standard Redis protocol (with TLS), NOT the REST API. Use the `rediss://` URL from the "Connect" tab.
 
 ---
 
@@ -220,38 +223,43 @@ We'll deploy the Python auto-trading service as a Vercel project with cron jobs 
 Click **"Environment Variables"** and add:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@host.supabase.co:5432/postgres
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_KEY=your_service_key
+# Database (Optional - only if using database persistence)
+AUTOTRADE_DB_URL=postgresql://user:password@host.supabase.co:5432/postgres
 
-# Redis (From Upstash)
-UPSTASH_REDIS_REST_URL=https://your-db.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_token_here
+# Redis (From Upstash - get from Connect tab, use Redis URL not REST)
+AUTOTRADE_REDIS_URL=rediss://default:your_password@your-db.upstash.io:6379
 
-# OKX API
-OKX_API_KEY=your_okx_api_key
-OKX_API_SECRET=your_okx_secret
-OKX_API_PASSPHRASE=your_passphrase
-OKX_BASE_URL=https://my.okx.com
-OKX_DEMO_MODE=true  # or false for production
+# OKX API Configuration
+AUTOTRADE_OKX_BASE_URL=https://my.okx.com
+AUTOTRADE_OKX_DEMO_MODE=true
+AUTOTRADE_OKX_API_KEY=your-okx-demo-api-key
+AUTOTRADE_OKX_SECRET_KEY=your-okx-demo-secret
+AUTOTRADE_OKX_PASSPHRASE=your-okx-passphrase
 
 # AI Services
-DEEPSEEK_API_KEY=sk-xxx
-OPENAI_API_KEY=sk-xxx
+AUTOTRADE_DEEPSEEK_API_KEY=sk-xxx
+AUTOTRADE_DEEPSEEK_MODEL=deepseek-chat
 
 # Trading Configuration
-CCXT_EXCHANGE_ID=okx
-CCXT_SHORT_TERM_TIMEFRAME=15m
-CCXT_LONG_TERM_TIMEFRAME=1h
-TRADING_SYMBOLS=BTC-USDT-SWAP,ETH-USDT-SWAP,SOL-USDT-SWAP,BNB-USDT-SWAP,DOGE-USDT-SWAP,XRP-USDT-SWAP
+AUTOTRADE_TRADING_BROKER=okx_demo
+AUTOTRADE_MARKET_DATA_SYMBOLS=["BTC-USDT-SWAP","ETH-USDT-SWAP","SOL-USDT-SWAP","BNB-USDT-SWAP","DOGE-USDT-SWAP","XRP-USDT-SWAP"]
+AUTOTRADE_LLM_TRADING_SYMBOLS=["BTC-USDT-SWAP","ETH-USDT-SWAP"]
 
-# Scheduler Configuration
-LLM_DECISION_INTERVAL_MINUTES=30
-POSITION_SYNC_INTERVAL_MINUTES=5
+# CCXT Configuration
+AUTOTRADE_CCXT_EXCHANGE_ID=okx
+AUTOTRADE_CCXT_API_KEY=your-ccxt-api-key
+AUTOTRADE_CCXT_SECRET=your-ccxt-secret
+AUTOTRADE_CCXT_PASSWORD=your-ccxt-passphrase
+AUTOTRADE_CCXT_SHORT_TERM_TIMEFRAME=15m
+AUTOTRADE_CCXT_LONG_TERM_TIMEFRAME=1h
 
-# Application
-LOG_LEVEL=INFO
+# Scheduler Configuration (in minutes for decision interval, seconds for position sync)
+AUTOTRADE_DECISION_INTERVAL_MINUTES=30
+AUTOTRADE_POSITION_SYNC_INTERVAL_SECONDS=15
+
+# Logging
+AUTOTRADE_LOG_LEVEL=info
+AUTOTRADE_DECISION_TRACE_LOG_PATH=logs/decision-traces.log
 ```
 
 ### Step 4: Configure Vercel Cron Jobs
@@ -275,14 +283,16 @@ Create `python-auto-trade/vercel.json`:
     {
       "path": "/api/cron/llm-decision",
       "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/position-sync",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
 ```
+
+> **Note**: Vercel Free tier supports **2 cron jobs maximum**. We're using both optimally:
+> - **Market Data** (every 5 minutes) - Caches market data (ticker, orderbook, funding) in Redis for LLM analysis
+> - **LLM Decision** (every 30 minutes) - Makes AI trading decisions using cached market data
+> 
+> **Live Price Updates**: The dashboard banner and position data refresh every **30 seconds** via frontend polling (React Query), which fetches fresh data directly from OKX. This is much more frequent than the cron jobs and provides near-real-time updates.
 
 ### Step 5: Deploy
 
@@ -442,8 +452,9 @@ npm run build
 **Issue**: Redis connection timeout
 ```bash
 # Solution: Verify Upstash credentials
-# Check UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
-# Ensure using REST API (not Redis protocol)
+# Check AUTOTRADE_REDIS_URL is correct
+# Ensure using Redis URL (rediss://) not REST API
+# Format: rediss://default:password@host.upstash.io:6379
 ```
 
 **Issue**: Database connection timeout

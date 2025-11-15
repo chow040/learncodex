@@ -38,7 +38,7 @@ export const useAutoTradingDecision = (
     queryFn: () => fetchDecision(baseUrl, decisionId as string),
     enabled,
     staleTime: 0, // Always consider data stale to allow refetching
-    refetchInterval: 5_000, // Poll every 5 seconds for real-time updates
+    refetchInterval: 30_000, // Poll every 30 seconds to stay within Upstash free tier (2,880 calls/day)
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: true, // Continue polling even when tab is not focused
     retry: 1,

@@ -24,10 +24,6 @@
     {
       "path": "/api/cron/llm-decision",
       "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/position-sync",
-      "schedule": "*/5 * * * *"
     }
   ],
   "env": {
