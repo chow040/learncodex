@@ -32,5 +32,12 @@ Engage actively by analyzing both sides critically, addressing weaknesses in the
 
 export const createNeutralAnalystRunnable = (
   llm: RunnableInterface<any, any>,
-): RunnableInterface<RiskDebateInput, string> =>
-  buildAnalystRunnable(llm, ChatPromptTemplate.fromMessages([['human', '{userMessage}']]), buildNeutralUserMessage);
+  options?: { systemPrompt?: string },
+): RunnableInterface<RiskDebateInput, string> => {
+  const systemPrompt = options?.systemPrompt ?? NEUTRAL_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
+  return buildAnalystRunnable(llm, prompt, buildNeutralUserMessage);
+};

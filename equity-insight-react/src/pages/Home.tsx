@@ -143,7 +143,17 @@ const AuthenticatedHome = () => {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <Container>
           <div className="flex h-16 items-center justify-between">
-            <div className="flex-1"></div>
+            <div className="flex flex-1 items-center gap-4">
+              {user?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  className="inline-flex items-center gap-2 rounded-full border border-cyan-400/50 px-4 py-1.5 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-500/10"
+                >
+                  <span className="h-2 w-2 rounded-full bg-cyan-300" />
+                  Admin Control Center
+                </Link>
+              )}
+            </div>
             
             <div className="flex items-center gap-4">
               <Avatar className="h-8 w-8">

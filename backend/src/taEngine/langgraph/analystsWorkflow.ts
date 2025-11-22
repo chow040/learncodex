@@ -1,5 +1,4 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
-import { ChatOpenAI } from '@langchain/openai';
 import { AIMessage, BaseMessage, ToolMessage } from '@langchain/core/messages';
 import { RunnableLambda } from '@langchain/core/runnables';
 
@@ -38,6 +37,8 @@ import type {
   ConversationLogEntry,
   AnalystToolCall,
 } from './types.js';
+import type { ToolId } from '../langchain/toolRegistry.js';
+import { createChatModel, type ChatModelRunnable } from './llmFactory.js';
 
 ensureLangchainToolsRegistered();
 
@@ -192,7 +193,8 @@ const registerPersonaNodes = (
   assets: PersonaAssets,
   symbol: string,
   tradeDate: string,
-  llm: ChatOpenAI,
+  llm: ChatModelRunnable,
+  overrides?: { systemPrompt?: string; toolIds?: readonly ToolId[]; maxToolsPerRun?: number },
 ) => {
   const setupName = `${config.personaId}_Setup`;
   const llmName = `${config.personaId}_LLM`;
@@ -208,11 +210,17 @@ const registerPersonaNodes = (
       agentsContext: state.context,
       llm,
     };
+    if (overrides?.systemPrompt) {
+      analystContext.systemPrompt = overrides.systemPrompt;
+    }
+    if (overrides?.toolIds && overrides.toolIds.length > 0) {
+      analystContext.toolIds = overrides.toolIds;
+    }
     const header = config.buildHeader(analystContext);
     const userContext = config.buildUserContext(state.context);
     const conversationEntry: ConversationLogEntry = {
       roleLabel: config.label,
-      system: config.systemPrompt,
+      system: analystContext.systemPrompt ?? config.systemPrompt,
       user: `${header}\n\n${userContext}`,
     };
     return {
@@ -240,8 +248,30 @@ const registerPersonaNodes = (
 
     const newMessages = [...state.messages];
     const personaToolCalls: AnalystToolCall[] = [];
+    const maxTools = overrides?.maxToolsPerRun ?? null;
+    let executedTools = 0;
 
     for (const call of toolCalls) {
+      if (maxTools !== null && executedTools >= maxTools) {
+        const failure = `Tool limit reached for ${config.label}. maxToolsPerRun=${maxTools}.`;
+        personaToolCalls.push({
+          persona: config.label,
+          name: call.name,
+          input: null,
+          error: failure,
+          startedAt: new Date(),
+          finishedAt: new Date(),
+          durationMs: 0,
+        });
+        newMessages.push(
+          new ToolMessage({
+            tool_call_id: call.id ?? call.name,
+            content: failure,
+          }),
+        );
+        continue;
+      }
+
       const tool = assets.tools[call.name];
       const rawArgs = (call as any).arguments ?? (call as any).args;
       const args = parseToolArguments(rawArgs);
@@ -268,6 +298,7 @@ const registerPersonaNodes = (
       const startedAt = new Date();
       try {
         const output = await tool.invoke(args);
+        executedTools += 1;
         personaToolCalls.push({
           persona: config.label,
           name: call.name,
@@ -283,6 +314,7 @@ const registerPersonaNodes = (
           }),
         );
       } catch (error) {
+        executedTools += 1;
         const failure = `Tool invocation failed: ${error instanceof Error ? error.message : String(error)}`;
         personaToolCalls.push({
           persona: config.label,
@@ -343,21 +375,13 @@ const registerPersonaNodes = (
   };
 };
 
+import type { PersonaOverrideMap } from './types.js';
+
 export interface RunAnalystStageOptions {
   modelId?: string;
   enabledAnalysts?: TradingAnalystId[];
+  personaOverrides?: PersonaOverrideMap;
 }
-
-/**
- * Determines the provider (openai or grok) for a given model ID.
- */
-const resolveProvider = (modelId: string): 'openai' | 'grok' => {
-  const normalized = (modelId ?? '').trim().toLowerCase();
-  if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
-    return 'grok';
-  }
-  return 'openai';
-};
 
 export const runAnalystStage = async (
   symbol: string,
@@ -376,40 +400,21 @@ export const runAnalystStage = async (
 
   const requestedModel = options?.modelId ?? env.defaultTradingModel ?? '';
   const modelId = requestedModel.trim() || env.defaultTradingModel;
-  const provider = resolveProvider(modelId);
-
-  const llmOptions: Record<string, unknown> = {
-    model: modelId,
-    temperature: 1,
-  };
-
-  if (provider === 'grok') {
-    if (!env.grokApiKey) {
-      throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
-    }
-    llmOptions.apiKey = env.grokApiKey;
-    llmOptions.configuration = { baseURL: env.grokBaseUrl };
-  } else {
-    if (!env.openAiApiKey) {
-      throw new Error('OPENAI_API_KEY is not configured.');
-    }
-    llmOptions.apiKey = env.openAiApiKey;
-    if (env.openAiBaseUrl) {
-      llmOptions.configuration = { baseURL: env.openAiBaseUrl };
-    }
-  }
-
-  const llm = new ChatOpenAI(llmOptions);
+  const llm = createChatModel({ modelId });
 
   const personaAssets = new Map<TradingAnalystId, PersonaAssets>();
+  const personaOverrides = options?.personaOverrides ?? {};
   for (const personaId of enabledAnalysts) {
     const config = PERSONA_CONFIGS[personaId];
     if (!config) continue;
+    const override = personaOverrides[personaId];
     const assets = createAnalystRunnable(config.runnableId, {
       symbol,
       tradeDate,
       agentsContext: context,
       llm,
+      ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+      ...(override?.toolIds ? { toolIds: override.toolIds } : {}),
     });
     personaAssets.set(personaId, assets);
   }
@@ -423,7 +428,8 @@ export const runAnalystStage = async (
     if (!config || !assets) {
       continue;
     }
-    const nodes = registerPersonaNodes(graph, config, assets, symbol, tradeDate, llm);
+    const override = personaOverrides[personaId];
+    const nodes = registerPersonaNodes(graph, config, assets, symbol, tradeDate, llm, override);
     if (previousClear) {
       graph.addEdge(previousClear as any, nodes.setupName as any);
     } else {

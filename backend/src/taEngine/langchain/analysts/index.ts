@@ -4,6 +4,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { AgentsContext } from '../../types.js';
 import type { ToolLogger } from '../types.js';
 import { resolveTools } from '../toolRegistry.js';
+import type { ToolId } from '../toolRegistry.js';
 import type { AnalystNodeContext, AnalystNodeRegistration, AnalystRegistry, ToolContext } from '../types.js';
 import { marketAnalystRegistration } from './marketRunnable.js';
 import { newsAnalystRegistration } from './newsRunnable.js';
@@ -32,6 +33,8 @@ type CreateOptions = {
   llm: RunnableInterface<any, any>;
   toolLogger?: ToolLogger;
   runLogger?: ToolLogger;
+  systemPrompt?: string;
+  toolIds?: readonly ToolId[];
 };
 
 type CreateAnalystRunnableResult = {
@@ -54,15 +57,20 @@ export const createAnalystRunnable = (
     toolContext.logger = options.toolLogger;
   }
 
-  const tools = resolveTools(Array.from(registration.requiredTools), toolContext) as Record<string, StructuredToolInterface<any, any>>;
+  const resolvedToolIds = options.toolIds ? Array.from(options.toolIds) : Array.from(registration.requiredTools);
+  const tools = resolveTools(resolvedToolIds, toolContext) as Record<string, StructuredToolInterface<any, any>>;
 
   const context: AnalystNodeContext = {
     symbol: options.symbol,
     tradeDate: options.tradeDate,
     tools,
+    toolIds: resolvedToolIds,
     agentsContext: options.agentsContext,
     llm: options.llm,
   };
+  if (options.systemPrompt) {
+    context.systemPrompt = options.systemPrompt;
+  }
 
   if (options.runLogger) {
     context.runLogger = options.runLogger;

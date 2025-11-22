@@ -61,8 +61,13 @@ const messageToString = (message: unknown): string => {
 
 export const createRiskManagerRunnable = (
   llm: RunnableInterface<any, any>,
+  options?: { systemPrompt?: string },
 ): RunnableInterface<RiskManagerInput, string> => {
-  const prompt = ChatPromptTemplate.fromMessages([['human', '{userMessage}']]);
+  const systemPrompt = options?.systemPrompt ?? RISK_MANAGER_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
 
   const prepareInputs = new RunnableLambda({
     func: async (input: RiskManagerInput) => ({

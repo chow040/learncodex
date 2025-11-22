@@ -199,6 +199,7 @@ export async function getUserBySessionId(sessionId) {
             avatar: users.avatarUrl,
             emailVerified: users.emailVerified,
             sessionExpiresAt: sessions.expiresAt,
+            role: users.role,
         })
             .from(sessions)
             .innerJoin(users, eq(sessions.userId, users.id))
@@ -214,6 +215,7 @@ export async function getUserBySessionId(sessionId) {
             name: row.name || '',
             avatar: row.avatar || undefined,
             emailVerified: row.emailVerified,
+            role: row.role ?? 'user',
         };
     }
     catch (error) {

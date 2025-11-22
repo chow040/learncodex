@@ -4,7 +4,7 @@ import type { RunnableInterface } from '@langchain/core/runnables';
 import { AIMessage } from '@langchain/core/messages';
 
 import type { AgentsContext } from '../../types.js';
-import type { DebateInput } from './bearRunnable.js';
+import type { DebateInput, DebateRunnableOptions } from './bearRunnable.js';
 
 export const BULL_SYSTEM_PROMPT = '';
 export const buildBullUserMessage = (input: DebateInput): string => {
@@ -55,8 +55,13 @@ const messageToString = (message: unknown): string => {
 
 export const createBullDebateRunnable = (
   llm: RunnableInterface<any, any>,
+  options?: DebateRunnableOptions,
 ): RunnableInterface<DebateInput, string> => {
-  const prompt = ChatPromptTemplate.fromMessages([['human', '{userMessage}']]);
+  const systemPrompt = options?.systemPrompt ?? BULL_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
 
   const prepareInputs = new RunnableLambda({
     func: async (input: DebateInput) => ({

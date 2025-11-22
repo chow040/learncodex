@@ -62,6 +62,8 @@ export const useAutoTradingScheduler = (options?: { apiBaseUrl?: string; enabled
   const baseUrl = resolveAutotradeApiBaseUrl(options?.apiBaseUrl)
   const enabled = options?.enabled ?? true
   const queryClient = useQueryClient()
+  const decisionsQueryKey = ["autoTradingDecisions", baseUrl] as const
+  const portfolioQueryKey = ["autoTradingPortfolio", baseUrl] as const
 
   const scheduler = useQuery({
     queryKey: schedulerQueryKey(baseUrl),
@@ -83,7 +85,11 @@ export const useAutoTradingScheduler = (options?: { apiBaseUrl?: string; enabled
 
   const triggerMutation = useMutation({
     mutationFn: () => triggerSchedulerEndpoint(baseUrl),
-    onSuccess: (data) => queryClient.setQueryData(schedulerQueryKey(baseUrl), data.scheduler),
+    onSuccess: (data) => {
+      queryClient.setQueryData(schedulerQueryKey(baseUrl), data.scheduler)
+      void queryClient.invalidateQueries({ queryKey: decisionsQueryKey })
+      void queryClient.invalidateQueries({ queryKey: portfolioQueryKey })
+    },
   })
 
   return {

@@ -9,6 +9,8 @@ import { financeRouter } from './routes/financeRoutes.js';
 import { socialRouter } from './routes/socialRoutes.js';
 import { tradingRouter } from './routes/tradingRoutes.js';
 import { autotradeRouter } from './routes/autotradeRoutes.js';
+import { adminRouter } from './routes/adminRoutes.js';
+import { tradingAgentsRouter } from './routes/tradingAgentsRoutes.js';
 import authRouter from './routes/auth.js';
 
 export const app = express();
@@ -52,9 +54,11 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/assessment', assessmentRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/trading', tradingRouter);
+app.use('/api/trading-agents', tradingAgentsRouter);
 app.use('/api/autotrade', autotradeRouter);
 app.use('/api/social', socialRouter);
 

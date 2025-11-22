@@ -17,7 +17,7 @@ const REQUIRED_TOOL_IDS = [
   TOOL_IDS.REDDIT_NEWS,
 ] as const;
 
-const formatToolReminder = (tools: string | string[]): string => {
+const formatToolReminder = (tools: readonly string[] | string): string => {
   const normalized = Array.isArray(tools) ? tools : [tools];
   if (normalized.length === 0) return '';
   if (normalized.length === 1) return normalized[0]!;
@@ -27,8 +27,10 @@ const formatToolReminder = (tools: string | string[]): string => {
 };
 
 export const buildNewsCollaborationHeader = (context: AnalystNodeContext): string => {
-  const toolList = REQUIRED_TOOL_IDS.join(', ');
-  return `You are a helpful AI assistant, collaborating with other assistants. Use the provided tools to progress towards answering the question. If you are unable to fully answer, that's OK; another assistant with different tools will help where you left off. Execute what you can to make progress. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop. You have access to the following tools: ${toolList}.\n${NEWS_SYSTEM_PROMPT}For your reference, the current date is ${context.tradeDate}. We are looking at the company ${context.symbol}`;
+  const toolIds = context.toolIds ?? REQUIRED_TOOL_IDS;
+  const toolList = toolIds.length > 0 ? toolIds.join(', ') : 'No external tools available';
+  const systemPrompt = context.systemPrompt ?? NEWS_SYSTEM_PROMPT;
+  return `You are a helpful AI assistant, collaborating with other assistants. Use the provided tools to progress towards answering the question. If you are unable to fully answer, that's OK; another assistant with different tools will help where you left off. Execute what you can to make progress. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop. You have access to the following tools: ${toolList}.\n${systemPrompt}For your reference, the current date is ${context.tradeDate}. We are looking at the company ${context.symbol}`;
 };
 
 const sanitizeValue = (value: unknown): string | null => {
@@ -38,7 +40,7 @@ const sanitizeValue = (value: unknown): string | null => {
   return trimmed;
 };
 
-const buildMissingSection = (label: string, tools: string | string[]): string =>
+const buildMissingSection = (label: string, tools: readonly string[] | string): string =>
   `${label}:\nNo ${label.toLowerCase()} data preloaded. Call ${formatToolReminder(tools)} to retrieve the latest updates.`;
 
 export const buildNewsUserContext = (context: AgentsContext): string => {
@@ -69,23 +71,6 @@ export const buildNewsUserContext = (context: AgentsContext): string => {
   return sections.join('\n\n');
 };
 
-const aiMessageToString = (message: unknown): string => {
-  if (typeof message === 'string') return message;
-  if (message instanceof AIMessage) {
-    if (typeof message.content === 'string') return message.content;
-    if (Array.isArray(message.content)) {
-      return message.content
-        .map((chunk: unknown) => (typeof chunk === 'string' ? chunk : JSON.stringify(chunk)))
-        .join('');
-    }
-    return message.content ? JSON.stringify(message.content) : '';
-  }
-  if (message && typeof (message as any).content === 'string') {
-    return (message as any).content;
-  }
-  return JSON.stringify(message ?? '');
-};
-
 type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
 
 const buildNewsRunnable = (context: AnalystNodeContext): RunnableInterface<AnalystInput, AIMessage> => {
@@ -94,20 +79,11 @@ const buildNewsRunnable = (context: AnalystNodeContext): RunnableInterface<Analy
     throw new Error('News analyst runnable requires an LLM instance in context.');
   }
 
-  const toolInstances = Array.from(
-    new Set(
-      REQUIRED_TOOL_IDS.map((id) => {
-        const tool = context.tools[id];
-        if (!tool) {
-          throw new Error(`News analyst runnable missing tool registration for ${id}.`);
-        }
-        return tool;
-      }),
-    ),
-  );
+  const toolInstances = Object.values(context.tools ?? {});
 
+  const systemPrompt = context.systemPrompt ?? NEWS_SYSTEM_PROMPT;
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', NEWS_SYSTEM_PROMPT],
+    ['system', systemPrompt],
     ['human', '{collaborationHeader}\n\n{userContext}'],
     new MessagesPlaceholder('messages'),
   ]);

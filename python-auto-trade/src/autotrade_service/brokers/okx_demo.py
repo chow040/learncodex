@@ -10,7 +10,13 @@ from ..config import Settings, get_settings
 from .base import BaseBroker
 from ..feedback.outcome_tracker import TradeOutcomeTracker
 from ..metrics import record_okx_order_latency, get_okx_order_latency_stats
-from ..repositories import persist_closed_position, fetch_latest_portfolio
+from ..repositories import (
+    persist_closed_position,
+    fetch_latest_portfolio,
+    AutoTradeExitPlan,
+    record_spot_position_entry,
+    close_spot_position_entry,
+)
 from ..observability import record_okx_order_metric
 
 log = logging.getLogger("autotrade.broker.okx_demo")
@@ -101,14 +107,34 @@ class OKXDemoBroker(BaseBroker):
         fill_price = self._extract_fill_price(order) or price or 0.0
         self._record_execution(order, decision.symbol, side, quantity)
         await self._notify_feedback(decision, action, fill_price, quantity)
-        if action in (DecisionAction.SELL, DecisionAction.CLOSE):
-            await self._capture_realized_pnl(decision.symbol)
+        exit_plan = AutoTradeExitPlan(
+            profit_target=decision.take_profit or fill_price,
+            stop_loss=decision.stop_loss or fill_price,
+            invalidation=decision.invalidation_condition or "",
+        )
+        if action == DecisionAction.BUY:
+            await record_spot_position_entry(
+                symbol=decision.symbol,
+                quantity=quantity,
+                entry_price=fill_price,
+                leverage=decision.leverage or 1.0,
+                confidence=decision.confidence or 0.0,
+                exit_plan=exit_plan,
+            )
+        else:
+            await close_spot_position_entry(
+                symbol=decision.symbol,
+                exit_price=fill_price,
+                reason="LLM decision",
+            )
         return f"Submitted {side} order on {ccxt_symbol} (order_id={order.get('id')})"
 
     def _resolve_ccxt_symbol(self, symbol: str) -> str | None:
         symbol = symbol.upper()
         if self._symbol_map:
-            return self._symbol_map.get(symbol)
+            mapped = self._symbol_map.get(symbol)
+            if mapped:
+                return mapped
         # Fall back to simple translation for spot pairs (e.g., BTC-USDT -> BTC/USDT)
         if "-" in symbol:
             base, quote, *_ = symbol.split("-")

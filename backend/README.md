@@ -22,10 +22,12 @@ Node.js/Express API that powers the Equity Insight frontend with two integration
    **Model Configuration:**
    - By default, Trading Agents allow OpenAI models: `gpt-4o-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5`, `gpt-5-pro`
    - **Grok Integration:** To use Grok models from x.ai, add `GROK_API_KEY`, `GROK_MODEL` (e.g., `grok-beta`), and optionally `GROK_BASE_URL` (defaults to `https://api.x.ai/v1`)
-   - The system automatically merges OpenAI and Grok models into a combined allow-list
-   - Override the default model with `TRADING_DEFAULT_MODEL` (priority: `TRADING_DEFAULT_MODEL` → `OPENAI_MODEL` → `GROK_MODEL`)
+   - **Google Gemini Integration:** To use Gemini models, add `GOOGLE_GENAI_API_KEY` plus `GOOGLE_GENAI_MODEL` (e.g., `gemini-1.5-flash`) and optionally `GOOGLE_GENAI_ALLOWED_MODELS`
+   - The system automatically merges OpenAI, Grok, and Google models into a combined allow-list
+   - Override the default model with `TRADING_DEFAULT_MODEL` (priority: `TRADING_DEFAULT_MODEL` → `OPENAI_MODEL` → `GROK_MODEL` → `GOOGLE_GENAI_MODEL`)
    - Customize the full allow-list with `TRADING_ALLOWED_MODELS` (comma-separated)
    - Default Grok models: `grok-beta`, `grok-2-1212`, `grok-2-vision-1212`
+   - Default Google models: `gemini-1.5-flash`, `gemini-1.5-flash-8b`, `gemini-1.5-pro`, `gemini-2.0-flash`, `gemini-2.0-flash-thinking`
    
    Enable the Trading Agents assessment history endpoints by setting `TRADING_ASSESSMENT_HISTORY_ENABLED=true` (requires `DATABASE_URL` so results can be queried).
 

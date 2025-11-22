@@ -27,6 +27,7 @@ export interface SessionUser {
   name: string
   avatar?: string | undefined
   emailVerified: boolean
+  role: 'user' | 'admin'
 }
 
 // Generate secure random state for OAuth
@@ -247,6 +248,7 @@ export async function getUserBySessionId(sessionId: string): Promise<SessionUser
         avatar: users.avatarUrl,
         emailVerified: users.emailVerified,
         sessionExpiresAt: sessions.expiresAt,
+        role: users.role,
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.userId, users.id))
@@ -264,6 +266,7 @@ export async function getUserBySessionId(sessionId: string): Promise<SessionUser
       name: row.name || '',
       avatar: row.avatar || undefined,
       emailVerified: row.emailVerified,
+      role: row.role ?? 'user',
     }
   } catch (error) {
     console.error('Failed to get user by session:', error)

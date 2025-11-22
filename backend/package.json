@@ -17,13 +17,16 @@
     "db:logs": "tsx src/db/queryAssessmentLogs.ts",
     "db:test": "tsx src/db/testConnection.ts",
     "db:schema:dump": "tsx scripts/generateSchemaDoc.ts",
-    "seed:autotrade": "tsx src/scripts/seedAutotrade.ts"
+    "seed:autotrade": "tsx src/scripts/seedAutotrade.ts",
+    "seed:admin": "tsx src/scripts/seedAdminDashboard.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.11.5",
     "@langchain/core": "^0.3.78",
+    "@langchain/google-genai": "^0.1.7",
     "@langchain/langgraph": "^0.4.9",
     "@langchain/langgraph-sdk": "^0.1.10",
     "@langchain/openai": "^0.6.16",

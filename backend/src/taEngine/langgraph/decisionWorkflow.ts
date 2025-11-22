@@ -1,5 +1,4 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
-import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 import { env } from '../../config/env.js';
@@ -22,6 +21,8 @@ import {
   type DebateHistory,
   type GraphMetadata,
   type GraphState,
+  type PersonaOverrideMap,
+  type PersonaName,
 } from './types.js';
 import {
   BEAR_SYSTEM_PROMPT,
@@ -71,18 +72,7 @@ import {
 
 type ConversationLogEntry = GraphState['conversationLog'][number];
 
-/**
- * Determines the provider (openai or grok) for a given model ID.
- * Grok models typically start with 'grok-' prefix.
- * Supports region-specific models like: grok-4-fast-reasoning-us-east-1
- */
-const resolveProvider = (modelId: string): 'openai' | 'grok' => {
-  const normalized = (modelId ?? '').trim().toLowerCase();
-  if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
-    return 'grok';
-  }
-  return 'openai';
-};
+import { createChatModel } from './llmFactory.js';
 
 const StateAnnotation = Annotation.Root({
   symbol: Annotation<string>(),
@@ -135,33 +125,6 @@ const StateAnnotation = Annotation.Root({
 
 type State = typeof StateAnnotation.State;
 
-const createChatModel = (modelOverride?: string, temperature = 1): ChatOpenAI => {
-  const modelId = modelOverride ?? env.defaultTradingModel;
-  const provider = resolveProvider(modelId);
-
-  if (provider === 'grok') {
-    if (!env.grokApiKey) {
-      throw new Error('GROK_API_KEY is not configured. Cannot use Grok models.');
-    }
-    return new ChatOpenAI({
-      apiKey: env.grokApiKey,
-      model: modelId,
-      temperature,
-      configuration: { baseURL: env.grokBaseUrl },
-    });
-  }
-
-  if (!env.openAiApiKey) {
-    throw new Error('OPENAI_API_KEY is not configured.');
-  }
-  return new ChatOpenAI({
-    apiKey: env.openAiApiKey,
-    model: modelId,
-    temperature,
-    ...(env.openAiBaseUrl ? { configuration: { baseURL: env.openAiBaseUrl } } : {}),
-  });
-};
-
 const DECISION_PARSER_SYSTEM_PROMPT =
   'You are an efficient assistant that reads analyst reports. Extract the explicit investment verdict (SELL, BUY, or HOLD) and reply with only that single word. Do not include any other words or punctuation.';
 
@@ -170,7 +133,7 @@ const extractDecisionToken = async (text: string, modelId: string): Promise<stri
   if (!trimmed) return null;
 
   try {
-    const parser = createChatModel(modelId, 0);
+    const parser = createChatModel({ modelId, temperature: 0 });
     const response = await parser.invoke([
       new SystemMessage(DECISION_PARSER_SYSTEM_PROMPT),
       new HumanMessage(trimmed),
@@ -242,6 +205,11 @@ const resolveEnabledAnalysts = (state: State): TradingAnalystId[] => {
     }
   }
   return [...DEFAULT_TRADING_ANALYSTS];
+};
+
+const resolvePersonaOverride = (state: State, persona: PersonaName) => {
+  const overrides = state.metadata?.personaOverrides as PersonaOverrideMap | undefined;
+  return overrides?.[persona];
 };
 
 const emitStage = (
@@ -365,6 +333,7 @@ const analystsNode = async (state: State) => {
   emitStage(state, 'analysts', 'Running analyst stage');
   const modelId = resolveModelId(state);
   const enabledAnalysts = resolveEnabledAnalysts(state);
+  const personaOverrides = (state.metadata?.personaOverrides as PersonaOverrideMap | undefined);
   const { reports, conversationLog, toolCalls } = await runAnalystStage(
     state.symbol,
     state.tradeDate,
@@ -372,6 +341,7 @@ const analystsNode = async (state: State) => {
     {
       modelId,
       enabledAnalysts,
+      ...(personaOverrides ? { personaOverrides } : {}),
     },
   );
   await logToolCalls(
@@ -391,8 +361,11 @@ const analystsNode = async (state: State) => {
 };
 
 const bearNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createBearDebateRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'bear');
+  const runnable = createBearDebateRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const context = buildDebateContext(state);
   const round = Number(state.metadata?.invest_round ?? 0) + 1;
   emitStage(state, 'investment_debate', 'Investment debate', `Bear vs Bull round ${round}`, round);
@@ -422,7 +395,7 @@ const bearNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Bear Analyst',
-        system: BEAR_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? BEAR_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -430,8 +403,11 @@ const bearNode = async (state: State) => {
 };
 
 const bullNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createBullDebateRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'bull');
+  const runnable = createBullDebateRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const context = buildDebateContext(state);
   const completedRounds = Number(state.metadata?.invest_round ?? 0);
   const round = completedRounds + 1;
@@ -461,7 +437,7 @@ const bullNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Bull Analyst',
-        system: BULL_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? BULL_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -470,8 +446,11 @@ const bullNode = async (state: State) => {
 };
 
 const researchManagerNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createResearchManagerRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'research_manager');
+  const runnable = createResearchManagerRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const managerMemories = (state.metadata?.managerMemories as string) ?? '';
   const debateHistory = state.debate?.investment ?? '';
 
@@ -502,7 +481,7 @@ const researchManagerNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Research Manager',
-        system: RESEARCH_MANAGER_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? RESEARCH_MANAGER_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -510,8 +489,11 @@ const researchManagerNode = async (state: State) => {
 };
 
 const traderNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createTraderRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'trader');
+  const runnable = createTraderRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const traderMemories = (state.metadata?.traderMemories as string) ?? '';
 
   const marketReport = coalesceReport(state.reports, 'market', state.context.market_technical_report);
@@ -545,7 +527,7 @@ const traderNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Trader',
-        system: TRADER_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? TRADER_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -553,8 +535,11 @@ const traderNode = async (state: State) => {
 };
 
 const aggressiveNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createAggressiveAnalystRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'aggressive');
+  const runnable = createAggressiveAnalystRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const context = buildDebateContext(state);
   const round = Number(state.metadata?.risk_round ?? 0) + 1;
   emitStage(state, 'risk_debate', 'Risk debate analysis', `Risk round ${round}`, round);
@@ -581,7 +566,7 @@ const aggressiveNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Aggressive Analyst',
-        system: AGGRESSIVE_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? AGGRESSIVE_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -589,8 +574,11 @@ const aggressiveNode = async (state: State) => {
 };
 
 const conservativeNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createConservativeAnalystRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'conservative');
+  const runnable = createConservativeAnalystRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const context = buildDebateContext(state);
   const round = Number(state.metadata?.risk_round ?? 0) + 1;
   const history = state.debate?.risk ?? '';
@@ -616,7 +604,7 @@ const conservativeNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Conservative Analyst',
-        system: CONSERVATIVE_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? CONSERVATIVE_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -624,8 +612,11 @@ const conservativeNode = async (state: State) => {
 };
 
 const neutralNode = async (state: State) => {
-  const llm = createChatModel(resolveModelId(state));
-  const runnable = createNeutralAnalystRunnable(llm);
+  const llm = createChatModel({ modelId: resolveModelId(state) });
+  const override = resolvePersonaOverride(state, 'neutral');
+  const runnable = createNeutralAnalystRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const context = buildDebateContext(state);
   const completedRounds = Number(state.metadata?.risk_round ?? 0);
   const round = completedRounds + 1;
@@ -652,7 +643,7 @@ const neutralNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Neutral Analyst',
-        system: NEUTRAL_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? NEUTRAL_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -662,8 +653,11 @@ const neutralNode = async (state: State) => {
 
 const riskManagerNode = async (state: State) => {
   const modelId = resolveModelId(state);
-  const llm = createChatModel(modelId);
-  const runnable = createRiskManagerRunnable(llm);
+  const llm = createChatModel({ modelId });
+  const override = resolvePersonaOverride(state, 'risk_manager');
+  const runnable = createRiskManagerRunnable(llm, {
+    ...(override?.systemPrompt ? { systemPrompt: override.systemPrompt } : {}),
+  });
   const riskMemories = (state.metadata?.riskManagerMemories as string) ?? '';
 
   emitStage(state, 'risk_manager', 'Risk manager verdict');
@@ -696,7 +690,7 @@ const riskManagerNode = async (state: State) => {
     conversationLog: [
       {
         roleLabel: 'Risk Manager',
-        system: RISK_MANAGER_SYSTEM_PROMPT,
+        system: override?.systemPrompt ?? RISK_MANAGER_SYSTEM_PROMPT,
         user: userMessage,
       },
     ],
@@ -974,9 +968,16 @@ const decisionGraph = (() => {
 
 export const getDecisionGraph = () => decisionGraph;
 
+export interface DecisionGraphOptions {
+  runId?: string;
+  modelId?: string;
+  analysts?: TradingAnalystId[];
+  personaOverrides?: PersonaOverrideMap;
+}
+
 export const runDecisionGraph = async (
   payload: TradingAgentsPayload,
-  options?: { runId?: string; modelId?: string; analysts?: TradingAnalystId[] },
+  options?: DecisionGraphOptions,
 ): Promise<TradingAgentsDecision> => {
   const normalizedModelId = (options?.modelId ?? payload.modelId ?? env.defaultTradingModel)?.trim() ?? env.defaultTradingModel;
   const normalizedAnalysts = options?.analysts && options.analysts.length > 0
@@ -1008,6 +1009,9 @@ export const runDecisionGraph = async (
   };
   if (options?.runId) {
     metadata.progressRunId = options.runId;
+  }
+  if (options?.personaOverrides) {
+    metadata.personaOverrides = options.personaOverrides;
   }
 
   const initialState: GraphState = {

@@ -2,6 +2,7 @@ import { env } from '../config/env.js';
 import { TradingOrchestrator } from '../taEngine/graph/orchestrator.js';
 import { DEFAULT_TRADING_ANALYSTS, type TradingAnalystId } from '../constants/tradingAgents.js';
 import type { TradingAgentsDecision, TradingAgentsPayload, AgentsContext } from '../taEngine/types.js';
+import type { PersonaOverrideMap } from '../taEngine/langgraph/types.js';
 import { runMockTradingAgentsDecision } from './tradingAgentsMockService.js';
 
 export interface TradingAgentsDecisionOptions {
@@ -9,7 +10,24 @@ export interface TradingAgentsDecisionOptions {
   modelId?: string;
   analysts?: TradingAnalystId[];
   useMockData?: boolean;
+  personaOverrides?: PersonaOverrideMap;
+  agentsContext?: AgentsContext;
 }
+
+export const createBaseAgentsContext = (): AgentsContext => ({
+  market_price_history: '',
+  market_technical_report: '',
+  social_stock_news: '',
+  social_reddit_summary: '',
+  news_company: '',
+  news_reddit: '',
+  news_global: '',
+  fundamentals_summary: '',
+  fundamentals_balance_sheet: '',
+  fundamentals_cashflow: '',
+  fundamentals_income_stmt: '',
+  fundamentals_insider_transactions: '',
+});
 
 export const requestTradingAgentsDecisionInternal = async (
   symbol: string,
@@ -23,23 +41,10 @@ export const requestTradingAgentsDecisionInternal = async (
   const decisionDate = new Date().toISOString().slice(0, 10);
   const useMockData = options?.useMockData ?? env.tradingAgentsMockMode;
 
-  const contextBase: AgentsContext = {
-    market_price_history: '',
-    market_technical_report: '',
-    social_stock_news: '',
-    social_reddit_summary: '',
-    news_company: '',
-    news_reddit: '',
-    news_global: '',
-    fundamentals_summary: '',
-    fundamentals_balance_sheet: '',
-    fundamentals_cashflow: '',
-    fundamentals_income_stmt: '',
-  };
   const payload: TradingAgentsPayload = {
     symbol,
     tradeDate: decisionDate,
-    context: contextBase,
+    context: options?.agentsContext ?? createBaseAgentsContext(),
     modelId,
     analysts,
   };
@@ -48,6 +53,7 @@ export const requestTradingAgentsDecisionInternal = async (
     modelId,
     analysts,
     ...(options?.runId ? { runId: options.runId } : {}),
+    ...(options?.personaOverrides ? { personaOverrides: options.personaOverrides } : {}),
   } satisfies { runId?: string; modelId: string; analysts: TradingAnalystId[] };
 
   if (useMockData) {
@@ -61,8 +67,3 @@ export const requestTradingAgentsDecisionInternal = async (
   const orchestrator = new TradingOrchestrator();
   return orchestrator.run(payload, orchestratorOptions) as Promise<TradingAgentsDecision>;
 };
-
-
-
-
-

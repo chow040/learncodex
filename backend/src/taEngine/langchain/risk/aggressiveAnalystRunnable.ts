@@ -32,5 +32,12 @@ Engage actively by addressing any specific concerns raised, refuting the weaknes
 
 export const createAggressiveAnalystRunnable = (
   llm: RunnableInterface<any, any>,
-): RunnableInterface<RiskDebateInput, string> =>
-  buildAnalystRunnable(llm, ChatPromptTemplate.fromMessages([['human', '{userMessage}']]), buildAggressiveUserMessage);
+  options?: { systemPrompt?: string },
+): RunnableInterface<RiskDebateInput, string> => {
+  const systemPrompt = options?.systemPrompt ?? AGGRESSIVE_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
+  return buildAnalystRunnable(llm, prompt, buildAggressiveUserMessage);
+};

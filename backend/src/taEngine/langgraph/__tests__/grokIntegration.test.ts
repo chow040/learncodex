@@ -1,54 +1,33 @@
 import { describe, it, expect } from 'vitest';
 
+import { resolveProvider } from '../llmFactory.js';
+
 /**
  * Integration tests for Grok model support in decisionWorkflow.
  * These tests verify that the resolveProvider helper and createChatModel
  * function correctly handle both OpenAI and Grok models.
  */
-describe('Grok model integration', () => {
-  it('should identify grok models correctly', () => {
-    // Test helper function (inline for testing)
-    const resolveProvider = (modelId: string): 'openai' | 'grok' => {
-      const normalized = (modelId ?? '').trim().toLowerCase();
-      if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
-        return 'grok';
-      }
-      return 'openai';
-    };
-
-    // Test Grok models
+describe('Model provider resolution', () => {
+  it('should identify Grok models correctly', () => {
     expect(resolveProvider('grok-beta')).toBe('grok');
     expect(resolveProvider('grok-2-1212')).toBe('grok');
     expect(resolveProvider('grok-2-vision-1212')).toBe('grok');
     expect(resolveProvider('Grok-Beta')).toBe('grok');
-    
-    // Test OpenAI models
+  });
+
+  it('should identify Google Gemini models correctly', () => {
+    expect(resolveProvider('gemini-1.5-flash')).toBe('google');
+    expect(resolveProvider('Gemini-2.0-Flash-Thinking')).toBe('google');
+    expect(resolveProvider('  gemini-1.5-pro  ')).toBe('google');
+  });
+
+  it('should default unknown models to OpenAI', () => {
     expect(resolveProvider('gpt-4o-mini')).toBe('openai');
     expect(resolveProvider('gpt-4o')).toBe('openai');
     expect(resolveProvider('gpt-5')).toBe('openai');
     expect(resolveProvider('gpt-5-pro')).toBe('openai');
-    
-    // Test edge cases
     expect(resolveProvider('')).toBe('openai');
     expect(resolveProvider('unknown-model')).toBe('openai');
-  });
-
-  it('should handle model name variations', () => {
-    const resolveProvider = (modelId: string): 'openai' | 'grok' => {
-      const normalized = (modelId ?? '').trim().toLowerCase();
-      if (normalized.startsWith('grok-') || normalized.startsWith('grok')) {
-        return 'grok';
-      }
-      return 'openai';
-    };
-
-    // With spaces
-    expect(resolveProvider('  grok-beta  ')).toBe('grok');
-    expect(resolveProvider('  gpt-4o  ')).toBe('openai');
-    
-    // Case variations
-    expect(resolveProvider('GROK-BETA')).toBe('grok');
-    expect(resolveProvider('GPT-4O')).toBe('openai');
   });
 });
 

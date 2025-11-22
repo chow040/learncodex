@@ -7,6 +7,7 @@ export interface User {
   name: string
   avatar?: string
   emailVerified: boolean
+  role: 'user' | 'admin'
 }
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
@@ -54,7 +55,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (response.ok) {
         const userData = await response.json()
-        setUser(userData)
+        setUser({
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          avatar: userData.avatar,
+          emailVerified: Boolean(userData.emailVerified),
+          role: userData.role === 'admin' ? 'admin' : 'user',
+        })
         setStatus('authenticated')
       } else {
         setStatus('unauthenticated')

@@ -144,6 +144,13 @@ class OKXClient:
             raise OKXClientError("Exchange does not support fetch_positions")
         return await self._call_with_retries("fetch_positions", self._exchange.fetch_positions)
 
+    async def fetch_ticker(self, symbol: str) -> dict[str, Any]:
+        if not hasattr(self._exchange, "fetch_ticker"):
+            raise OKXClientError("Exchange does not support fetch_ticker")
+        return await self._call_with_retries(
+            f"fetch_ticker({symbol})", lambda: self._exchange.fetch_ticker(symbol)
+        )
+
     async def fetch_trades(
         self,
         symbol: str | None = None,

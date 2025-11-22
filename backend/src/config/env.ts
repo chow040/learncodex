@@ -54,20 +54,41 @@ const DEFAULT_GROK_MODELS = [
   'grok-4-fast-reasoning-latest',
 ] as const;
 
+const DEFAULT_GOOGLE_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-thinking',
+] as const;
+
 const openAiModel = process.env.OPENAI_MODEL ?? DEFAULT_OPENAI_MODELS[0];
 const grokApiKey = process.env.GROK_API_KEY ?? '';
 const grokBaseUrl = process.env.GROK_BASE_URL ?? 'https://api.x.ai/v1';
 const grokModel = process.env.GROK_MODEL ?? '';
 const grokAllowedModels = parseCsvList(process.env.GROK_ALLOWED_MODELS);
+const googleGenAiApiKey = process.env.GOOGLE_GENAI_API_KEY ?? '';
+const googleGenAiModel = process.env.GOOGLE_GENAI_MODEL ?? '';
+const googleGenAiAllowedModels = parseCsvList(process.env.GOOGLE_GENAI_ALLOWED_MODELS);
 
 // Derive default trading model with priority: TRADING_DEFAULT_MODEL → OPENAI_MODEL → GROK_MODEL
-const defaultTradingModel = 
-  process.env.TRADING_DEFAULT_MODEL ?? 
-  (process.env.OPENAI_MODEL ? openAiModel : grokModel || DEFAULT_OPENAI_MODELS[0]);
+const defaultTradingModel =
+  process.env.TRADING_DEFAULT_MODEL ??
+  (process.env.OPENAI_MODEL
+    ? openAiModel
+    : grokModel
+      ? grokModel
+      : googleGenAiModel || DEFAULT_OPENAI_MODELS[0]);
 
 // Warn if a Grok model is configured but key is missing
 if ((grokModel || grokAllowedModels.length > 0) && !grokApiKey) {
   console.warn('Grok model(s) configured but GROK_API_KEY is not set. Grok models will fail at runtime.');
+}
+
+if ((googleGenAiModel || googleGenAiAllowedModels.length > 0) && !googleGenAiApiKey) {
+  console.warn(
+    'Google GenAI model(s) configured but GOOGLE_GENAI_API_KEY is not set. Gemini models will fail at runtime.',
+  );
 }
 
 // Merge OpenAI + Grok allow-lists
@@ -79,16 +100,25 @@ const tradingAllowedModels = (() => {
     const unique = new Set(configured);
     if (openAiModel) unique.add(openAiModel);
     if (grokModel) unique.add(grokModel);
+    if (googleGenAiModel) unique.add(googleGenAiModel);
     return Array.from(unique);
   }
   
   // Otherwise merge OpenAI defaults + Grok allowed models
   const base = [...DEFAULT_OPENAI_MODELS];
-  const grokModels = grokAllowedModels.length > 0 ? grokAllowedModels : (grokModel ? [grokModel] : DEFAULT_GROK_MODELS);
-  const unique = new Set([...base, ...grokModels]);
+  const grokModels =
+    grokAllowedModels.length > 0 ? grokAllowedModels : grokModel ? [grokModel] : DEFAULT_GROK_MODELS;
+  const googleModels =
+    googleGenAiAllowedModels.length > 0
+      ? googleGenAiAllowedModels
+      : googleGenAiModel
+        ? [googleGenAiModel]
+        : DEFAULT_GOOGLE_MODELS;
+  const unique = new Set([...base, ...grokModels, ...googleModels]);
   
   if (openAiModel) unique.add(openAiModel);
   if (grokModel) unique.add(grokModel);
+  if (googleGenAiModel) unique.add(googleGenAiModel);
   
   return Array.from(unique);
 })();
@@ -105,6 +135,9 @@ export const env = {
   grokBaseUrl,
   grokModel,
   grokAllowedModels,
+  googleGenAiApiKey,
+  googleGenAiModel,
+  googleGenAiAllowedModels,
   defaultTradingModel,
   tradingAllowedModels,
   finnhubApiKey: process.env.FINNHUB_API_KEY ?? '',

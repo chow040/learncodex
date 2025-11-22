@@ -12,6 +12,11 @@ import AutoTradingDecisionDetail from "./pages/AutoTradingDecisionDetail"
 import AutoTradingShell from "./pages/AutoTradingShell"
 import PriceBanner from "./components/trading/PriceBanner"
 import { Toaster } from "./components/ui/toaster"
+import AdminShell from "./pages/admin/AdminShell"
+import AdminDashboard from "./pages/admin/AdminDashboard"
+import SystemSettingsPage from "./pages/admin/SystemSettingsPage"
+import AgentsList from "./pages/admin/AgentsList"
+import AgentDetail from "./pages/admin/AgentDetail"
 
 const App = () => {
   return (
@@ -45,11 +50,23 @@ const App = () => {
             <Route index element={<AutoTradingDashboard />} />
             <Route path="decision/:decisionId" element={<AutoTradingDecisionDetail />} />
           </Route>
-          <Route path="/trading-agents/history/:runId" element={
+          <Route path="/trading-agents/:agentId/runs/:runId" element={
             <ProtectedRoute>
               <TradingAgentsHistoryDetail />
             </ProtectedRoute>
           } />
+          <Route path="/admin" element={
+            <ProtectedRoute requireAdmin>
+              <AdminShell />
+            </ProtectedRoute>
+          }>
+            <Route index element={<AdminDashboard />} />
+            <Route path="system-settings" element={<SystemSettingsPage />} />
+            <Route path="agents">
+              <Route index element={<AgentsList />} />
+              <Route path=":agentId" element={<AgentDetail />} />
+            </Route>
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster />

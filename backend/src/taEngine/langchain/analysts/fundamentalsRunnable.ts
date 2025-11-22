@@ -6,6 +6,7 @@ import { AIMessage, type BaseMessage } from '@langchain/core/messages';
 import type { AgentsContext } from '../../types.js';
 import { TOOL_IDS } from '../toolRegistry.js';
 import type { AnalystNodeContext, AnalystNodeRegistration } from '../types.js';
+import type { ToolId } from '../toolRegistry.js';
 
 const KNOWN_PLACEHOLDERS = new Set([
   'Not provided by internal engine at this time.',
@@ -29,11 +30,13 @@ const sanitizeValue = (value: unknown): string | null => {
   return trimmed;
 };
 
-const formatReminder = (message: string): string => message;
+const describeToolList = (toolIds: readonly ToolId[]): string => toolIds.join(', ') || 'No tools';
 
 export const buildFundamentalsCollaborationHeader = (context: AnalystNodeContext): string => {
-  const toolList = REQUIRED_TOOL_IDS.join(', ');
-  return `You are a helpful AI assistant, collaborating with other assistants. You have access to the following tools: ${toolList}. Use the tools as needed to fetch real fundamentals before writing your report. Do not summarize placeholders. If a tool fails, try another. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop.\n${FUNDAMENTALS_SYSTEM_PROMPT} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
+  const activeToolIds = context.toolIds ?? REQUIRED_TOOL_IDS;
+  const systemPrompt = context.systemPrompt ?? FUNDAMENTALS_SYSTEM_PROMPT;
+  const toolList = describeToolList(activeToolIds);
+  return `You are a helpful AI assistant, collaborating with other assistants. You have access to the following tools: ${toolList}. Use the tools as needed to fetch real fundamentals before writing your report. Do not summarize placeholders. If a tool fails, try another. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop.\n${systemPrompt} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
 };
 
 export const buildFundamentalsUserContext = (context: AgentsContext): string => {
@@ -42,60 +45,26 @@ export const buildFundamentalsUserContext = (context: AgentsContext): string => 
   const balanceSheet = sanitizeValue(context.fundamentals_balance_sheet);
   if (balanceSheet) {
     sections.push(`Balance sheet:\n${balanceSheet}`);
-  } else {
-    sections.push(
-      formatReminder(
-        'Balance sheet:\nNo balance sheet data preloaded. Call get_finnhub_balance_sheet to retrieve the latest figures.',
-      ),
-    );
   }
 
   const cashFlow = sanitizeValue(context.fundamentals_cashflow);
   if (cashFlow) {
     sections.push(`Cash flow:\n${cashFlow}`);
-  } else {
-    sections.push(
-      formatReminder(
-        'Cash flow:\nNo cash flow data preloaded. Call get_finnhub_cashflow to retrieve the latest figures.',
-      ),
-    );
   }
 
   const incomeStatement = sanitizeValue(context.fundamentals_income_stmt);
   if (incomeStatement) {
     sections.push(`Income statement:\n${incomeStatement}`);
-  } else {
-    sections.push(
-      formatReminder(
-        'Income statement:\nNo income statement data preloaded. Call get_finnhub_income_stmt to retrieve the latest figures.',
-      ),
-    );
   }
 
-  sections.push(
-    formatReminder(
-      'Insider data:\nNo insider transactions or sentiment data preloaded. Call get_finnhub_company_insider_transactions and get_finnhub_company_insider_sentiment to retrieve the latest details.',
-    ),
-  );
+  const insiderTransactions = sanitizeValue(context.fundamentals_insider_transactions);
+  if (insiderTransactions) sections.push(`Insider transactions:\n${insiderTransactions}`);
+
+  if (!sections.length) {
+    return 'No fundamentals context provided.';
+  }
 
   return sections.join('\n\n');
-};
-
-const aiMessageToString = (message: unknown): string => {
-  if (typeof message === 'string') return message;
-  if (message instanceof AIMessage) {
-    if (typeof message.content === 'string') return message.content;
-    if (Array.isArray(message.content)) {
-      return message.content
-        .map((chunk: unknown) => (typeof chunk === 'string' ? chunk : JSON.stringify(chunk)))
-        .join('');
-    }
-    return message.content ? JSON.stringify(message.content) : '';
-  }
-  if (message && typeof (message as any).content === 'string') {
-    return (message as any).content;
-  }
-  return JSON.stringify(message ?? '');
 };
 
 type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
@@ -106,20 +75,11 @@ const buildFundamentalsRunnable = (context: AnalystNodeContext): RunnableInterfa
     throw new Error('Fundamentals analyst runnable requires an LLM instance in context.');
   }
 
-  const toolInstances = Array.from(
-    new Set(
-      REQUIRED_TOOL_IDS.map((id) => {
-        const tool = context.tools[id];
-        if (!tool) {
-          throw new Error(`Fundamentals analyst runnable missing tool registration for ${id}.`);
-        }
-        return tool;
-      }),
-    ),
-  );
+  const toolInstances = Object.values(context.tools ?? {});
 
+  const systemPrompt = context.systemPrompt ?? FUNDAMENTALS_SYSTEM_PROMPT;
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', FUNDAMENTALS_SYSTEM_PROMPT],
+    ['system', systemPrompt],
     ['human', '{collaborationHeader}\n\n{userContext}'],
     new MessagesPlaceholder('messages'),
   ]);

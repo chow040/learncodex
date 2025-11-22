@@ -37,7 +37,11 @@ Volume-Based Indicators:
 const REQUIRED_TOOL_IDS = [] as const;
 
 export const buildMarketCollaborationHeader = (context: AnalystNodeContext): string => {
-  return `You are a helpful AI assistant, collaborating with other assistants. Rely on the market context provided in the prompt to craft your analysis—no external tool calls are available. If you are unable to fully answer, that's OK; another assistant with different context will help where you left off. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop.\n${MARKET_SYSTEM_PROMPT} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
+  const systemPrompt = context.systemPrompt ?? MARKET_SYSTEM_PROMPT;
+  const toolList = context.toolIds && context.toolIds.length > 0
+    ? `You have access to the following tools: ${context.toolIds.join(', ')}.`
+    : 'No external tools are available for this run.';
+  return `You are a helpful AI assistant, collaborating with other assistants. ${toolList} Rely on the market context provided in the prompt to craft your analysis—no external tool calls are available unless explicitly listed. If you are unable to fully answer, that's OK; another assistant with different context will help where you left off. If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable, prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop.\n${systemPrompt} For your reference, the current date is ${context.tradeDate}. The company we want to look at is ${context.symbol}`;
 };
 
 const sanitizeValue = (value: unknown): string | null => {
@@ -63,23 +67,6 @@ export const buildMarketUserContext = (agentsContext: AgentsContext): string => 
   return sections.join('\n\n') || 'No market data provided.';
 };
 
-const aiMessageToString = (message: unknown): string => {
-  if (typeof message === 'string') return message;
-  if (message instanceof AIMessage) {
-    if (typeof message.content === 'string') return message.content;
-    if (Array.isArray(message.content)) {
-      return message.content
-        .map((chunk: unknown) => (typeof chunk === 'string' ? chunk : JSON.stringify(chunk)))
-        .join('');
-    }
-    return message.content ? JSON.stringify(message.content) : '';
-  }
-  if (message && typeof (message as any).content === 'string') {
-    return (message as any).content;
-  }
-  return JSON.stringify(message ?? '');
-};
-
 type AnalystInput = AgentsContext & { messages?: BaseMessage[] };
 
 const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<AnalystInput, AIMessage> => {
@@ -88,20 +75,11 @@ const buildMarketRunnable = (context: AnalystNodeContext): RunnableInterface<Ana
     throw new Error('Market analyst runnable requires an LLM instance in context.');
   }
 
-  const toolInstances = Array.from(
-    new Set(
-      REQUIRED_TOOL_IDS.map((id) => {
-        const tool = context.tools[id];
-        if (!tool) {
-          throw new Error(`Market analyst runnable missing tool registration for ${id}.`);
-        }
-        return tool;
-      }),
-    ),
-  );
+  const toolInstances = Object.values(context.tools ?? {});
 
+  const systemPrompt = context.systemPrompt ?? MARKET_SYSTEM_PROMPT;
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', MARKET_SYSTEM_PROMPT],
+    ['system', systemPrompt],
     ['human', '{collaborationHeader}\n\n{userContext}'],
     new MessagesPlaceholder('messages'),
   ]);

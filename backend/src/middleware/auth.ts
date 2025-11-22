@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     name: string
     avatar?: string | undefined
     emailVerified: boolean
+    role: 'user' | 'admin'
   }
 }
 
@@ -53,4 +54,14 @@ export async function optionalAuth(req: AuthenticatedRequest, res: Response, nex
     // Continue without authentication on error
     next()
   }
+}
+
+export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' })
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
+  return next()
 }

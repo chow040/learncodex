@@ -1,5 +1,7 @@
 import type { AgentsContext } from '../types.js';
 import type { ToolCallRecord } from '../langchain/types.js';
+import type { TradingAnalystId } from '../../constants/tradingAgents.js';
+import type { ToolId } from '../langchain/toolRegistry.js';
 
 export type AnalystReports = {
   market?: string;
@@ -27,6 +29,25 @@ export interface ConversationLogEntry {
 export type AnalystToolCall = ToolCallRecord & {
   persona: string;
 };
+
+export type PersonaOverride = {
+  systemPrompt?: string;
+  toolIds?: ToolId[];
+  maxToolsPerRun?: number;
+};
+
+export type PersonaName =
+  | TradingAnalystId
+  | 'bear'
+  | 'bull'
+  | 'research_manager'
+  | 'trader'
+  | 'risk_manager'
+  | 'aggressive'
+  | 'conservative'
+  | 'neutral';
+
+export type PersonaOverrideMap = Partial<Record<PersonaName, PersonaOverride>>;
 
 export type InvestmentDebatePersona = 'bull' | 'bear';
 
@@ -62,6 +83,7 @@ export interface GraphMetadata extends Record<string, unknown> {
   payload?: unknown;
   modelId?: string;
   enabledAnalysts?: string[];
+  personaOverrides?: PersonaOverrideMap;
 }
 
 export interface GraphState {

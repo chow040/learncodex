@@ -57,7 +57,8 @@ SYSTEM_PROMPT = (
     '"size_pct": 0.0, "leverage": 1.0, "confidence": 0.65, "stop_loss": 0.0, "take_profit": 0.0, '
     '"max_slippage_bps": 25, "invalidation_condition": "string", "rationale": "string"}]\n'
     "IMPORTANT: confidence must be a decimal between 0.0 and 1.0 (e.g., 0.65 for 65% confidence, NOT 65.0)\n"
-    "IMPORTANT: leverage should be between 1.0 and 10.0 based on confidence (higher confidence = higher leverage)\n"
+    #"IMPORTANT: leverage should be between 1.0 and 10.0 based on confidence (higher confidence = higher leverage)\n"
+    "IMPORTANT: no leverage since we are trading at spot\n"
     "IMPORTANT: You MUST return a decision for EVERY symbol in the portfolio (both from AUTOTRADE_SYMBOLS config).\n"
     "  - Use 'BUY' when opening a new position (no existing position + strong signal)\n"
     "  - Use 'SELL' when opening a short position (if supported)\n"

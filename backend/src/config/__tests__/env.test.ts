@@ -15,15 +15,18 @@ describe('env configuration with Grok support', () => {
     vi.resetModules();
   });
 
-  it('should merge OpenAI and Grok models into tradingAllowedModels', async () => {
+  it('should merge OpenAI, Grok, and Google models into tradingAllowedModels', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.GROK_API_KEY = 'test-grok-key';
     process.env.GROK_MODEL = 'grok-beta';
+    process.env.GOOGLE_GENAI_API_KEY = 'test-google-key';
+    process.env.GOOGLE_GENAI_MODEL = 'gemini-1.5-flash';
     
     const { env } = await import('../env.js');
     
     expect(env.tradingAllowedModels).toContain('gpt-4o-mini');
     expect(env.tradingAllowedModels).toContain('grok-beta');
+    expect(env.tradingAllowedModels).toContain('gemini-1.5-flash');
   });
 
   it('should set defaultTradingModel based on priority', async () => {
@@ -49,10 +52,23 @@ describe('env configuration with Grok support', () => {
     process.env.GROK_API_KEY = 'test-grok-key';
     process.env.GROK_MODEL = 'grok-beta';
     delete process.env.OPENAI_MODEL;
+    delete process.env.GOOGLE_GENAI_MODEL;
     
     const { env } = await import('../env.js');
     
     expect(env.defaultTradingModel).toBe('grok-beta');
+  });
+
+  it('should fall back to GOOGLE_GENAI_MODEL when others are not set', async () => {
+    process.env.GOOGLE_GENAI_API_KEY = 'test-google-key';
+    process.env.GOOGLE_GENAI_MODEL = 'gemini-1.5-flash';
+    delete process.env.OPENAI_MODEL;
+    delete process.env.GROK_MODEL;
+    delete process.env.TRADING_DEFAULT_MODEL;
+    
+    const { env } = await import('../env.js');
+    
+    expect(env.defaultTradingModel).toBe('gemini-1.5-flash');
   });
 
   it('should warn when Grok model configured without API key', async () => {
@@ -66,6 +82,22 @@ describe('env configuration with Grok support', () => {
     
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       expect.stringContaining('Grok model(s) configured but GROK_API_KEY is not set')
+    );
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should warn when Google GenAI model configured without API key', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.GOOGLE_GENAI_MODEL = 'gemini-1.5-flash';
+    delete process.env.GOOGLE_GENAI_API_KEY;
+    
+    await import('../env.js');
+    
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Google GenAI model(s) configured but GOOGLE_GENAI_API_KEY is not set')
     );
     
     consoleWarnSpy.mockRestore();
@@ -86,9 +118,24 @@ describe('env configuration with Grok support', () => {
     expect(env.grokAllowedModels).toEqual(['grok-beta', 'grok-2-1212']);
   });
 
+  it('should export Google configuration variables', async () => {
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.GOOGLE_GENAI_API_KEY = 'test-google-key';
+    process.env.GOOGLE_GENAI_MODEL = 'gemini-1.5-flash';
+    process.env.GOOGLE_GENAI_ALLOWED_MODELS = 'gemini-1.5-flash,gemini-2.0-flash';
+    
+    const { env } = await import('../env.js');
+    
+    expect(env.googleGenAiApiKey).toBe('test-google-key');
+    expect(env.googleGenAiModel).toBe('gemini-1.5-flash');
+    expect(env.googleGenAiAllowedModels).toEqual(['gemini-1.5-flash', 'gemini-2.0-flash']);
+  });
+
   it('should handle TRADING_ALLOWED_MODELS override', async () => {
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.GROK_API_KEY = 'test-grok-key';
+    process.env.GOOGLE_GENAI_API_KEY = 'test-google-key';
+    process.env.GOOGLE_GENAI_MODEL = 'gemini-1.5-flash';
     process.env.TRADING_ALLOWED_MODELS = 'gpt-4o,grok-beta,custom-model';
     
     const { env } = await import('../env.js');
@@ -96,6 +143,7 @@ describe('env configuration with Grok support', () => {
     expect(env.tradingAllowedModels).toContain('gpt-4o');
     expect(env.tradingAllowedModels).toContain('grok-beta');
     expect(env.tradingAllowedModels).toContain('custom-model');
+    expect(env.tradingAllowedModels).toContain('gemini-1.5-flash');
   });
 
   it('should use default Grok models when GROK_ALLOWED_MODELS is not set', async () => {

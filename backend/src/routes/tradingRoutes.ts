@@ -24,7 +24,7 @@ import {
   getTradingAssessmentByRunId,
   getTradingAssessments,
 } from '../services/tradingAssessmentsService.js';
-import { requestTradingAgentsDecisionInternal } from '../services/tradingAgentsEngineService.js';
+import { requestTradingAgentsDecisionInternal, createBaseAgentsContext } from '../services/tradingAgentsEngineService.js';
 import {
   attachProgressStream,
   generateRunId,
@@ -41,6 +41,9 @@ import {
   type TradingAgentsRequestInput,
 } from '../validators/tradingAgents.js';
 import type { TradingAnalystId } from '../constants/tradingAgents.js';
+import type { AgentsContext } from '../taEngine/types.js';
+import type { PersonaOverrideMap, PersonaName } from '../taEngine/langgraph/types.js';
+import type { ToolId } from '../taEngine/langchain/toolRegistry.js';
 
 export const tradingRouter = Router();
 
@@ -77,6 +80,65 @@ const parseLimitQuery = (value: unknown): number | undefined => {
     throw new Error('limit must be an integer');
   }
   return parsed;
+};
+
+const parseJsonLike = (input: unknown): unknown => {
+  if (typeof input === 'string') {
+    try {
+      return JSON.parse(input);
+    } catch {
+      return undefined;
+    }
+  }
+  if (input && typeof input === 'object') {
+    return input;
+  }
+  return undefined;
+};
+
+const parseAgentsContextInput = (input: unknown): AgentsContext | undefined => {
+  const parsed = parseJsonLike(input);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const base = createBaseAgentsContext();
+  for (const key of Object.keys(base) as Array<keyof AgentsContext>) {
+    const rawValue = (parsed as Record<string, unknown>)[key as string];
+    if (typeof rawValue === 'string') {
+      base[key] = rawValue;
+    }
+  }
+  return base;
+};
+
+const parseToolIdArray = (value: unknown): ToolId[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const filtered = value.filter((item): item is ToolId => typeof item === 'string');
+  return filtered.length > 0 ? filtered : undefined;
+};
+
+const parsePersonaOverridesInput = (input: unknown): PersonaOverrideMap | undefined => {
+  const parsed = parseJsonLike(input);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const overrides: PersonaOverrideMap = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!value || typeof value !== 'object') continue;
+    const recordValue = value as Record<string, unknown>;
+    const override: { systemPrompt?: string; toolIds?: ToolId[]; maxToolsPerRun?: number } = {};
+    if (typeof recordValue.systemPrompt === 'string') {
+      override.systemPrompt = recordValue.systemPrompt;
+    }
+    const toolIds = parseToolIdArray(recordValue.toolIds);
+    if (toolIds) {
+      override.toolIds = toolIds;
+    }
+    const maxToolsRaw = recordValue.maxToolsPerRun;
+    if (typeof maxToolsRaw === 'number' && Number.isFinite(maxToolsRaw) && maxToolsRaw > 0) {
+      override.maxToolsPerRun = Math.floor(maxToolsRaw);
+    }
+    if (Object.keys(override).length > 0) {
+      overrides[key as PersonaName] = override;
+    }
+  }
+  return Object.keys(overrides).length > 0 ? overrides : undefined;
 };
 
 const requireHistoryEnabled = () => {
@@ -176,6 +238,8 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
   let analysts: TradingAnalystId[];
   let symbol: string;
   let useMockData: boolean;
+  let contextOverride: AgentsContext | undefined;
+  let personaOverrides: PersonaOverrideMap | undefined;
 
   try {
     const requestInput: TradingAgentsRequestInput = {
@@ -194,6 +258,8 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
     analysts = validated.analysts;
     runId = validated.runId ?? generateRunId();
     useMockData = validated.useMockData ?? env.tradingAgentsMockMode;
+    contextOverride = parseAgentsContextInput(req.body?.context ?? req.query?.context);
+    personaOverrides = parsePersonaOverridesInput(req.body?.personaOverrides ?? req.query?.personaOverrides);
   } catch (error) {
     if (error instanceof TradingAgentsValidationError) {
       return res.status(400).json({ error: error.message, field: error.field });
@@ -218,6 +284,8 @@ tradingRouter.post('/decision/internal', async (req, res, next) => {
       modelId,
       analysts,
       useMockData,
+      ...(contextOverride ? { agentsContext: contextOverride } : {}),
+      ...(personaOverrides ? { personaOverrides } : {}),
     });
     publishCompletion(runId, decision);
     res.json({ runId, ...decision });
@@ -344,6 +412,8 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
   let analysts: TradingAnalystId[];
   let symbol: string;
   let useMockData: boolean;
+  let contextOverride: AgentsContext | undefined;
+  let personaOverrides: PersonaOverrideMap | undefined;
 
   try {
     const requestInput: TradingAgentsRequestInput = {
@@ -362,6 +432,8 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
     analysts = validated.analysts;
     runId = validated.runId ?? generateRunId();
     useMockData = validated.useMockData ?? env.tradingAgentsMockMode;
+    contextOverride = parseAgentsContextInput(req.query?.context);
+    personaOverrides = parsePersonaOverridesInput(req.query?.personaOverrides);
   } catch (error) {
     if (error instanceof TradingAgentsValidationError) {
       return res.status(400).json({ error: error.message, field: error.field });
@@ -386,6 +458,8 @@ tradingRouter.get('/decision/internal', async (req, res, next) => {
       modelId,
       analysts,
       useMockData,
+      ...(contextOverride ? { agentsContext: contextOverride } : {}),
+      ...(personaOverrides ? { personaOverrides } : {}),
     });
     publishCompletion(runId, decision);
     res.json({ runId, ...decision });

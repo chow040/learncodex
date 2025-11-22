@@ -66,10 +66,19 @@ const messageToString = (message: unknown): string => {
   return JSON.stringify(message ?? '');
 };
 
+export interface DebateRunnableOptions {
+  systemPrompt?: string;
+}
+
 export const createBearDebateRunnable = (
   llm: RunnableInterface<any, any>,
+  options?: DebateRunnableOptions,
 ): RunnableInterface<DebateInput, string> => {
-  const prompt = ChatPromptTemplate.fromMessages([['human', '{userMessage}']]);
+  const systemPrompt = options?.systemPrompt ?? BEAR_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
 
   const prepareInputs = new RunnableLambda({
     func: async (input: DebateInput) => ({

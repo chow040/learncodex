@@ -22,6 +22,12 @@ import { Container } from "../ui/container"
 
 type ConnectionState = "connecting" | "live" | "offline"
 
+type DisplaySymbol = {
+  symbol: string
+  label: string
+  Icon: ComponentType<{ size?: number; className?: string }>
+}
+
 interface PriceTicker {
   symbol: string
   price: number | null
@@ -33,18 +39,49 @@ interface PriceTicker {
   priceDelta?: number
 }
 
-const DISPLAY_SYMBOLS: Array<{
-  symbol: string
-  label: string
-  Icon: ComponentType<{ size?: number; className?: string }>
-}> = [
-  { symbol: "BTC-USDT-SWAP", label: "BTC", Icon: SiBitcoin },
-  { symbol: "ETH-USDT-SWAP", label: "ETH", Icon: SiEthereum },
-  { symbol: "SOL-USDT-SWAP", label: "SOL", Icon: SiSolana },
-  { symbol: "BNB-USDT-SWAP", label: "BNB", Icon: SiBinance },
-  { symbol: "DOGE-USDT-SWAP", label: "DOGE", Icon: SiDogecoin },
-  { symbol: "XRP-USDT-SWAP", label: "XRP", Icon: SiRipple },
+const SYMBOL_ICON_MAP: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+  BTC: SiBitcoin,
+  ETH: SiEthereum,
+  SOL: SiSolana,
+  BNB: SiBinance,
+  DOGE: SiDogecoin,
+  XRP: SiRipple,
+}
+
+const DEFAULT_DISPLAY_SYMBOLS: DisplaySymbol[] = [
+  { symbol: "BTC-USD", label: "BTC", Icon: SYMBOL_ICON_MAP.BTC },
+  { symbol: "ETH-USD", label: "ETH", Icon: SYMBOL_ICON_MAP.ETH },
+  { symbol: "SOL-USD", label: "SOL", Icon: SYMBOL_ICON_MAP.SOL },
+  { symbol: "BNB-USD", label: "BNB", Icon: SYMBOL_ICON_MAP.BNB },
+  { symbol: "DOGE-USD", label: "DOGE", Icon: SYMBOL_ICON_MAP.DOGE },
+  { symbol: "XRP-USD", label: "XRP", Icon: SYMBOL_ICON_MAP.XRP },
 ]
+
+const resolveDisplaySymbols = (): DisplaySymbol[] => {
+  const envValue = import.meta.env?.VITE_MARKET_TICKERS as string | undefined
+  if (!envValue) {
+    return DEFAULT_DISPLAY_SYMBOLS
+  }
+  const tokens = envValue
+    .split(",")
+    .map((token) => token.trim().toUpperCase())
+    .filter((token) => token.length > 0)
+  if (!tokens.length) {
+    return DEFAULT_DISPLAY_SYMBOLS
+  }
+  const seen = new Set<string>()
+  const symbols: DisplaySymbol[] = []
+  for (const symbol of tokens) {
+    if (seen.has(symbol)) continue
+    seen.add(symbol)
+    const label = symbol.split("-")[0] || symbol
+    const Icon = SYMBOL_ICON_MAP[label] ?? SYMBOL_ICON_MAP.BTC
+    symbols.push({ symbol, label, Icon })
+  }
+  return symbols
+}
+
+const DISPLAY_SYMBOLS = resolveDisplaySymbols()
 
 const toNumber = (value: unknown): number | null => {
   if (typeof value === "number") return value

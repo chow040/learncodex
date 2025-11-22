@@ -32,5 +32,12 @@ Engage by questioning their optimism and emphasizing the potential downsides the
 
 export const createConservativeAnalystRunnable = (
   llm: RunnableInterface<any, any>,
-): RunnableInterface<RiskDebateInput, string> =>
-  buildAnalystRunnable(llm, ChatPromptTemplate.fromMessages([['human', '{userMessage}']]), buildConservativeUserMessage);
+  options?: { systemPrompt?: string },
+): RunnableInterface<RiskDebateInput, string> => {
+  const systemPrompt = options?.systemPrompt ?? CONSERVATIVE_SYSTEM_PROMPT;
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['human', '{userMessage}'],
+  ]);
+  return buildAnalystRunnable(llm, prompt, buildConservativeUserMessage);
+};

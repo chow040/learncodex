@@ -51,6 +51,7 @@ export interface ToolRegistration<Input = unknown, Output = unknown> {
 
 export type ToolRegistry = Record<string, ToolRegistration>;
 
+
 export interface AnalystNodeContext {
   symbol: string;
   tradeDate: string;
@@ -58,6 +59,10 @@ export interface AnalystNodeContext {
    * Resolved LangChain tools keyed by name, already initialised for this run.
    */
   tools: Record<string, StructuredToolInterface<any, any>>;
+  /**
+   * Ordered list of tool IDs activated for this run.
+   */
+  toolIds?: readonly ToolId[];
   /**
    * Shared context assembled before analyst execution (market data, cached reports, etc.).
    */
@@ -70,6 +75,10 @@ export interface AnalystNodeContext {
    * Optional LLM runnable preconfigured for this execution (e.g., ChatOpenAI bound to tools).
    */
   llm?: RunnableInterface<any, any>;
+  /**
+   * Optional runtime system prompt override supplied by admin configuration.
+   */
+  systemPrompt?: string;
 }
 
 export interface AnalystNodeRegistration<

@@ -22,6 +22,7 @@ import type {
 
 // Auth-related enums
 export const providerEnum = pgEnum('provider', ['google']);
+export const userRoleEnum = pgEnum('user_role', ['user', 'admin']);
 
 export const autoPortfolioStatusEnum = pgEnum('auto_portfolio_status', [
   'pending',
@@ -50,6 +51,18 @@ export const orderStatusEnum = pgEnum('autotrade_order_status', [
 
 export const promptPayloadTypeEnum = pgEnum('autotrade_prompt_payload_type', ['prompt', 'cot']);
 
+export const agentStatusEnum = pgEnum('agent_status', ['active', 'disabled', 'experimental']);
+export const agentHorizonEnum = pgEnum('agent_horizon', ['intraday', 'swing', 'long_term']);
+export const agentToneEnum = pgEnum('agent_tone', ['neutral', 'institutional', 'casual']);
+export const agentRiskBiasEnum = pgEnum('agent_risk_bias', ['conservative', 'balanced', 'aggressive']);
+export const agentFocusEnum = pgEnum('agent_focus', ['technical', 'fundamental', 'macro', 'mixed']);
+export const promptProfileTypeEnum = pgEnum('prompt_profile_type', [
+  'trading_agent_system',
+  'rule_generator_system',
+  'risk_guard_system',
+]);
+export const agentRunStatusEnum = pgEnum('agent_run_status', ['running', 'success', 'error']);
+
 export const autoEventTypeEnum = pgEnum('autotrade_event_type', [
   'pause',
   'resume',
@@ -71,6 +84,7 @@ export const users = pgTable(
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    role: userRoleEnum('role').default('user').notNull(),
   },
   (table) => ({
     emailIdx: index('idx_users_email').on(table.email),
@@ -341,6 +355,149 @@ export const autotradeEvents = pgTable(
   }),
 );
 
+export const systemSettings = pgTable(
+  'system_settings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    key: text('key').notNull().unique(),
+    value: jsonb('value').$type<unknown>().notNull(),
+    scope: text('scope').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    scopeIdx: index('idx_system_settings_scope_key').on(table.scope, table.key),
+  }),
+);
+
+export const promptProfiles = pgTable(
+  'prompt_profiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: text('name').notNull(),
+    type: promptProfileTypeEnum('type').notNull(),
+    version: integer('version').notNull().default(1),
+    content: text('content').notNull(),
+    outputSchemaExample: text('output_schema_example'),
+    isActive: boolean('is_active').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    typeVersionIdx: index('idx_prompt_profiles_type_version').on(table.type, table.version),
+    nameIdx: index('idx_prompt_profiles_name').on(table.name),
+  }),
+);
+
+export const agents = pgTable(
+  'agents',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description').notNull(),
+    status: agentStatusEnum('status').default('disabled').notNull(),
+    defaultModel: text('default_model').notNull(),
+    defaultTemperature: numeric('default_temperature', { precision: 4, scale: 2 })
+      .$type<number>()
+      .default(0.7)
+      .notNull(),
+    defaultMaxTokens: integer('default_max_tokens').default(2000).notNull(),
+    defaultHorizon: agentHorizonEnum('default_horizon').default('swing').notNull(),
+    defaultTone: agentToneEnum('default_tone').default('neutral').notNull(),
+    defaultRiskBias: agentRiskBiasEnum('default_risk_bias').default('balanced').notNull(),
+    defaultFocus: agentFocusEnum('default_focus').default('mixed').notNull(),
+    promptProfileId: uuid('prompt_profile_id').references(() => promptProfiles.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index('idx_agents_status').on(table.status),
+  }),
+);
+
+export const agentToolPolicies = pgTable(
+  'agent_tool_policies',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id')
+      .references(() => agents.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    canUsePriceData: boolean('can_use_price_data').default(true).notNull(),
+    canUseIndicators: boolean('can_use_indicators').default(true).notNull(),
+    canUseNews: boolean('can_use_news').default(false).notNull(),
+    canUseFundamentals: boolean('can_use_fundamentals').default(false).notNull(),
+    canUseMacro: boolean('can_use_macro').default(false).notNull(),
+    maxToolsPerRun: integer('max_tools_per_run').default(5).notNull(),
+    allowCrossTicker: boolean('allow_cross_ticker').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
+export const agentContextPolicies = pgTable(
+  'agent_context_policies',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id')
+      .references(() => agents.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    includePreviousAnalyses: boolean('include_previous_analyses').default(false).notNull(),
+    includeUserNotes: boolean('include_user_notes').default(false).notNull(),
+    includeGlobalSummary: boolean('include_global_summary').default(false).notNull(),
+    maxAnalyses: integer('max_analyses').default(5).notNull(),
+    maxContextTokens: integer('max_context_tokens').default(500).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
+export const agentRuns = pgTable(
+  'agent_runs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id')
+      .references(() => agents.id, { onDelete: 'restrict' })
+      .notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    tickers: jsonb('tickers').$type<string[]>().notNull(),
+    question: text('question'),
+    status: agentRunStatusEnum('status').default('running').notNull(),
+    decisionSummary: text('decision_summary'),
+    confidence: numeric('confidence', { precision: 5, scale: 4 }).$type<number | null>(),
+    tokensPrompt: integer('tokens_prompt'),
+    tokensCompletion: integer('tokens_completion'),
+    tokensTotal: integer('tokens_total'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    agentIdx: index('idx_agent_runs_agent_status').on(table.agentId, table.status, desc(table.createdAt)),
+    userIdx: index('idx_agent_runs_user').on(table.userId, desc(table.createdAt)),
+  }),
+);
+
+export const agentRunSnapshots = pgTable(
+  'agent_run_snapshots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    runId: uuid('run_id')
+      .references(() => agentRuns.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    systemPrompt: text('system_prompt'),
+    assembledPrompt: text('assembled_prompt'),
+    contextBlock: text('context_block'),
+    toolsUsed: jsonb('tools_used').$type<Record<string, unknown>[] | null>(),
+    rawOutputText: text('raw_output_text'),
+    parsedOutputJson: jsonb('parsed_output_json').$type<Record<string, unknown> | null>(),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
 export const schema = {
   tables: {
     users: users,
@@ -357,6 +514,13 @@ export const schema = {
     llm_prompt_payloads: llmPromptPayloads,
     llm_decision_logs: llmDecisionLogs,
     autotrade_events: autotradeEvents,
+    system_settings: systemSettings,
+    prompt_profiles: promptProfiles,
+    agents: agents,
+    agent_tool_policies: agentToolPolicies,
+    agent_context_policies: agentContextPolicies,
+    agent_runs: agentRuns,
+    agent_run_snapshots: agentRunSnapshots,
   },
 } as const;
 

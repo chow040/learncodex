@@ -47,9 +47,11 @@ const messageToString = (message: unknown): string => {
 
 export const createTraderRunnable = (
   llm: RunnableInterface<any, any>,
+  options?: { systemPrompt?: string },
 ): RunnableInterface<TraderInput, string> => {
+  const systemPrompt = options?.systemPrompt ?? TRADER_SYSTEM_PROMPT;
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', TRADER_SYSTEM_PROMPT],
+    ['system', systemPrompt],
     ['human', '{userMessage}'],
   ]);
 

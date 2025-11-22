@@ -8,6 +8,8 @@ interface DecisionsResponse {
   nextCursor: string | null
 }
 
+const decisionsQueryKey = (baseUrl: string) => ["autoTradingDecisions", baseUrl] as const
+
 const fetchDecisions = async (baseUrl: string): Promise<DecisionsResponse> => {
   const response = await fetch(`${baseUrl}/internal/autotrade/v1/decisions`, {
     credentials: "include",
@@ -27,11 +29,13 @@ export const useAutoTradingDecisions = (options?: { apiBaseUrl?: string; enabled
   const enabled = options?.enabled ?? true
 
   return useQuery({
-    queryKey: ["autoTradingDecisions", baseUrl],
+    queryKey: decisionsQueryKey(baseUrl),
     queryFn: () => fetchDecisions(baseUrl),
     enabled,
     staleTime: 30_000,
+    refetchInterval: 30_000, // stay within Upstash free tier (~2,880 calls/day)
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     retry: 1,
   })
 }
-

@@ -53,11 +53,17 @@ const messageToString = (message: unknown): string => {
   return JSON.stringify(message ?? '');
 };
 
+export interface JudgeRunnableOptions {
+  systemPrompt?: string;
+}
+
 export const createResearchManagerRunnable = (
   llm: RunnableInterface<any, any>,
+  options?: JudgeRunnableOptions,
 ): RunnableInterface<ResearchManagerInput, string> => {
+  const systemPrompt = options?.systemPrompt ?? RESEARCH_MANAGER_SYSTEM_PROMPT;
   const prompt = ChatPromptTemplate.fromMessages([
-    ['system', RESEARCH_MANAGER_SYSTEM_PROMPT],
+    ['system', systemPrompt],
     ['human', '{userMessage}'],
   ]);
 

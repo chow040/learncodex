@@ -165,6 +165,42 @@ async def fetch_active_portfolio_id(conn: asyncpg.Connection | None = None) -> s
     return None
 
 
+async def resolve_portfolio_id() -> str:
+    """
+    Ensure there is an active portfolio row and return its id.
+    """
+    portfolio_id = await fetch_active_portfolio_id()
+    if portfolio_id:
+        return portfolio_id
+
+    db = get_db()
+    if not db.is_connected:
+        # Fall back to an in-memory id (not persisted) to keep flows running.
+        return str(uuid4())
+
+    async with db.acquire() as conn:  # type: ignore[assignment]
+        user_id = await _ensure_portfolio_user_id(conn)
+        portfolio_id = str(uuid4())
+        try:
+            await conn.execute(
+                """
+                INSERT INTO auto_portfolios (
+                    id, user_id, status, automation_enabled,
+                    starting_capital, current_cash, sharpe, drawdown_pct,
+                    last_run_at, updated_at
+                )
+                VALUES ($1, $2, 'active', true, 0, 0, 0, 0, NOW(), NOW())
+                """,
+                portfolio_id,
+                user_id,
+            )
+        except Exception as exc:  # pragma: no cover
+            logging.getLogger("autotrade.repositories").warning(
+                "Failed to seed auto_portfolios row: %s", exc
+            )
+    return portfolio_id
+
+
 async def _ensure_portfolio_user_id(conn: asyncpg.Connection) -> str | None:
     settings = get_settings()
     explicit = getattr(settings, "auto_portfolio_user_id", None)
@@ -511,7 +547,7 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
             sharpe=0.0,
             drawdown_pct=0.0,
             last_run_at="",
-            next_run_in_minutes=3,
+            next_run_in_minutes=int(settings.decision_interval_minutes),
             positions=[],
             closed_positions=[],
             decisions=[],
@@ -590,7 +626,7 @@ async def fetch_latest_portfolio() -> AutoTradePortfolioSnapshot | None:
         sharpe=_to_float(portfolio.get("sharpe"), 0.0),
         drawdown_pct=_to_float(portfolio.get("drawdown_pct"), 0.0),
         last_run_at=portfolio.get("last_run_at").isoformat() if portfolio.get("last_run_at") else "",
-        next_run_in_minutes=5,
+        next_run_in_minutes=int(settings.decision_interval_minutes),
         positions=positions,
         closed_positions=closed_positions,
         decisions=decisions,
@@ -603,18 +639,29 @@ async def _build_okx_demo_snapshot(
     runtime_mode: RuntimeMode | None = None,
 ) -> AutoTradePortfolioSnapshot:
     client = await OKXClient.create(settings=settings)
-    try:
-        balance = await client.fetch_balance()
-        positions = await client.fetch_positions()
-    finally:
-        await client.close()
+    balance = await client.fetch_balance()
 
-    resolved_portfolio_id = await fetch_active_portfolio_id()
-    portfolio_id = resolved_portfolio_id or str(uuid4())
+    portfolio_id = await resolve_portfolio_id()
+    stored_positions = await load_portfolio_positions(portfolio_id)
+    mapped_positions: list[AutoTradePosition]
+
+    if stored_positions:
+        mapped_positions = await _refresh_spot_position_marks(
+            client=client,
+            positions=stored_positions,
+            settings=settings,
+        )
+    else:
+        try:
+            raw_positions = await client.fetch_positions()
+        except Exception:
+            raw_positions = []
+        mapped_positions = [
+            pos for pos in (_map_okx_position(p) for p in raw_positions) if pos is not None
+        ]
 
     available_cash = _extract_balance(balance, bucket="free")
     equity = _extract_balance(balance, bucket="total") or available_cash
-    mapped_positions = [pos for pos in (_map_okx_position(p) for p in positions) if pos is not None]
     total_pnl = sum(pos.pnl for pos in mapped_positions)
     last_run = datetime.now(timezone.utc).isoformat()
 
@@ -641,7 +688,41 @@ async def _build_okx_demo_snapshot(
     )
 
     await persist_portfolio_snapshot(snapshot, runtime_mode="paper")
+    await client.close()
     return snapshot
+
+
+async def _refresh_spot_position_marks(
+    *,
+    client: OKXClient,
+    positions: list[AutoTradePosition],
+    settings: Settings,
+) -> list[AutoTradePosition]:
+    symbol_map = settings.ccxt_symbol_map or {}
+
+    async def _fetch_price(symbol: str) -> float | None:
+        ccxt_symbol = symbol_map.get(symbol)
+        if not ccxt_symbol:
+            ccxt_symbol = symbol.replace("-", "/")
+        try:
+            ticker = await client.fetch_ticker(ccxt_symbol)
+        except Exception:
+            return None
+        price = ticker.get("last") or ticker.get("close")
+        try:
+            return float(price) if price is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    for position in positions:
+        price = await _fetch_price(position.symbol)
+        if price is None:
+            continue
+        position.mark_price = price
+        position.pnl = (price - position.entry_price) * position.quantity
+        notional = position.entry_price * position.quantity
+        position.pnl_pct = (position.pnl / notional * 100.0) if notional else 0.0
+    return positions
 
 
 def _extract_balance(balance: dict[str, Any], *, bucket: str) -> float:
@@ -849,6 +930,127 @@ async def persist_closed_position(
             logging.getLogger("autotrade.repositories").debug(
                 "Failed to persist closed position for %s: %s", portfolio_id, exc
             )
+
+
+async def record_spot_position_entry(
+    *,
+    symbol: str,
+    quantity: float,
+    entry_price: float,
+    leverage: float,
+    confidence: float,
+    exit_plan: AutoTradeExitPlan,
+) -> None:
+    db = get_db()
+    if not db.is_connected:
+        return
+    portfolio_id = await resolve_portfolio_id()
+    async with db.acquire() as conn:
+        try:
+            await conn.execute(
+                """
+                INSERT INTO portfolio_positions (
+                    portfolio_id,
+                    symbol,
+                    quantity,
+                    avg_cost,
+                    mark_price,
+                    unrealized_pnl,
+                    leverage,
+                    confidence,
+                    exit_plan,
+                    pnl_pct
+                )
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+                ON CONFLICT (portfolio_id, symbol)
+                DO UPDATE SET
+                    quantity = EXCLUDED.quantity,
+                    avg_cost = EXCLUDED.avg_cost,
+                    mark_price = EXCLUDED.mark_price,
+                    unrealized_pnl = EXCLUDED.unrealized_pnl,
+                    leverage = EXCLUDED.leverage,
+                    confidence = EXCLUDED.confidence,
+                    exit_plan = EXCLUDED.exit_plan,
+                    pnl_pct = EXCLUDED.pnl_pct
+                """,
+                portfolio_id,
+                symbol,
+                quantity,
+                entry_price,
+                entry_price,
+                0.0,
+                leverage,
+                confidence,
+                json.dumps(
+                    {
+                        "profitTarget": exit_plan.profit_target,
+                        "stopLoss": exit_plan.stop_loss,
+                        "invalidation": exit_plan.invalidation,
+                    }
+                ),
+                0.0,
+            )
+        except Exception as exc:  # pragma: no cover
+            logging.getLogger("autotrade.repositories").warning(
+                "Failed to persist spot position %s: %s", symbol, exc
+            )
+
+
+async def close_spot_position_entry(*, symbol: str, exit_price: float, reason: str) -> None:
+    db = get_db()
+    if not db.is_connected:
+        return
+    portfolio_id = await resolve_portfolio_id()
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT *
+            FROM portfolio_positions
+            WHERE portfolio_id = $1 AND symbol = $2
+            """,
+            portfolio_id,
+            symbol,
+        )
+        if not row:
+            return
+        position = _map_position(row)
+        quantity = position.quantity
+        entry_price = position.entry_price
+        pnl = (exit_price - entry_price) * quantity
+        pnl_pct = 0.0 if entry_price == 0 else ((exit_price - entry_price) / entry_price) * 100.0
+        await persist_closed_position(
+            portfolio_id=portfolio_id,
+            symbol=symbol,
+            quantity=quantity,
+            entry_price=entry_price,
+            exit_price=exit_price,
+            pnl=pnl,
+            pnl_pct=pnl_pct,
+            leverage=position.leverage,
+            reason=reason,
+        )
+        try:
+            await conn.execute(
+                "DELETE FROM portfolio_positions WHERE portfolio_id = $1 AND symbol = $2",
+                portfolio_id,
+                symbol,
+            )
+        except Exception as exc:  # pragma: no cover
+            logging.getLogger("autotrade.repositories").warning(
+                "Failed to delete closed spot position %s: %s", symbol, exc
+            )
+
+
+async def load_portfolio_positions(portfolio_id: str) -> list[AutoTradePosition]:
+    db = get_db()
+    if not db.is_connected:
+        return []
+    async with db.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM portfolio_positions WHERE portfolio_id = $1",
+            portfolio_id,
+        )
+    return [_map_position(row) for row in rows]
 
 
 async def fetch_decisions(symbol: str | None = None) -> list[AutoTradeDecision]:
