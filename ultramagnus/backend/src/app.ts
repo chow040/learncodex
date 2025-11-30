@@ -10,6 +10,7 @@ import { limitsRouter } from './routes/limits.ts';
 import { dashboardRouter } from './routes/dashboard.ts';
 import { reportsRouter } from './routes/reports.ts';
 import { bookmarksRouter } from './routes/bookmarks.ts';
+import { conversationRouter } from './routes/conversation.ts';
 import { correlationIdMiddleware } from './middleware/correlationId.ts';
 import { requestLogger } from './middleware/requestLogger.ts';
 import { errorHandler } from './middleware/errorHandler.ts';
@@ -37,6 +38,7 @@ export const createApp = () => {
   app.use('/api', dashboardRouter);
   app.use('/api', reportsRouter);
   app.use('/api', bookmarksRouter);
+  app.use('/api', conversationRouter);
   app.use('/api', aiRouter);
 
   // 404 handler

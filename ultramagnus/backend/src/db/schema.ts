@@ -64,3 +64,34 @@ export const activities = pgTable('activities', {
   verb: text('verb').notNull(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull()
 });
+
+export const conversationSessions = pgTable('conversation_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reportId: uuid('report_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  model: text('model'),
+  tokenEstimate: integer('token_estimate'),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+});
+
+export const conversationMessages = pgTable('conversation_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull(),
+  reportId: uuid('report_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  role: text('role').notNull(),
+  content: text('content').notNull(),
+  tokensEstimate: integer('tokens_estimate'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+});
+
+export const conversationSummaries = pgTable('conversation_summaries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reportId: uuid('report_id').notNull(),
+  sessionId: uuid('session_id'),
+  summary: text('summary').notNull(),
+  coverageUpTo: timestamp('coverage_up_to', { withTimezone: true }),
+  tokensEstimate: integer('tokens_estimate'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+});

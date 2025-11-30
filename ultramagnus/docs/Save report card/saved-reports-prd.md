@@ -39,6 +39,7 @@
 - Error handling: 404 for missing/stale report; 403 for unauthorized; frontend shows toast and offers regenerate if relevant.
 - Data limits: Cap payload size per report (e.g., 1–2 MB); reject oversize with clear error.
 - Retention: Keep reports until user deletes; bookmarks removal does not delete report.
+- Auth/session: Access tokens are short-lived (~1h) with refresh tokens (~7d) and silent refresh; session must remain valid for save/fetch/bookmark actions.
 
 ## Non-Functional Requirements
 - Security: Enforce ownership/ACL on every read/write; never return another user’s data.

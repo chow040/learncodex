@@ -1,181 +1,126 @@
-# Ultramagnus Sign-In & Auth Tech Spec
+# Sign-In & Authentication Tech Spec
 
-## 1. Overview
-This spec operationalizes the sign-in/create-account PRD by detailing the architecture, data flows, and engineering plan to move from the current localStorage-driven mock auth to Supabase-backed sessions with contextual gating. Scope includes wiring Supabase auth, persisting user profiles/bookmarks, enforcing the guest search limit, and instrumenting modal usage.
+Reference PRD: `docs/Sign-in function/sign-in-create-account-prd.md`
 
-## 2. Goals & Non-goals
-- **Goals**
-  - Replace the fake timeout in `components/AuthModal.tsx` with real Supabase email/password + Google SSO flows.
-  - Persist canonical session + user profile data in Supabase/Postgres, while keeping a lightweight local cache for optimistic UI in `App.tsx`.
-  - Enforce the "3 guest searches" limit (PRD decision) before prompting the create-account modal.
-  - Maintain the teaser experience (locked `ReportCard` sections) with contextual copy.
-  - Capture analytics for modal opens, submissions, and success/error outcomes.
-- **Non-goals**
-  - Billing/tier enforcement beyond displaying `user.tier` (remains `Pro`/`Institutional` placeholder).
-  - Provisioning or managing user API keys (explicitly deferred).
-  - Broader account management (password reset, MFA) beyond Supabase defaults.
+## Scope & Objectives
+- Operationalize the sign-in/create-account PRD by detailing the architecture, data flows, and engineering plan.
+- Move from `localStorage`-driven mock auth to Supabase-backed sessions with contextual gating.
+- Enforce the "3 guest searches" limit before prompting the create-account modal.
+- Persist user profiles and bookmarks in PostgreSQL.
+- Instrument modal usage analytics.
 
-## 3. Current State Summary
-- `App.tsx` manages `user`, `isAuthModalOpen`, `authModalMessage`, `guestUsageCount`, and saves everything to `localStorage`.
-- `components/AuthModal.tsx` fakes auth via `setTimeout`, toggles sign-in vs. create-account, and calls `onLogin` with mocked data.
-- Locked `ReportCard` sections and bookmark actions call `handleOpenAuth()` which only updates modal state.
-- No telemetry is captured.
+## Architecture
 
-## 4. Target Architecture
+### Backend (Node.js/Express)
+- **New Service:** `AuthService` (`src/services/authService.ts`)
+    - Handles user registration, login, and session management via Supabase Auth.
+    - Manages user profiles in the `user_profiles` table.
+- **New Middleware:** `authMiddleware` (`src/middleware/auth.ts`)
+    - Verifies Supabase JWT tokens attached to requests.
+    - Populates `req.user` with the authenticated user's context.
+- **Modified Endpoint:** `POST /api/ai/generate`
+    - Checks `req.user` to enforce rate limits based on user tier (Guest vs. Pro).
+
+### Frontend (React/Vite)
+- **Modified Components:**
+    - `AuthModal.tsx`: Replaces fake timeout with real Supabase email/password and Google SSO flows.
+    - `App.tsx`: Hydrates user session from Supabase on load and manages global auth state.
+- **State Management:**
+    - Sync Supabase session state with local React state (`user` context).
+    - Persist a lightweight user object in `localStorage` for optimistic UI rendering.
+
+## Data Model & Schema
+
+### Database (PostgreSQL/Supabase)
+
+**`public.user_profiles` Table:**
+| Column | Type | Notes |
+| :--- | :--- | :--- |
+| `id` | `uuid` (PK) | Matches `auth.users.id` |
+| `email` | `text` | Unique, same as auth user |
+| `display_name` | `text` | Derived from email or provided during signup |
+| `tier` | `text` | Default `'Pro'`, future use for billing |
+| `avatar_url` | `text` | Nullable |
+| `created_at` | `timestamptz` | Default `now()` |
+| `updated_at` | `timestamptz` | Default `now()` |
+
+**RLS Policies:**
+- "Users can manage own profile": `auth.uid() = id`
+
+## Logic & Algorithms
+
+### Guest Limit Enforcement
+The frontend and backend will collaborate to enforce the guest search limit.
+
+1.  **Frontend Check:** `App.tsx` tracks `guestUsageCount` in `localStorage`.
+2.  **Trigger:** If `guestUsageCount >= 3` and user is not logged in:
+    - Block the search request.
+    - Open `AuthModal` with message: "You've reached the free preview limit. Create a free account to keep analyzing."
+3.  **Backend Enforcement:** Unauthenticated requests to `/api/ai/generate` will be rate-limited by IP or fingerprint (future scope) to prevent bypass.
+
+### Authentication Flow
+1.  **Sign Up/Login:** User submits credentials via `AuthModal`.
+2.  **Supabase Auth:** Frontend calls `supabase.auth.signUp()` or `signInWithPassword()`.
+3.  **Session Hydration:** On success, `App.tsx` receives the session, fetches the profile from `user_profiles`, and updates the UI.
+
+## API Design
+
+### `POST /api/auth/signup` (Proxy to Supabase)
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123",
+  "displayName": "John Doe"
+}
 ```
-Landing/Header/ReportCard actions
-        │                                   
-        ▼
-handleOpenAuth(context)
-        │
-AuthModal (email/password + Google)
-        │
-        ├─ Supabase Auth (email/password)
-        │    ├─ signup → Supabase session + verification email (if needed)
-        │    └─ login → Supabase session
-        │
-        ├─ Supabase Auth (Google provider)
-        │
-        └─ Success callback →
-              fetch profile from `public.user_profiles`
-              hydrate React `user` state
-              persist optimistic cache (localStorage)
 
-Background sync: on app load, check Supabase session → fetch profile → set user → mirror to cache.
-Logout clears Supabase session + cache.
+**Response Payload:**
+```json
+{
+  "user": {
+    "id": "d0a3b1-...",
+    "email": "user@example.com",
+    "tier": "Pro"
+  },
+  "session": {
+    "access_token": "eyJhbG...",
+    "refresh_token": "..."
+  }
+}
 ```
 
-## 5. Data Model & Storage
-### Supabase Auth
-- Use built-in `auth.users` for credentials + session tokens.
-- Enable email verifications for email/password signups (per PRD decision); skip for Google SSO.
+### `GET /api/auth/me`
 
-### `public.user_profiles` table (new)
-| column           | type        | notes |
-|------------------|-------------|-------|
-| id               | uuid (PK)   | matches `auth.users.id` |
-| email            | text        | unique, same as auth user |
-| display_name     | text        | stored from AuthModal form (default derived from email) |
-| tier             | text        | default `Pro`; future use |
-| join_date        | timestamptz | default `now()` |
-| avatar_url       | text        | nullable |
-| created_at       | timestamptz | default `now()` |
-| updated_at       | timestamptz | default `now()` |
+**Headers:**
+`Authorization: Bearer <access_token>`
 
-### Saved Reports
-- Future work: move `ultramagnus_library_v1` into `public.saved_reports`. For this sprint, keep localStorage but design schema for later.
-
-### Local Cache
-- Keys remain (`ultramagnus_user`, `ultramagnus_library_v1`, `ultramagnus_guest_usage`, `ultramagnus_user_api_key`). Cache hydrates from Supabase session and expires when Supabase session ends.
-
-## 6. Frontend Changes
-### `App.tsx`
-- Load session from backend `/api/auth/me` and cache user locally.
-- Update `handleLogin` to use backend auth (email/password + Google) and hydrate profile.
-- Implement `handleLogout` to clear cookies (backend) and local state.
-- Guest usage logic: call `/api/limits/search` and enforce 1 lifetime search for unauthenticated + guest tier (masked/unmasked accordingly).
-
-### `components/AuthModal.tsx`
-- Replace fake timeout with backend email/password auth. Show validation errors from responses.
-- Support verification state: if backend returns "verification required", show inline message instructing the user to check inbox and block session hydration until verified (implementation pending).
-- Google button hits backend OAuth start endpoint and completes via callback.
-
-### `services` additions
-- Auth/limits clients point to backend endpoints (`/api/auth/*`, `/api/limits/search`).
-
-### Telemetry Hook
-- Create `services/analytics.ts` (stub) with `trackAuthModalEvent({ context, action, status })`. Initially logs to console; future integration to Rudderstack/Amplitude.
-
-## 7. Backend / SQL Work
-1. **Enable Supabase Auth providers**
-   - Email/password (default).
-   - Google OAuth (configure credentials + redirect URIs).
-2. **Create `user_profiles` table**
-```sql
-create table public.user_profiles (
-  id uuid references auth.users primary key,
-  email text unique not null,
-  display_name text not null,
-  tier text not null default 'Pro',
-  join_date timestamptz not null default now(),
-  avatar_url text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create trigger user_profiles_updated
-  before update on public.user_profiles
-  for each row execute procedure trigger_set_timestamp();
+**Response Payload:**
+```json
+{
+  "id": "d0a3b1-...",
+  "email": "user@example.com",
+  "displayName": "John Doe",
+  "tier": "Pro",
+  "avatarUrl": null,
+  "createdAt": "2023-10-27T10:00:00Z"
+}
 ```
-3. **Row Level Security**
-```sql
-alter table public.user_profiles enable row level security;
-create policy "Users can manage own profile"
-  on public.user_profiles
-  for all
-  using (auth.uid() = id)
-  with check (auth.uid() = id);
-```
-4. (Future) `saved_reports` table spec to be added once timeline confirmed.
 
-## 8. Guest Search Limit Logic
-- In `handleSearch` increment `guestUsageCount` when no Supabase session.
-- After incrementing, if `guestUsageCount >= 3` and modal closed, set `authModalMessage = "You've reached the free preview limit. Create a free account to keep analyzing."` and open modal.
-- Reset counter upon successful login (optional) or continue tracking to see if user relogs as guest.
+## Implementation Plan
 
-## 9. Edge Cases
-- **Email verification pending:** keep user in guest state until `supabase.auth.getSession()` returns a confirmed email. Show inline message in modal.
-- **OAuth popup blocked:** fallback link that opens `supabase.auth.signInWithOAuth({ provider: 'google', options: { skipBrowserRedirect: true } })` to obtain URL.
-- **Offline mode:** surface toast and allow retry without closing modal.
-- **Session expiration:** listen to `supabase.auth.onAuthStateChange` to clear `user` and caches.
+### Phase 1: Backend & Database
+1.  Enable Supabase Auth providers (Email, Google).
+2.  Create `user_profiles` table and RLS policies.
+3.  Implement `AuthService` and `authMiddleware`.
 
-## 10. Analytics Events
-| Event | Payload |
-|-------|---------|
-| `auth_modal_open` | `{ context, initialMode }` |
-| `auth_modal_submit` | `{ context, mode }` |
-| `auth_modal_success` | `{ mode, provider }` |
-| `auth_modal_error` | `{ mode, provider, errorCode }` |
-| `guest_limit_triggered` | `{ guestUsageCount }` |
+### Phase 2: Frontend Integration
+1.  Install Supabase client and configure `VITE_SUPABASE_URL`.
+2.  Update `AuthModal` to use real auth methods.
+3.  Implement session hydration in `App.tsx`.
+4.  Add guest limit logic and UI gating.
 
-## 11. Rollout Plan & Checklist
-Use this as an at-a-glance tracker. Update the checkboxes as work progresses; no need for a separate tracking doc unless the effort expands beyond this scope.
-
-### Prep
-- [x] Confirm all modal copy variants with design/PM.
-- [x] (N/A with Drizzle backend) Populate `.env.local` + deployment secrets with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-- [x] Configure Google OAuth client (dev + prod redirect URIs).
-- [x] Configure Resend (or equivalent) for verification emails (env: RESEND_API_KEY, MAIL_FROM); add templates for prod.
-
-### Backend
-- [x] Ship SQL migration for auth tables (`auth_users`, `user_profiles`) + timestamp trigger.
-- [x] (N/A with Drizzle auth) Enable RLS and add "Users can manage own profile" policy.
-- [x] Test email templates + verification links (verification tokens/endpoint implemented; Resend send wired and verified delivered).
-- [x] Add server-side guest usage enforcement (windowed count) keyed by `guest_id` cookie or `user_id` when tier = Guest. Responses should 429 with `{ error: 'guest_limit' }` when exceeded.
-
-### Frontend Implementation
-- [ ] (N/A with Drizzle backend) Add Supabase client (`services/supabaseClient.ts`) and auth helper layer.
-- [x] Replace `AuthModal` fake timeout with real backend signup/login flows + error states.
-- [x] Update `App.tsx` lifecycle hooks to hydrate from backend session (`/api/auth/me`) and listen for auth state changes via cookies.
-- [x] Implement guest search limit logic + contextual messaging (1 lifetime search; masked for unauthenticated, unmasked for guest tier).
-- [x] Wire telemetry stub (`trackAuthModalEvent`) across modal actions.
-
-### Testing
-- [x] Email/password signup up to verification email message (token-based flow + Resend send verified).
-- [x] Post-verification login to ensure session hydration works.
-- [x] Google OAuth happy path (desktop + popup fallback).
-- [x] Guest search limit: unauthenticated = 1 lifetime masked; guest tier = 1 lifetime unmasked.
-- [x] Multi-tab scenario: logout/login reflects across tabs via BroadcastChannel.
-
-### Docs & Handoff
-- [ ] Reference PRD + tech spec in PR description with summary of completed checklist items.
-- [ ] Attach Supabase screenshots (OAuth config, RLS policy, verification email) for reviewers.
-
-## 12. Risks & Mitigations
-- **OAuth configuration drift:** capture client IDs in 1Password and document redirect URIs.
-- **Local cache drift:** rely on `supabase.auth.onAuthStateChange` plus TTL on cached user object.
-- **Guest limit backlash:** ensure copy clearly communicates unlimited access after signup; allow product to tweak threshold via config.
-
-## 13. Open Items
-- Confirm redirect URLs for Google OAuth in staging/prod.
-- Decide whether to auto-create `user_profiles` row via Edge Function or client-side RPC immediately after sign-up.
-- Determine analytics destination (Amplitude vs. PostHog) before replacing console logs.
+### Phase 3: Analytics & Polish
+1.  Instrument `auth_modal_open`, `auth_modal_submit`, `auth_modal_success` events.
+2.  Handle edge cases (email verification pending, offline mode).

@@ -135,7 +135,7 @@ authRouter.post('/login', async (req, res) => {
   const refreshHash = hashToken(refreshToken);
   await db.update(authUsers).set({ refreshTokenHash: refreshHash }).where(eq(authUsers.id, user.id));
 
-  res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+  res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
   res.cookie('refresh_token', refreshToken, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
   log.info({ message: 'auth.login.success', userId: user.id, emailHash: emailFingerprint(email) });
@@ -214,7 +214,7 @@ authRouter.post('/refresh', async (req, res) => {
     const newRefreshHash = hashToken(newRefresh);
     await db.update(authUsers).set({ refreshTokenHash: newRefreshHash }).where(eq(authUsers.id, decoded.sub));
 
-    res.cookie('access_token', newAccess, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie('access_token', newAccess, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
     res.cookie('refresh_token', newRefresh, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
     log.info({ message: 'auth.refresh.success', userId: decoded.sub });
     return res.json({ ok: true });
@@ -255,7 +255,7 @@ authRouter.post('/google/exchange', async (req, res) => {
     await db.update(authUsers).set({ refreshTokenHash: refreshHash }).where(eq(authUsers.id, userId));
 
     // Set cookies
-    res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
     res.cookie('refresh_token', refreshToken, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     // Fetch user and profile

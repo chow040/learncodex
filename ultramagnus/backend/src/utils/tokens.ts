@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/env.ts';
 import crypto from 'crypto';
 
-const ACCESS_TTL = '15m';
+const ACCESS_TTL = '1h';
 const REFRESH_TTL = '7d';
 
 export const createAccessToken = (userId: string, email: string) => {

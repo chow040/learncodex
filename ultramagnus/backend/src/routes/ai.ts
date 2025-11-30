@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { getGenAiClient } from '../clients/genai.ts';
 import { logger } from '../utils/logger.ts';
+import { requireAuth } from '../middleware/auth.ts';
+import {
+  appendMessage,
+  ConversationError,
+  getConversation,
+  summarizeIfNeeded
+} from '../services/conversationService.ts';
 
 export const aiRouter = Router();
 
@@ -10,6 +17,14 @@ const ensureClient = () => {
   } catch (err) {
     throw new Error('Gemini is not configured. Set GEMINI_API_KEY.');
   }
+};
+
+const describeGenAiError = (err: any) => {
+  if (!err) return {};
+  const providerMsg = err?.error?.message || err?.message || err?.toString?.();
+  const status = err?.error?.status || err?.status;
+  const code = err?.error?.code || err?.code;
+  return { providerMessage: providerMsg, providerStatus: status, providerCode: code };
 };
 
 aiRouter.post('/aiassessment', async (req, res) => {
@@ -136,11 +151,20 @@ aiRouter.post('/aiassessment', async (req, res) => {
   }
 });
 
-aiRouter.post('/chat', async (req, res) => {
+aiRouter.post('/chat', requireAuth, async (req, res) => {
   const log = req.log || logger;
-  const { report, messageHistory, userNotes, userThesis } = req.body || {};
+  const { report, reportId: reportIdBody, messageHistory, userNotes, userThesis } = req.body || {};
+  const reportId = report?.id || reportIdBody;
+  const userId = (req as any).userId as string | undefined;
+
   if (!report || !messageHistory) {
     return res.status(400).json({ error: 'Report and messageHistory are required.' });
+  }
+  if (!reportId) {
+    return res.status(400).json({ error: 'reportId is required to persist chat.' });
+  }
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   let client;
@@ -182,12 +206,35 @@ aiRouter.post('/chat', async (req, res) => {
   6. Format responses with clean Markdown (bolding key figures).
   `;
 
+  const normalizedHistory = Array.isArray(messageHistory)
+    ? messageHistory.map((m: any) => {
+        const role = m?.role === 'assistant' ? 'model' : m?.role === 'user' ? 'user' : 'user';
+        return { role, text: m?.text || '' };
+      })
+    : [];
+
   const contents = [
     { role: 'user', parts: [{ text: `System Context:\n${contextSummary}\n\n${systemInstruction}` }] },
-    ...(Array.isArray(messageHistory)
-      ? messageHistory.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] }))
-      : [])
+    ...normalizedHistory.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] }))
   ];
+
+  const promptTextSize = (() => {
+    const base = contextSummary.length + systemInstruction.length;
+    const history = Array.isArray(messageHistory)
+      ? messageHistory.reduce((sum: number, m: any) => sum + (m?.text?.length || 0), 0)
+      : 0;
+    return base + history;
+  })();
+
+  log.info({
+    message: 'ai.chat.request',
+    ticker: report?.ticker || null,
+    reportId,
+    userId,
+    historyLength: Array.isArray(messageHistory) ? messageHistory.length : 0,
+    promptTextSize,
+    correlationId: req.correlationId
+  });
 
   try {
     const ai = client;
@@ -199,9 +246,60 @@ aiRouter.post('/chat', async (req, res) => {
       }
     });
     const text = response.text || "I couldn't generate a response.";
-    return res.json({ text });
+
+    // Persist the latest user message (if present) and the assistant reply
+    const latestUserMessage = Array.isArray(messageHistory)
+      ? [...messageHistory].reverse().find((m: any) => m?.role === 'user' && typeof m?.text === 'string')
+      : null;
+
+    try {
+      if (latestUserMessage?.text) {
+        await appendMessage({
+          reportId,
+          userId,
+          role: 'user',
+          content: latestUserMessage.text,
+          model: 'gemini-3-pro-preview'
+        });
+      }
+
+      const { messageId, sessionId } = await appendMessage({
+        reportId,
+        userId,
+        role: 'assistant',
+        content: text,
+        model: 'gemini-3-pro-preview'
+      });
+
+      const summaryResult = await summarizeIfNeeded(reportId, userId);
+      const conversation = await getConversation(reportId, userId);
+
+      return res.json({ text, messageId, sessionId, summaryResult, conversation });
+    } catch (persistErr: any) {
+      const status = persistErr instanceof ConversationError ? persistErr.status || 400 : 500;
+      const code = persistErr?.code;
+      if (status >= 500) {
+        log.error({ message: 'ai.chat.persist_failed', err: persistErr, userId, reportId });
+      } else {
+        log.warn({ message: 'ai.chat.persist_blocked', err: persistErr, userId, reportId });
+      }
+      return res.status(status).json({ error: persistErr.message || 'Failed to persist chat', code, text });
+    }
   } catch (err: any) {
-    log.error({ message: 'ai.chat.failed', err, ticker: report?.ticker || null });
-    return res.status(500).json({ error: err.message || 'Chat failed.', correlationId: req.correlationId });
+    const providerDetails = describeGenAiError(err);
+    log.error({
+      message: 'ai.chat.failed',
+      err,
+      ticker: report?.ticker || null,
+      reportId,
+      providerDetails,
+      correlationId: req.correlationId
+    });
+    return res.status(502).json({
+      error: 'AI provider is temporarily unavailable. Please retry in a moment.',
+      code: 'genai_upstream_error',
+      correlationId: req.correlationId,
+      providerDetails
+    });
   }
 });
