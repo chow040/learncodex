@@ -35,6 +35,11 @@ export const listReportsByUser = async (userId: string, filters: DashboardFilter
     ownerId: row.ownerId,
     type: row.type,
     ticker: row.ticker,
+    verdict: (row as any)?.payload?.verdict,
+    rocketScore: (row as any)?.payload?.rocketScore,
+    currentPrice: (row as any)?.payload?.currentPrice,
+    priceChange: (row as any)?.payload?.priceChange,
+    priceTarget: (row as any)?.payload?.priceTarget,
     createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
     updatedAt: row.updatedAt?.toISOString() || new Date().toISOString()
   }));
@@ -83,6 +88,11 @@ export const listReportsPageByUser = async (
     ownerId: row.ownerId,
     type: row.type,
     ticker: row.ticker,
+    verdict: (row as any)?.payload?.verdict,
+    rocketScore: (row as any)?.payload?.rocketScore,
+    currentPrice: (row as any)?.payload?.currentPrice,
+    priceChange: (row as any)?.payload?.priceChange,
+    priceTarget: (row as any)?.payload?.priceTarget,
     createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
     updatedAt: row.updatedAt?.toISOString() || new Date().toISOString()
   }));

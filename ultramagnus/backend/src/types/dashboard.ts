@@ -7,6 +7,11 @@ export interface ReportSummary {
   ownerId: string;
   type: string;
   ticker?: string;
+  verdict?: string;
+  rocketScore?: number;
+  currentPrice?: string;
+  priceChange?: string;
+  priceTarget?: string;
   createdAt: string;
   updatedAt: string;
 }

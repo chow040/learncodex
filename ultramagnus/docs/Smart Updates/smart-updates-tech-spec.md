@@ -7,6 +7,7 @@ Reference PRD: `docs/Smart Updates/smart-updates-prd.md`
 - Prevent redundant API costs for "sanity checks" (low volatility, short timeframe).
 - Automatically trigger "Delta Reports" when significant market events (volatility > 5%, earnings) occur.
 - Provide frontend UX for "Volatility Insights" and "Thesis Pivots".
+- User value: save credits/time and reduce confusion from AI variability by serving deterministic cached responses when nothing material changed.
 
 ## Architecture
 

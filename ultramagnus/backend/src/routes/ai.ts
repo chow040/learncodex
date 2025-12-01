@@ -179,7 +179,7 @@ aiRouter.post('/chat', requireAuth, async (req, res) => {
     Company: ${report.companyName} (${report.ticker})
     Price: ${report.currentPrice} (${report.priceChange})
     Verdict: ${report.verdict}
-    Rocket Score: ${report.rocketScore}/100
+    Moonshot Score: ${report.rocketScore}/100
     Summary: ${report.summary}
     Bull Case: ${report.scenarioAnalysis?.bull?.price}
     Bear Case: ${report.scenarioAnalysis?.bear?.price}
