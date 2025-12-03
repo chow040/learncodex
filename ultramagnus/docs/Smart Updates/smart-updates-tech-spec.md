@@ -30,22 +30,29 @@ Reference PRD: `docs/Smart Updates/smart-updates-prd.md`
 ## Data Model & Schema
 
 ### Database (PostgreSQL/Drizzle)
-No major schema changes required, but we will utilize the `reports` table's `metadata` JSONB column to store delta context.
-
-**Report Metadata Additions:**
-```typescript
-interface ReportMetadata {
-  // ... existing fields
-  deltaContext?: {
-    trigger: 'volatility' | 'earnings' | 'news' | 'manual';
-    previousReportId?: string;
-    priceChangePercent?: number;
-    previousVerdict?: string;
-    previousScore?: number;
-  };
-  isCachedResponse?: boolean; // Virtual field for API response, not necessarily DB
-}
-```
+- Keep existing `reports` schema; store Smart Update data in `metadata` JSONB. Add index on `(owner_id, ticker, created_at DESC)` for fast latest lookup.
+- **Report Metadata Additions:**
+    ```typescript
+    interface ReportMetadata {
+      // ... existing fields
+      deltaContext?: {
+        trigger: 'volatility' | 'earnings' | 'news' | 'manual';
+        previousReportId?: string;
+        priceChangePercent?: number;
+        direction?: 'up' | 'down';
+        previousVerdict?: string;
+        previousScore?: number;
+      };
+      momentumScore?: number;
+      momentumInputs?: {
+        returns: { d1: number; d5: number; d20: number };
+        volumeZ?: number;
+        newsSentiment?: number;
+      };
+      isCachedResponse?: boolean; // virtual in API responses
+    }
+    ```
+- **Conversations:** Link chat messages to `report_id` (not just `ticker`) to keep history versioned. Retain ~20 reports per ticker or 90 days to support the timeline UX.
 
 ## Logic & Algorithms (The "Traffic Controller")
 
@@ -56,15 +63,40 @@ The `SmartUpdateService.evaluateRequest(ticker, userId)` method will execute the
 3.  **Calculate Delta:**
     - `timeDiff = Now - LastReport.createdAt`
     - `priceDiff = abs((CurrentPrice - LastReport.price) / LastReport.price)`
+4.  **Concurrency guard:** per `userId + ticker` lock to prevent duplicate generation on rapid repeat requests.
 
 ### Decision Matrix
 
 | Scenario | Condition | Action | UX Outcome |
 | :--- | :--- | :--- | :--- |
-| **Sanity Check** | `timeDiff < 24h` AND `priceDiff < 3%` | **SERVE_CACHE** | Show existing report with updated *current price* header. |
-| **Intraday Shock** | `timeDiff < 24h` AND `priceDiff > 5%` | **FORCE_RERUN** | Generate new report. Inject `volatilityContext`. Show **Volatility Card**. |
-| **New Cycle** | `timeDiff > 24h` AND (`Earnings` OR `News`) | **FORCE_RERUN** | Generate new report. Compare with old. Show **Thesis Pivot** if verdict changes. |
-| **Stale** | `timeDiff > 7 days` | **FRESH_RUN** | Treat as new report. |
+| **Sanity Check** | `timeDiff < 24h` AND `|priceDiff| < 3%` AND `!SignificantNews` | **SERVE_CACHE** | Show existing report with updated price header. |
+| **Intraday Shock (Down) / Upside Spike** | `timeDiff < 24h` AND `|priceDiff| >= 5%` | **FORCE_RERUN** | Generate new report with `volatilityContext`. Show **Volatility Card** (green for stable thesis, red for downgrade/weak momentum; upside copy highlights momentum surge). |
+| **News Break** | `timeDiff < 24h` AND `SignificantNews` | **FORCE_RERUN** | Generate new report. Inject `newsContext`. Highlight catalyst. |
+| **New Cycle** | `24h <= timeDiff <= 7d` AND (`Earnings` OR `SignificantNews`) | **FORCE_RERUN** | Generate new report. Compare with previous. Show **Thesis Pivot** if verdict/score moved materially. |
+| **Quiet Revisit** | `24h <= timeDiff <= 7d` AND `|priceDiff| < 3%` AND `!SignificantNews` | **SERVE_CACHE** with stale banner and optional **Refresh** CTA | Standard. |
+| **Stale** | `timeDiff > 7d` | **FRESH_RUN** | Treat as new report. |
+| **Manual Override** | `forceRefresh == true` | **FORCE_RERUN** | Respect per-ticker lock; otherwise fresh generation. |
+
+### News Analysis Logic (The "News Trigger")
+
+To determine if a new report is required based on news, we employ a **"New & Significant"** filter rather than a deep semantic comparison of old vs. new content.
+
+**Source order:** Prefer Finnhub free tier for ticker-scoped headlines (stable timestamps); fallback to Yahoo Finance RSS or Google News search if unavailable.
+
+**Algorithm:**
+1.  **Fetch:** Retrieve the latest 10 news items for the ticker from the News API.
+2.  **Filter by Time:** Discard any articles published *before* `LastReport.createdAt`.
+    - `NewArticles = AllArticles.filter(a => a.publishedAt > LastReport.createdAt)`
+3.  **Filter by Significance (Heuristic):**
+    - If `NewArticles.length == 0` -> **No Trigger**.
+    - If `NewArticles.length > 0`, check for **Impact Keywords** in headlines:
+        - *Keywords:* "Earnings", "Guidance", "Merger", "Acquisition", "CEO", "CFO", "Resigns", "Appointed", "FDA", "Approval", "Lawsuit", "Settlement", "Contract", "Partnership", "Bankruptcy", "Default".
+    - **LLM Verification (Optional/Advanced):**
+        - If a keyword match is found, or if `NewArticles.length > 3`, send headlines to a fast LLM (Gemini Flash).
+        - *Prompt:* "Given the last report summary: '{LastReport.summary}', do these new headlines '{Headlines}' represent a material change in the investment thesis? Answer YES/NO."
+4.  **Decision:**
+    - If `SignificantNews == true` -> **FORCE_RERUN**.
+    - The `deltaContext` will include the `breakingNews` items to guide the new report generation.
 
 ## API Design
 
@@ -85,14 +117,28 @@ The `SmartUpdateService.evaluateRequest(ticker, userId)` method will execute the
   "meta": {
     "isCached": true,
     "delta": {
-      "type": "volatility",
-      "trigger": "price_drop",
-      "change": -0.08, // -8%
-      "message": "Market Overreaction Detected"
+      "type": "volatility",               // earnings | news | manual
+      "trigger": "price_drop",            // price_drop | price_spike | news
+      "direction": "down",                // up | down
+      "change": -0.08,                    // -8%
+      "message": "Market Overreaction Detected",
+      "previousReportId": "uuid"
     }
   }
 }
 ```
+- **Headers:** `x-cache: hit|miss`.
+
+### `GET /api/reports/:ticker/history`
+- Query: `limit` (default 20), `cursor` for pagination.
+- Response (desc by createdAt): array of `{ id, createdAt, verdict, rocketScore, momentumScore, priceAtReport, deltaTrigger }`.
+
+### `GET /api/reports/:id/delta`
+- Query: `compareTo` (optional `previousId`; default = immediate predecessor).
+- Response: `{ verdictChange, rocketScoreDelta, momentumDelta, priceChangePercent, keyDrivers, previousSummary }`.
+
+### Errors / guardrails
+- 429 or 409 if a per-user+ticker lock is in-flight; `forceRefresh=true` bypasses cache selection but still respects the lock to avoid duplicate generations.
 
 ## Implementation Plan
 

@@ -3,30 +3,14 @@ import { getGenAiClient } from '../clients/genai.ts';
 import { logger } from '../utils/logger.ts';
 import { logAIFailure } from '../utils/aiLogger.ts';
 import { requireAuth } from '../middleware/auth.ts';
-import {
-  appendMessage,
-  ConversationError,
-  getConversation,
-  summarizeIfNeeded
-} from '../services/conversationService.ts';
-
-export const aiRouter = Router();
 
 const MODEL_NAME = 'gemini-3-pro-preview';
 
-const ensureClient = () => {
-  try {
-    return getGenAiClient();
-  } catch (err) {
-    throw new Error('Gemini is not configured. Set GEMINI_API_KEY.');
-  }
-};
-
 const describeGenAiError = (err: any) => {
-  if (!err) return {};
-  const providerMsg = err?.error?.message || err?.message || err?.toString?.();
-  const status = err?.error?.status || err?.status;
-  const code = err?.error?.code || err?.code;
+  if (!err) return { providerMessage: 'unknown_error' };
+  const providerMsg = err?.error?.message || err?.message || err?.toString?.() || 'unknown_error';
+  const status = err?.error?.status || err?.status || err?.response?.status || null;
+  const code = err?.error?.code || err?.code || null;
   const body = err?.response?.data || err?.error;
   return {
     providerMessage: providerMsg,
@@ -36,18 +20,20 @@ const describeGenAiError = (err: any) => {
   };
 };
 
-aiRouter.post('/aiassessment', async (req, res) => {
-  const log = req.log || logger;
-  const { ticker } = req.body || {};
-  if (!ticker || typeof ticker !== 'string') {
-    return res.status(400).json({ error: 'Ticker is required.' });
-  }
+export const aiStreamRouter = Router();
 
-  let client;
-  try {
-    client = ensureClient();
-  } catch (err: any) {
-    return res.status(503).json({ error: err.message });
+const streamText = async (res: any, iterable: AsyncIterable<string>) => {
+  for await (const chunk of iterable) {
+    res.write(chunk);
+  }
+  res.end();
+};
+
+aiStreamRouter.post('/ai/stream-report', async (req, res) => {
+  const { ticker } = req.body || {};
+  const log = req.log || logger;
+  if (!ticker || typeof ticker !== 'string') {
+    return res.status(400).json({ error: 'Ticker is required' });
   }
 
   const prompt = `
@@ -91,6 +77,8 @@ aiRouter.post('/aiassessment', async (req, res) => {
     "rocketReason": "String",
     "financialHealthScore": Number (0-100),
     "financialHealthReason": "String",
+    "momentumScore": Number (0-100, based on technical trend, volume, RSI),
+    "momentumReason": "String",
     "moatAnalysis": { "moatRating": "Wide/Narrow/None", "moatSource": "String", "rationale": "String" },
     "managementQuality": { "executiveTenure": "String", "insiderOwnership": "String", "trackRecord": "String", "governanceRedFlags": "String", "verdict": "String" },
     "history": { "previousDate": "String", "previousVerdict": "BUY/HOLD/SELL", "changeRationale": ["String"] },
@@ -117,9 +105,16 @@ aiRouter.post('/aiassessment', async (req, res) => {
   }
   `;
 
+  let client;
   try {
-    const ai = client;
-    const response = await ai.models.generateContent({
+    client = getGenAiClient();
+  } catch (err: any) {
+    return res.status(503).json({ error: err.message || 'AI client unavailable' });
+  }
+
+  try {
+    const startedAt = Date.now();
+    const stream = await client.models.generateContentStream({
       model: MODEL_NAME,
       contents: prompt,
       config: {
@@ -127,48 +122,37 @@ aiRouter.post('/aiassessment', async (req, res) => {
       }
     });
 
-    const text = response.text || '{}';
-    let jsonStr = text.replace(/```json\n?|```/g, '');
-    const firstBrace = jsonStr.indexOf('{');
-    const lastBrace = jsonStr.lastIndexOf('}');
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    if (!stream) {
+      throw new Error('Stream initialization failed');
     }
 
-    let data: any;
-    try {
-      data = JSON.parse(jsonStr);
-    } catch (err) {
-      log.error({ message: 'ai.reports.parse_error', err, ticker });
-      logAIFailure({
-        operation: 'ai.reports.parse_error',
-        model: MODEL_NAME,
-        ticker,
-        error: err,
-        rawResponse: text,
-        promptPreview: prompt,
-        promptLength: prompt.length,
-        correlationId: (req as any).correlationId
-      });
-      return res.status(500).json({ error: 'Failed to parse AI response.', correlationId: req.correlationId });
-    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.removeHeader('Content-Length');
+    res.flushHeaders();
 
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (groundingChunks) {
-      const sources = groundingChunks
-        .map((chunk: any) => (chunk.web?.uri ? { title: chunk.web.title || 'Source', uri: chunk.web.uri } : null))
-        .filter(Boolean);
-      if (sources.length > 0) {
-        data.sources = sources;
+    const iterable = {
+      async *[Symbol.asyncIterator]() {
+        for await (const chunk of stream) {
+          const c = chunk as any;
+          const textPart = typeof c.text === 'function' ? c.text() : c.text;
+          if (textPart) {
+            yield textPart;
+          }
+        }
       }
-    }
+    };
 
-    return res.json(data);
+    await streamText(res, iterable as AsyncIterable<string>);
+
+    const durationMs = Date.now() - startedAt;
+    log.info({ message: 'ai.stream.report.completed', ticker, durationMs });
   } catch (err: any) {
     const providerDetails = describeGenAiError(err);
-    log.error({ message: 'ai.reports.generate_failed', err, ticker, providerDetails });
+    log.error({ message: 'ai.stream.report.failed', err: providerDetails, ticker });
     logAIFailure({
-      operation: 'ai.reports.generate_failed',
+      operation: 'ai.stream.report',
       model: MODEL_NAME,
       ticker,
       error: err,
@@ -178,21 +162,23 @@ aiRouter.post('/aiassessment', async (req, res) => {
       providerBody: providerDetails.providerBody,
       correlationId: (req as any).correlationId
     });
-    return res.status(500).json({ error: err.message || 'Report generation failed.', correlationId: req.correlationId });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Failed to stream report', providerDetails });
+    } else {
+      res.end();
+    }
   }
 });
 
-aiRouter.post('/chat', requireAuth, async (req, res) => {
+aiStreamRouter.post('/chat/stream', requireAuth, async (req, res) => {
+  const { report, reportId, messageHistory, userNotes, userThesis } = req.body || {};
   const log = req.log || logger;
-  const { report, reportId: reportIdBody, messageHistory, userNotes, userThesis } = req.body || {};
-  const reportId = report?.id || reportIdBody;
   const userId = (req as any).userId as string | undefined;
-
   if (!report || !messageHistory) {
     return res.status(400).json({ error: 'Report and messageHistory are required.' });
   }
   if (!reportId) {
-    return res.status(400).json({ error: 'reportId is required to persist chat.' });
+    return res.status(400).json({ error: 'reportId is required.' });
   }
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -200,9 +186,9 @@ aiRouter.post('/chat', requireAuth, async (req, res) => {
 
   let client;
   try {
-    client = ensureClient();
+    client = getGenAiClient();
   } catch (err: any) {
-    return res.status(503).json({ error: err.message });
+    return res.status(503).json({ error: err.message || 'AI client unavailable' });
   }
 
   const contextSummary = `
@@ -226,111 +212,90 @@ aiRouter.post('/chat', requireAuth, async (req, res) => {
 
   const systemInstruction = `
   You are 'Ultramagnus', an elite Wall Street equity research assistant. 
-  Your goal is to help the user understand the stock report for ${report.ticker}.
-  
-  RULES:
-  1. Use the provided STOCK ANALYSIS CONTEXT to answer questions.
-  2. If the user asks about their notes or thesis, refer to the USER'S NOTES section.
-  3. Keep answers concise, punchy, and professional (financial analyst persona).
-  4. If asked for real-time news not in the report, use the googleSearch tool.
-  5. Do not hallucinate data not present in the context or found via search.
-  6. Format responses with clean Markdown (bolding key figures).
+  Use the STOCK ANALYSIS CONTEXT to answer. Keep answers concise, punchy, and professional.
   `;
 
-  const normalizedHistory = Array.isArray(messageHistory)
-    ? messageHistory.map((m: any) => {
-        const role = m?.role === 'assistant' ? 'model' : m?.role === 'user' ? 'user' : 'user';
-        return { role, text: m?.text || '' };
-      })
+  // 1. Normalize roles from DB (assistant -> model)
+  const rawHistory = Array.isArray(messageHistory)
+    ? messageHistory.slice(-12).map((m: any) => ({
+        role: m?.role === 'assistant' ? 'model' : m?.role === 'user' ? 'user' : 'user',
+        text: m?.text || ''
+      }))
     : [];
 
-  const contents = [
-    { role: 'user', parts: [{ text: `System Context:\n${contextSummary}\n\n${systemInstruction}` }] },
-    ...normalizedHistory.map((m: any) => ({ role: m.role, parts: [{ text: m.text }] }))
+  // 2. Build the initial System Message (as User)
+  const systemMsgText = `System Context:\n${contextSummary}\n\n${systemInstruction}`;
+  
+  // 3. Construct the conversation with strict alternation enforcement
+  // Start with the System Message
+  const mergedContents: { role: string; parts: { text: string }[] }[] = [
+    { role: 'user', parts: [{ text: systemMsgText }] }
   ];
 
-  const promptTextSize = (() => {
-    const base = contextSummary.length + systemInstruction.length;
-    const history = Array.isArray(messageHistory)
-      ? messageHistory.reduce((sum: number, m: any) => sum + (m?.text?.length || 0), 0)
-      : 0;
-    return base + history;
-  })();
+  // Iterate through history and append, merging if role matches previous
+  for (const msg of rawHistory) {
+    const lastMsg = mergedContents[mergedContents.length - 1];
+    
+    if (lastMsg.role === msg.role) {
+      // Merge with previous message to prevent User-User or Model-Model violation
+      lastMsg.parts[0].text += `\n\n---\n\n${msg.text}`;
+    } else {
+      // Alternate role, push new message
+      mergedContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+    }
+  }
 
-  log.info({
-    message: 'ai.chat.request',
-    ticker: report?.ticker || null,
-    reportId,
-    userId,
-    historyLength: Array.isArray(messageHistory) ? messageHistory.length : 0,
-    promptTextSize,
-    correlationId: req.correlationId
-  });
+  // 4. Ensure the last message is NOT from the model (Gemini expects to respond to a User)
+  // If the history ends with 'model', we must append a dummy user prompt or let the user know.
+  // However, in a chat flow, the last message from frontend should be the User's new input.
+  // If for some reason it ends with model, we append a "continue" prompt.
+  if (mergedContents[mergedContents.length - 1].role === 'model') {
+    mergedContents.push({ role: 'user', parts: [{ text: "Please continue." }] });
+  }
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.removeHeader('Content-Length');
+  res.flushHeaders();
+
+  const writeFullText = async (text: string) => {
+    res.write(text);
+    res.end();
+  };
 
   try {
-    const ai = client;
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+    const stream = await client.models.generateContentStream({
+      model: 'gemini-3-pro-preview',
+      contents: mergedContents
     });
-    const text = response.text || "I couldn't generate a response.";
 
-    // Persist the latest user message (if present) and the assistant reply
-    const latestUserMessage = Array.isArray(messageHistory)
-      ? [...messageHistory].reverse().find((m: any) => m?.role === 'user' && typeof m?.text === 'string')
-      : null;
-
-    try {
-      if (latestUserMessage?.text) {
-        await appendMessage({
-          reportId,
-          userId,
-          role: 'user',
-          content: latestUserMessage.text,
-          model: 'gemini-3-pro-preview'
-        });
+    const iterable = {
+      async *[Symbol.asyncIterator]() {
+        for await (const chunk of stream) {
+          const c = chunk as any;
+          const textPart = typeof c.text === 'function' ? c.text() : c.text;
+          if (textPart) {
+            yield textPart;
+          }
+        }
       }
+    };
 
-      const { messageId, sessionId } = await appendMessage({
-        reportId,
-        userId,
-        role: 'assistant',
-        content: text,
-        model: 'gemini-3-pro-preview'
-      });
-
-      const summaryResult = await summarizeIfNeeded(reportId, userId);
-      const conversation = await getConversation(reportId, userId);
-
-      return res.json({ text, messageId, sessionId, summaryResult, conversation });
-    } catch (persistErr: any) {
-      const status = persistErr instanceof ConversationError ? persistErr.status || 400 : 500;
-      const code = persistErr?.code;
-      if (status >= 500) {
-        log.error({ message: 'ai.chat.persist_failed', err: persistErr, userId, reportId });
-      } else {
-        log.warn({ message: 'ai.chat.persist_blocked', err: persistErr, userId, reportId });
-      }
-      return res.status(status).json({ error: persistErr.message || 'Failed to persist chat', code, text });
-    }
+    await streamText(res, iterable as AsyncIterable<string>);
   } catch (err: any) {
     const providerDetails = describeGenAiError(err);
-    log.error({
-      message: 'ai.chat.failed',
-      err,
-      ticker: report?.ticker || null,
-      reportId,
+    log.warn({
+      message: 'ai.stream.chat.failed',
       providerDetails,
-      correlationId: req.correlationId
+      errorString: err?.message || err?.toString?.(),
+      reportId,
+      userId
     });
-    return res.status(502).json({
-      error: 'AI provider is temporarily unavailable. Please retry in a moment.',
-      code: 'genai_upstream_error',
-      correlationId: req.correlationId,
-      providerDetails
-    });
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Failed to stream chat', providerDetails });
+    } else {
+      res.end();
+    }
   }
 });

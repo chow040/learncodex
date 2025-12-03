@@ -136,7 +136,7 @@ const summarizeText = async (messages: { role: string; content: string; createdA
   try {
     const ai = getGenAiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: [
         { role: 'user', parts: [{ text: `Summarize the following conversation turns into concise bullets (<= ${CONVERSATION_SUMMARY_MAX_CHARS} chars). Preserve user asks and assistant replies. Return plain text.\n\n${clipped}` }] }
       ]

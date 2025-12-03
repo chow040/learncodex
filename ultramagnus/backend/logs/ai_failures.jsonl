@@ -1,0 +1,8 @@
+{"timestamp":"2025-12-02T14:13:07.392Z","ticker":"UBER","error":"exception TypeError: fetch failed sending request"}
+{"timestamp":"2025-12-02T14:25:44.185Z","ticker":"UBER","error":"{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"}
+{"timestamp":"2025-12-02T14:26:36.479Z","ticker":"UBER","error":"{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"}
+{"timestamp":"2025-12-02T14:36:17.279Z","ticker":"UBER","error":"exception TypeError: fetch failed sending request"}
+{"timestamp":"2025-12-02T15:26:56.949Z","ticker":"UBER","error":"exception TypeError: fetch failed sending request"}
+{"timestamp":"2025-12-02T15:58:57.449Z","ticker":"UBER","error":"{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\",\"status\":\"UNAVAILABLE\"}}"}
+{"timestamp":"2025-12-02T16:04:24.885Z","ticker":"UBER","error":"exception TypeError: fetch failed sending request"}
+{"timestamp":"2025-12-02T16:19:00.629Z","ticker":"UBER","error":"exception TypeError: fetch failed sending request"}

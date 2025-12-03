@@ -31,23 +31,40 @@
 ## 4. Functional Requirements
 
 ### 4.1 The "Delta Logic" Engine
-The system must evaluate three factors before generating/displaying a report:
-1.  **Time:** Time since last analysis (`< 1h`, `1h-24h`, `> 24h`).
-2.  **Volatility:** Price deviation from last report (`> 3%`, `> 5%`).
-3.  **Thesis Shift:** (Post-generation) Did the Verdict or Rocket Score change significantly?
+The system evaluates three factors before deciding cache vs. re-run:
+1.  **Time:** Time since last analysis (`< 24h`, `24h-7d`, `> 7d`).
+2.  **Volatility:** Absolute price deviation from last report (`< 3%`, `3-5%`, `> 5%`) with direction preserved for UX copy.
+3.  **News/Earnings:** Significant news since the last report (see News Trigger below).
 
-**Logic Matrix:**
-| Time Since Last | Volatility | Action | UX Mode |
+**Unified Logic Matrix (aligns with Tech Spec):**
+| Scenario | Condition | Action | UX Mode |
 | :--- | :--- | :--- | :--- |
-| < 1 Hour | Any | Show Cached | Standard (Refresh Price) |
-| 1h - 24h | < 3% | Show Cached | Standard (Refresh Price) |
-| 1h - 24h | > 5% | **Force Re-run** | **Volatility Insight** |
-| > 24 Hours | Any | **Force Re-run** | **Delta Report** (if thesis changed) |
+| **Sanity Check** | `timeDiff < 24h` AND `|priceDiff| < 3%` AND `!SignificantNews` | **Serve Cached** with refreshed price header | Standard |
+| **Intraday Shock (Down) / Upside Spike** | `timeDiff < 24h` AND `|priceDiff| >= 5%` | **Force Re-run** | **Volatility Insight** (Green Pulse for stable thesis / Red Warning for downgrade or weak momentum; upside spike copy highlights momentum surge) |
+| **News Break** | `timeDiff < 24h` AND `SignificantNews` | **Force Re-run** | News-aware delta; show catalyst callout |
+| **New Cycle** | `24h <= timeDiff <= 7d` AND (`Earnings` OR `SignificantNews`) | **Force Re-run** | **Thesis Pivot** if verdict/score moved materially |
+| **Quiet Revisit** | `24h <= timeDiff <= 7d` AND `|priceDiff| < 3%` AND `!SignificantNews` | **Serve Cached** with stale banner and optional **Refresh** CTA | Standard |
+| **Stale** | `timeDiff > 7d` | **Fresh Run** | Standard; treat as new report |
+| **Manual Override** | `forceRefresh == true` | **Force Re-run** | Standard |
+
+- **Per-ticker guardrail:** lock per `user+ticker` to prevent duplicate generation if two requests arrive concurrently.
+
+#### News Trigger ("New & Significant")
+1.  **Source:** Use Finnhub free tier headlines (stable timestamps, ticker-scoped, low-friction API key). If unavailable, fall back to Yahoo Finance RSS or Google News search as a temporary stopgap.
+2.  **Fetch:** Latest 10 headlines post-`LastReport.createdAt`, in market-local timezone (respect after-hours).
+3.  **Significance filter:** Impact keywords (`Earnings`, `Guidance`, `Merger`, `Acquisition`, `CEO`, `CFO`, `Resigns`, `Appointed`, `FDA`, `Approval`, `Lawsuit`, `Settlement`, `Contract`, `Partnership`, `Bankruptcy`, `Default`). If `NewArticles.length > 3` or keyword match, mark as candidate.
+4.  **Optional LLM check:** Fast model verifies "material to thesis?" against last report summary.
+5.  **Decision:** `SignificantNews = true` if keyword match OR LLM says YES. Passed to delta context for prompt conditioning.
 
 ### 4.2 Momentum Score (New Metric)
-*   **Definition:** A 0-100 score tracking the *rate of change* in sentiment and technical strength.
-*   **Usage:** Used to detect "Falling Knife" scenarios (e.g., Fundamentals = Good, but Momentum = 20/100 -> "Wait for stabilization").
-*   **Display:** Sparkline in the "History" section.
+*   **Definition:** 0-100 composite tracking *rate of change* across price, volume, and news sentiment (50/20/30 weighting).
+*   **Inputs:**
+    *   Price momentum: normalized blend of 1d, 5d, 20d returns, capped to +/-10% to avoid single-candle extremes.
+    *   Volume/volatility: 20d volume z-score plus ATR change vs. 20d average.
+    *   News sentiment delta: headline sentiment vs. prior 7d baseline (fast model or heuristic).
+*   **Calculation:** Scale inputs to -1..1, apply weights, map to 0-100 (50 = neutral), smooth with a 3-sample EMA. Persist the value and input snapshot in `report.metadata` for reproducible history.
+*   **Thresholds:** `<= 40` triggers "Falling Knife" risk; `>= 70` signals strong momentum; delta > 30pts since last report is treated as a material shift.
+*   **Display:** Sparkline in the "History" section, with tooltips showing component contributions.
 
 ### 4.3 Conversation History
 *   **Requirement:** Chat context must be scoped to the *specific report version*.
@@ -90,22 +107,7 @@ This modal overlays the report when a major shift occurs after >24h.
 *   **Header:** Dropdown to switch between report versions (e.g., "Nov 30 (Latest)", "Nov 15").
 *   **Visual:** Small sparkline showing Rocket Score evolution over time.
 
-## 6. Technical Architecture
-
-### 6.1 Database Schema Updates
-*   **`reports` table:**
-    *   Allow multiple rows per `ticker` + `owner_id`.
-    *   Add `momentum_score` (int).
-    *   Add `parent_report_id` (uuid, optional) to link revisions.
-*   **`conversations` table:**
-    *   Link to `report_id` instead of just `ticker`.
-
-### 6.2 API Changes
-*   `POST /api/reports`: Logic to check for existing recent reports before generating.
-*   `GET /api/reports/:ticker/history`: Fetch timeline metadata.
-*   `GET /api/reports/:id/delta`: Compare report `:id` with its predecessor.
-
-## 7. Success Metrics
+## 6. Success Metrics
 *   **Re-run Rate:** % of users who run the same ticker >1 time.
 *   **Delta Engagement:** CTR on "View Comparison" elements.
 *   **Trust Score:** User feedback on "Falling Knife" warnings.

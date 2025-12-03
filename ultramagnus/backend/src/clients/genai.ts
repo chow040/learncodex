@@ -12,5 +12,8 @@ export const getGenAiClient = () => {
   if (!apiKey) {
     throw new Error('Gemini API key not configured');
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ 
+    apiKey, 
+    httpOptions: { timeout: 600000 } // 10 minutes timeout
+  });
 };
