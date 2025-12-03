@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.ts';
+import { requireAuth } from '../middleware/auth.js';
 import {
   appendMessage,
   ConversationError,
   getConversation,
   summarizeIfNeeded
-} from '../services/conversationService.ts';
-import { logger } from '../utils/logger.ts';
+} from '../services/conversationService.js';
+import { logger } from '../utils/logger.js';
 
 export const conversationRouter = Router();
 

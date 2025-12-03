@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { logger } from '../utils/logger.ts';
+import { logger } from '../utils/logger.js';
 const allowedLevels = new Set(['error', 'warn', 'info', 'debug']);
 export const logRouter = Router();
 logRouter.post('/', (req, res) => {

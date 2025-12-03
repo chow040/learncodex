@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env.ts';
+import { config } from '../config/env.js';
 import crypto from 'crypto';
-const ACCESS_TTL = '15m';
+const ACCESS_TTL = '1h';
 const REFRESH_TTL = '7d';
 export const createAccessToken = (userId, email) => {
     return jwt.sign({ sub: userId, email, type: 'access' }, config.sessionSecret, { expiresIn: ACCESS_TTL });

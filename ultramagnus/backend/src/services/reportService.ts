@@ -1,9 +1,9 @@
-import { db } from '../db/client.ts';
-import { reports } from '../db/schema.ts';
+import { db } from '../db/client.js';
+import { reports } from '../db/schema.js';
 import { and, count, desc, eq } from 'drizzle-orm';
-import type { DashboardFilters, ReportSummary } from '../types/dashboard.ts';
-import { clampPagination } from '../utils/validation.ts';
-import { DEFAULT_PAGE_SIZE } from '../config/limits.ts';
+import type { DashboardFilters, ReportSummary } from '../types/dashboard.js';
+import { clampPagination } from '../utils/validation.js';
+import { DEFAULT_PAGE_SIZE } from '../config/limits.js';
 
 export const listReportsByUser = async (userId: string, filters: DashboardFilters): Promise<ReportSummary[]> => {
   const { page, pageSize } = clampPagination({
@@ -28,7 +28,8 @@ export const listReportsByUser = async (userId: string, filters: DashboardFilter
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  return rows.map((row) => ({
+  type Row = typeof rows[number];
+  return rows.map((row: Row) => ({
     id: row.id,
     title: row.title,
     status: row.status as ReportSummary['status'],
@@ -81,7 +82,8 @@ export const listReportsPageByUser = async (
     db.select({ value: count() }).from(reports).where(and(...conditions))
   ]);
 
-  const items = rows.map((row) => ({
+  type Row = typeof rows[number];
+  const items = rows.map((row: Row) => ({
     id: row.id,
     title: row.title,
     status: row.status as ReportSummary['status'],

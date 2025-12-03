@@ -1,10 +1,10 @@
 import { and, desc, eq, count, inArray } from 'drizzle-orm';
-import { db } from '../db/client.ts';
-import { bookmarks, reports } from '../db/schema.ts';
-import type { Bookmark, DashboardError } from '../types/dashboard.ts';
-import type { DashboardFilters } from '../types/dashboard.ts';
-import { clampPagination } from '../utils/validation.ts';
-import { DEFAULT_PAGE_SIZE } from '../config/limits.ts';
+import { db } from '../db/client.js';
+import { bookmarks, reports } from '../db/schema.js';
+import type { Bookmark, DashboardError, ReportSummary } from '../types/dashboard.js';
+import type { DashboardFilters } from '../types/dashboard.js';
+import { clampPagination } from '../utils/validation.js';
+import { DEFAULT_PAGE_SIZE } from '../config/limits.js';
 
 export const listBookmarksByUser = async (userId: string, filters: DashboardFilters): Promise<Bookmark[]> => {
   const { page, pageSize } = clampPagination({
@@ -19,7 +19,8 @@ export const listBookmarksByUser = async (userId: string, filters: DashboardFilt
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  return rows.map((row) => ({
+  type Row = typeof rows[number];
+  return rows.map((row: Row) => ({
     id: row.id,
     targetId: row.targetId,
     targetType: row.targetType,
@@ -46,9 +47,10 @@ export const listBookmarksByUserWithResolution = async (
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
-  const targetIds = rows.map((r) => r.targetId).filter(Boolean);
+  type Row = typeof rows[number];
+  const targetIds = rows.map((r: Row) => r.targetId).filter(Boolean);
   const errors: DashboardError[] = [];
-  let reportSummaries: Record<string, Bookmark['report']> = {};
+  let reportSummaries: Record<string, ReportSummary> = {};
 
   if (targetIds.length > 0) {
     const reportRows = await db
@@ -56,11 +58,12 @@ export const listBookmarksByUserWithResolution = async (
       .from(reports)
       .where(and(inArray(reports.id, targetIds), eq(reports.ownerId, userId)));
 
-    reportSummaries = reportRows.reduce<Record<string, Bookmark['report']>>((acc, row) => {
+    type ReportRow = typeof reportRows[number];
+    reportSummaries = reportRows.reduce<Record<string, ReportSummary>>((acc, row: ReportRow) => {
       acc[row.id] = {
         id: row.id,
         title: row.title,
-        status: row.status as Bookmark['report']['status'],
+        status: row.status as ReportSummary['status'],
         ownerId: row.ownerId,
         type: row.type,
         ticker: row.ticker,
@@ -71,7 +74,7 @@ export const listBookmarksByUserWithResolution = async (
     }, {});
   }
 
-  const bookmarksWithResolution = rows.map((row) => {
+  const bookmarksWithResolution = rows.map((row: Row) => {
     const resolved = reportSummaries[row.targetId];
     if (!resolved) {
       errors.push({

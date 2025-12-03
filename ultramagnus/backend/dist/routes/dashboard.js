@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.ts';
-import { fetchDashboard } from '../services/dashboardService.ts';
+import { requireAuth } from '../middleware/auth.js';
+import { fetchDashboard } from '../services/dashboardService.js';
 export const dashboardRouter = Router();
 dashboardRouter.get('/dashboard', requireAuth, async (req, res) => {
     const userId = req.userId;

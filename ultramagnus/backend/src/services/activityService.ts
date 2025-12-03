@@ -1,7 +1,7 @@
-import { db } from '../db/client.ts';
-import { activities } from '../db/schema.ts';
+import { db } from '../db/client.js';
+import { activities } from '../db/schema.js';
 import { desc, eq } from 'drizzle-orm';
-import type { ActivityEvent } from '../types/dashboard.ts';
+import type { ActivityEvent } from '../types/dashboard.js';
 
 export const listActivityByUser = async (userId: string, limit = 50): Promise<ActivityEvent[]> => {
   const maxLimit = Math.max(1, Math.min(limit, 200));
@@ -11,7 +11,8 @@ export const listActivityByUser = async (userId: string, limit = 50): Promise<Ac
     .orderBy(desc(activities.occurredAt))
     .limit(maxLimit);
 
-  return rows.map((row) => ({
+  type Row = typeof rows[number];
+  return rows.map((row: Row) => ({
     id: row.id,
     userId: row.userId,
     targetId: row.targetId,

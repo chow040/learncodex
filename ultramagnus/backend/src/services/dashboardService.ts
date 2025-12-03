@@ -1,7 +1,7 @@
-import type { DashboardFilters, DashboardView, DashboardError } from '../types/dashboard.ts';
-import { listReportsByUser } from './reportService.ts';
-import { listBookmarksByUserWithResolution } from './bookmarkService.ts';
-import { listActivityByUser } from './activityService.ts';
+import type { DashboardFilters, DashboardView, DashboardError, ActivityEvent } from '../types/dashboard.js';
+import { listReportsByUser } from './reportService.js';
+import { listBookmarksByUserWithResolution } from './bookmarkService.js';
+import { listActivityByUser } from './activityService.js';
 
 export const fetchDashboard = async (userId: string, filters: DashboardFilters): Promise<{ dashboard: DashboardView; errors: DashboardError[] }> => {
   const errors: DashboardError[] = [];
@@ -30,7 +30,7 @@ export const fetchDashboard = async (userId: string, filters: DashboardFilters):
     errors.push({ section: 'activity', message: activityResult.reason?.message || 'Failed to load activity' });
   }
 
-  const limitedActivity = recentActivity
+  const limitedActivity = (recentActivity as ActivityEvent[])
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
     .slice(0, filters.activityLimit || 50);
 

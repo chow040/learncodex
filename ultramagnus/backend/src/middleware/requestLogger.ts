@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { logger } from '../utils/logger.ts';
+import { logger } from '../utils/logger.js';
 
 const durationMs = (start: [number, number]) => {
   const [secs, nanos] = process.hrtime(start);

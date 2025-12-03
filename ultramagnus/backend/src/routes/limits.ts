@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { db } from '../db/client.ts';
-import { guestUsage, userProfiles } from '../db/schema.ts';
+import { db } from '../db/client.js';
+import { guestUsage, userProfiles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
-import { verifyToken } from '../utils/tokens.ts';
+import { verifyToken } from '../utils/tokens.js';
 
 const WINDOW_MS = Infinity; // lifetime window (no reset)
 const LIMIT = 1;

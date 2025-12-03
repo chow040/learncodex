@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger.ts';
+import { logger } from '../utils/logger.js';
 const isClientError = (status) => !!status && status >= 400 && status < 500;
 export const errorHandler = (err, req, res, _next) => {
     const status = err.status || err.statusCode || 500;

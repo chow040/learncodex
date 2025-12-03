@@ -1,16 +1,16 @@
 import { Router } from 'express';
-import { db } from '../db/client.ts';
-import { authUsers, userProfiles } from '../db/schema.ts';
+import { db } from '../db/client.js';
+import { authUsers, userProfiles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env.ts';
-import { cookieOpts, createAccessToken, createRefreshToken, hashToken, verifyToken } from '../utils/tokens.ts';
+import { config } from '../config/env.js';
+import { cookieOpts, createAccessToken, createRefreshToken, hashToken, verifyToken } from '../utils/tokens.js';
 import { OAuth2Client } from 'google-auth-library';
 import crypto from 'crypto';
-import { logger } from '../utils/logger.ts';
-import { verificationTokens } from '../db/schema.ts';
-import { sendVerificationEmail } from '../services/mailer.ts';
+import { logger } from '../utils/logger.js';
+import { verificationTokens } from '../db/schema.js';
+import { sendVerificationEmail } from '../services/mailer.js';
 
 export const authRouter = Router();
 

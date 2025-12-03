@@ -5,7 +5,7 @@
 - Preserve UX fidelity: show partial output as it arrives; persist only complete, valid payloads.
 
 ## Scope (v1)
-- Stream `POST /api/aiassessment` (report generation) to the client; buffer end-to-end JSON for persistence after stream completes.
+ - Stream `POST /api/ai/stream-report` (report generation) to the client; buffer end-to-end JSON for persistence after stream completes.
 - Stream chat replies in `/api/chat`; render incremental assistant text while continuing to save turns after completion.
 - Keep existing synchronous endpoints as fallback behind a feature flag.
 

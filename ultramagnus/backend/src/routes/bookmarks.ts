@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.ts';
-import { addBookmark, removeBookmark, listBookmarksPageByUser } from '../services/bookmarkService.ts';
-import { clampPagination } from '../utils/validation.ts';
-import { DEFAULT_PAGE_SIZE } from '../config/limits.ts';
+import { requireAuth } from '../middleware/auth.js';
+import { addBookmark, removeBookmark, listBookmarksPageByUser } from '../services/bookmarkService.js';
+import { clampPagination } from '../utils/validation.js';
+import { DEFAULT_PAGE_SIZE } from '../config/limits.js';
 
 export const bookmarksRouter = Router();
 

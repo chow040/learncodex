@@ -1,16 +1,16 @@
 import { Router } from 'express';
-import { db } from '../db/client.ts';
-import { authUsers, userProfiles } from '../db/schema.ts';
+import { db } from '../db/client.js';
+import { authUsers, userProfiles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env.ts';
-import { cookieOpts, createAccessToken, createRefreshToken, hashToken, verifyToken } from '../utils/tokens.ts';
+import { config } from '../config/env.js';
+import { cookieOpts, createAccessToken, createRefreshToken, hashToken, verifyToken } from '../utils/tokens.js';
 import { OAuth2Client } from 'google-auth-library';
 import crypto from 'crypto';
-import { logger } from '../utils/logger.ts';
-import { verificationTokens } from '../db/schema.ts';
-import { sendVerificationEmail } from '../services/mailer.ts';
+import { logger } from '../utils/logger.js';
+import { verificationTokens } from '../db/schema.js';
+import { sendVerificationEmail } from '../services/mailer.js';
 export const authRouter = Router();
 const emailFingerprint = (value) => crypto.createHash('sha256').update(value.toLowerCase()).digest('hex').slice(0, 12);
 const isValidEmail = (value) => /\S+@\S+\.\S+/.test(value);
@@ -123,7 +123,7 @@ authRouter.post('/login', async (req, res) => {
     const refreshToken = createRefreshToken(user.id, email);
     const refreshHash = hashToken(refreshToken);
     await db.update(authUsers).set({ refreshTokenHash: refreshHash }).where(eq(authUsers.id, user.id));
-    res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
     res.cookie('refresh_token', refreshToken, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
     log.info({ message: 'auth.login.success', userId: user.id, emailHash: emailFingerprint(email) });
     return res.json({ user: { id: user.id, email }, profile });
@@ -195,7 +195,7 @@ authRouter.post('/refresh', async (req, res) => {
         const newRefresh = createRefreshToken(decoded.sub, decoded.email);
         const newRefreshHash = hashToken(newRefresh);
         await db.update(authUsers).set({ refreshTokenHash: newRefreshHash }).where(eq(authUsers.id, decoded.sub));
-        res.cookie('access_token', newAccess, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+        res.cookie('access_token', newAccess, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
         res.cookie('refresh_token', newRefresh, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
         log.info({ message: 'auth.refresh.success', userId: decoded.sub });
         return res.json({ ok: true });
@@ -230,7 +230,7 @@ authRouter.post('/google/exchange', async (req, res) => {
         // Update refresh token in database
         await db.update(authUsers).set({ refreshTokenHash: refreshHash }).where(eq(authUsers.id, userId));
         // Set cookies
-        res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+        res.cookie('access_token', accessToken, { ...cookieOpts, maxAge: 60 * 60 * 1000 });
         res.cookie('refresh_token', refreshToken, { ...cookieOpts, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
         // Fetch user and profile
         const users = await db.select().from(authUsers).where(eq(authUsers.id, userId)).limit(1);

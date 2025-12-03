@@ -1,6 +1,6 @@
-import { createApp } from './app.ts';
-import { config } from './config/env.ts';
-import { logger } from './utils/logger.ts';
+import { createApp } from './app.js';
+import { config } from './config/env.js';
+import { logger } from './utils/logger.js';
 const app = createApp();
 const server = app.listen(config.port, () => {
     logger.info({ message: 'server.listening', port: config.port });

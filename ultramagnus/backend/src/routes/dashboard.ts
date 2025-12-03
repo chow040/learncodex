@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.ts';
-import { fetchDashboard } from '../services/dashboardService.ts';
-import type { DashboardFilters } from '../types/dashboard.ts';
+import { requireAuth } from '../middleware/auth.js';
+import { fetchDashboard } from '../services/dashboardService.js';
+import type { DashboardFilters } from '../types/dashboard.js';
 
 export const dashboardRouter = Router();
 

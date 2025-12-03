@@ -1,29 +1,10 @@
 import { Router } from 'express';
-import { getGenAiClient } from '../clients/genai.ts';
-import { logger } from '../utils/logger.ts';
-export const aiRouter = Router();
-const ensureClient = () => {
-    try {
-        return getGenAiClient();
-    }
-    catch (err) {
-        throw new Error('Gemini is not configured. Set GEMINI_API_KEY.');
-    }
-};
-aiRouter.post('/reports', async (req, res) => {
-    const log = req.log || logger;
-    const { ticker } = req.body || {};
-    if (!ticker || typeof ticker !== 'string') {
-        return res.status(400).json({ error: 'Ticker is required.' });
-    }
-    let client;
-    try {
-        client = ensureClient();
-    }
-    catch (err) {
-        return res.status(503).json({ error: err.message });
-    }
-    const prompt = `
+import { getGenAiClient } from '../clients/genai.js';
+import { logger } from '../utils/logger.js';
+import { logAIFailure } from '../utils/aiLogger.js';
+import { requireAuth } from '../middleware/auth.js';
+import { appendMessage, ConversationError, getConversation, summarizeIfNeeded } from '../services/conversationService.js';
+const REPORT_PROMPT = (ticker) => `
   Generate a comprehensive professional equity research report for ${ticker}.
   
   You MUST search for the latest real-time data including:
@@ -64,6 +45,8 @@ aiRouter.post('/reports', async (req, res) => {
     "rocketReason": "String",
     "financialHealthScore": Number (0-100),
     "financialHealthReason": "String",
+    "momentumScore": Number (0-100, based on technical trend, volume, RSI),
+    "momentumReason": "String",
     "moatAnalysis": { "moatRating": "Wide/Narrow/None", "moatSource": "String", "rationale": "String" },
     "managementQuality": { "executiveTenure": "String", "insiderOwnership": "String", "trackRecord": "String", "governanceRedFlags": "String", "verdict": "String" },
     "history": { "previousDate": "String", "previousVerdict": "BUY/HOLD/SELL", "changeRationale": ["String"] },
@@ -89,51 +72,43 @@ aiRouter.post('/reports', async (req, res) => {
     "sources": [ { "title": "String", "uri": "String" } ]
   }
   `;
+export const aiRouter = Router();
+const MODEL_NAME = 'gemini-3-pro-preview';
+const ensureClient = () => {
     try {
-        const ai = client;
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: prompt,
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
-        });
-        const text = response.text || '{}';
-        let jsonStr = text.replace(/```json\n?|```/g, '');
-        const firstBrace = jsonStr.indexOf('{');
-        const lastBrace = jsonStr.lastIndexOf('}');
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-        }
-        let data;
-        try {
-            data = JSON.parse(jsonStr);
-        }
-        catch (err) {
-            log.error({ message: 'ai.reports.parse_error', err, ticker });
-            return res.status(500).json({ error: 'Failed to parse AI response.', correlationId: req.correlationId });
-        }
-        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-        if (groundingChunks) {
-            const sources = groundingChunks
-                .map((chunk) => (chunk.web?.uri ? { title: chunk.web.title || 'Source', uri: chunk.web.uri } : null))
-                .filter(Boolean);
-            if (sources.length > 0) {
-                data.sources = sources;
-            }
-        }
-        return res.json(data);
+        return getGenAiClient();
     }
     catch (err) {
-        log.error({ message: 'ai.reports.generate_failed', err, ticker });
-        return res.status(500).json({ error: err.message || 'Report generation failed.', correlationId: req.correlationId });
+        throw new Error('Gemini is not configured. Set GEMINI_API_KEY.');
     }
-});
-aiRouter.post('/chat', async (req, res) => {
+};
+const describeGenAiError = (err) => {
+    if (!err)
+        return {};
+    const providerMsg = err?.error?.message || err?.message || err?.toString?.();
+    const status = err?.error?.status || err?.status;
+    const code = err?.error?.code || err?.code;
+    const body = err?.response?.data || err?.error;
+    return {
+        providerMessage: providerMsg,
+        providerStatus: status,
+        providerCode: code,
+        providerBody: typeof body === 'string' ? body : body ? JSON.stringify(body) : null
+    };
+};
+aiRouter.post('/chat', requireAuth, async (req, res) => {
     const log = req.log || logger;
-    const { report, messageHistory, userNotes, userThesis } = req.body || {};
+    const { report, reportId: reportIdBody, messageHistory, userNotes, userThesis } = req.body || {};
+    const reportId = report?.id || reportIdBody;
+    const userId = req.userId;
     if (!report || !messageHistory) {
         return res.status(400).json({ error: 'Report and messageHistory are required.' });
+    }
+    if (!reportId) {
+        return res.status(400).json({ error: 'reportId is required to persist chat.' });
+    }
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
     let client;
     try {
@@ -147,7 +122,7 @@ aiRouter.post('/chat', async (req, res) => {
     Company: ${report.companyName} (${report.ticker})
     Price: ${report.currentPrice} (${report.priceChange})
     Verdict: ${report.verdict}
-    Rocket Score: ${report.rocketScore}/100
+    Moonshot Score: ${report.rocketScore}/100
     Summary: ${report.summary}
     Bull Case: ${report.scenarioAnalysis?.bull?.price}
     Bear Case: ${report.scenarioAnalysis?.bear?.price}
@@ -172,26 +147,292 @@ aiRouter.post('/chat', async (req, res) => {
   5. Do not hallucinate data not present in the context or found via search.
   6. Format responses with clean Markdown (bolding key figures).
   `;
+    const normalizedHistory = Array.isArray(messageHistory)
+        ? messageHistory.map((m) => {
+            const role = m?.role === 'assistant' ? 'model' : m?.role === 'user' ? 'user' : 'user';
+            return { role, text: m?.text || '' };
+        })
+        : [];
     const contents = [
         { role: 'user', parts: [{ text: `System Context:\n${contextSummary}\n\n${systemInstruction}` }] },
-        ...(Array.isArray(messageHistory)
-            ? messageHistory.map((m) => ({ role: m.role, parts: [{ text: m.text }] }))
-            : [])
+        ...normalizedHistory.map((m) => ({ role: m.role, parts: [{ text: m.text }] }))
     ];
+    const promptTextSize = (() => {
+        const base = contextSummary.length + systemInstruction.length;
+        const history = Array.isArray(messageHistory)
+            ? messageHistory.reduce((sum, m) => sum + (m?.text?.length || 0), 0)
+            : 0;
+        return base + history;
+    })();
+    log.info({
+        message: 'ai.chat.request',
+        ticker: report?.ticker || null,
+        reportId,
+        userId,
+        historyLength: Array.isArray(messageHistory) ? messageHistory.length : 0,
+        promptTextSize,
+        correlationId: req.correlationId
+    });
     try {
         const ai = client;
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: MODEL_NAME,
             contents,
             config: {
                 tools: [{ googleSearch: {} }]
             }
         });
         const text = response.text || "I couldn't generate a response.";
-        return res.json({ text });
+        // Persist the latest user message (if present) and the assistant reply
+        const latestUserMessage = Array.isArray(messageHistory)
+            ? [...messageHistory].reverse().find((m) => m?.role === 'user' && typeof m?.text === 'string')
+            : null;
+        try {
+            if (latestUserMessage?.text) {
+                await appendMessage({
+                    reportId,
+                    userId,
+                    role: 'user',
+                    content: latestUserMessage.text,
+                    model: 'gemini-3-pro-preview'
+                });
+            }
+            const { messageId, sessionId } = await appendMessage({
+                reportId,
+                userId,
+                role: 'assistant',
+                content: text,
+                model: 'gemini-3-pro-preview'
+            });
+            const summaryResult = await summarizeIfNeeded(reportId, userId);
+            const conversation = await getConversation(reportId, userId);
+            return res.json({ text, messageId, sessionId, summaryResult, conversation });
+        }
+        catch (persistErr) {
+            const status = persistErr instanceof ConversationError ? persistErr.status || 400 : 500;
+            const code = persistErr?.code;
+            if (status >= 500) {
+                log.error({ message: 'ai.chat.persist_failed', err: persistErr, userId, reportId });
+            }
+            else {
+                log.warn({ message: 'ai.chat.persist_blocked', err: persistErr, userId, reportId });
+            }
+            return res.status(status).json({ error: persistErr.message || 'Failed to persist chat', code, text });
+        }
     }
     catch (err) {
-        log.error({ message: 'ai.chat.failed', err, ticker: report?.ticker || null });
-        return res.status(500).json({ error: err.message || 'Chat failed.', correlationId: req.correlationId });
+        const providerDetails = describeGenAiError(err);
+        log.error({
+            message: 'ai.chat.failed',
+            err,
+            ticker: report?.ticker || null,
+            reportId,
+            providerDetails,
+            correlationId: req.correlationId
+        });
+        return res.status(502).json({
+            error: 'AI provider is temporarily unavailable. Please retry in a moment.',
+            code: 'genai_upstream_error',
+            correlationId: req.correlationId,
+            providerDetails
+        });
+    }
+});
+const flushStreamingHeaders = (res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.removeHeader('Content-Length');
+    if (typeof res.flushHeaders === 'function') {
+        res.flushHeaders();
+    }
+};
+const streamText = async (res, iterable, onChunk) => {
+    let wrote = false;
+    for await (const chunk of iterable) {
+        if (!chunk)
+            continue;
+        wrote = true;
+        res.write(chunk);
+        onChunk?.(chunk);
+    }
+    return wrote;
+};
+aiRouter.post('/ai/stream-report', async (req, res) => {
+    const { ticker } = req.body || {};
+    const log = req.log || logger;
+    if (!ticker || typeof ticker !== 'string') {
+        return res.status(400).json({ error: 'Ticker is required' });
+    }
+    let client;
+    try {
+        client = ensureClient();
+    }
+    catch (err) {
+        return res.status(503).json({ error: err.message || 'AI client unavailable' });
+    }
+    try {
+        const startedAt = Date.now();
+        const stream = await client.models.generateContentStream({
+            model: MODEL_NAME,
+            contents: [{ role: 'user', parts: [{ text: REPORT_PROMPT(ticker) }] }],
+            config: { tools: [{ googleSearch: {} }] }
+        });
+        if (!stream) {
+            throw new Error('Stream initialization failed');
+        }
+        flushStreamingHeaders(res);
+        let wrote = false;
+        const iterable = {
+            async *[Symbol.asyncIterator]() {
+                for await (const chunk of stream) {
+                    const c = chunk;
+                    const textPart = typeof c.text === 'function' ? c.text() : c.text;
+                    if (textPart) {
+                        wrote = true;
+                        yield textPart;
+                    }
+                }
+            }
+        };
+        const streamed = await streamText(res, iterable);
+        if (!wrote && !streamed) {
+            if (!res.headersSent) {
+                return res.status(502).end('Stream produced no content');
+            }
+        }
+        res.end();
+        const durationMs = Date.now() - startedAt;
+        log.info({ message: 'ai.stream.report.completed', ticker, durationMs });
+    }
+    catch (err) {
+        const providerDetails = describeGenAiError(err);
+        log.error({ message: 'ai.stream.report.failed', err: providerDetails, ticker });
+        logAIFailure({
+            operation: 'ai.stream.report',
+            model: MODEL_NAME,
+            ticker,
+            error: err,
+            providerStatus: providerDetails.providerStatus,
+            providerCode: providerDetails.providerCode,
+            providerMessage: providerDetails.providerMessage,
+            providerBody: providerDetails.providerBody,
+            correlationId: req.correlationId
+        });
+        if (!res.headersSent) {
+            res.status(502).json({ error: 'Failed to stream report', providerDetails });
+        }
+        else {
+            res.end();
+        }
+    }
+});
+aiRouter.post('/chat/stream', requireAuth, async (req, res) => {
+    const { report, reportId, messageHistory, userNotes, userThesis } = req.body || {};
+    const log = req.log || logger;
+    const userId = req.userId;
+    if (!report || !messageHistory) {
+        return res.status(400).json({ error: 'Report and messageHistory are required.' });
+    }
+    if (!reportId) {
+        return res.status(400).json({ error: 'reportId is required.' });
+    }
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    let client;
+    try {
+        client = ensureClient();
+    }
+    catch (err) {
+        return res.status(503).json({ error: err.message || 'AI client unavailable' });
+    }
+    const contextSummary = `
+    STOCK ANALYSIS CONTEXT:
+    Company: ${report.companyName} (${report.ticker})
+    Price: ${report.currentPrice} (${report.priceChange})
+    Verdict: ${report.verdict}
+    Moonshot Score: ${report.rocketScore}/100
+    Summary: ${report.summary}
+    Bull Case: ${report.scenarioAnalysis?.bull?.price}
+    Bear Case: ${report.scenarioAnalysis?.bear?.price}
+    Short Term Factors: ${(report.shortTermFactors?.positive || []).map((f) => f.title).join(', ')}
+    Risks: ${(report.shortTermFactors?.negative || []).map((f) => f.title).join(', ')}
+    
+    USER'S NOTES:
+    "${userNotes || 'No notes yet.'}"
+
+    USER'S INVESTMENT THESIS:
+    "${userThesis || 'No thesis defined yet.'}"
+  `;
+    const systemInstruction = `
+  You are 'Ultramagnus', an elite Wall Street equity research assistant. 
+  Use the STOCK ANALYSIS CONTEXT to answer. Keep answers concise, punchy, and professional.
+  `;
+    const rawHistory = Array.isArray(messageHistory)
+        ? messageHistory.slice(-12).map((m) => ({
+            role: m?.role === 'assistant' ? 'model' : 'user',
+            text: m?.text || ''
+        }))
+        : [];
+    const systemMsgText = `System Context:\n${contextSummary}\n\n${systemInstruction}`;
+    const mergedContents = [
+        { role: 'user', parts: [{ text: systemMsgText }] }
+    ];
+    for (const msg of rawHistory) {
+        const lastMsg = mergedContents[mergedContents.length - 1];
+        if (lastMsg.role === msg.role) {
+            lastMsg.parts[0].text += `\n\n---\n\n${msg.text}`;
+        }
+        else {
+            mergedContents.push({ role: msg.role, parts: [{ text: msg.text }] });
+        }
+    }
+    if (mergedContents[mergedContents.length - 1].role === 'model') {
+        mergedContents.push({ role: 'user', parts: [{ text: 'Please continue.' }] });
+    }
+    flushStreamingHeaders(res);
+    try {
+        const stream = await client.models.generateContentStream({
+            model: MODEL_NAME,
+            contents: mergedContents
+        });
+        let wrote = false;
+        const iterable = {
+            async *[Symbol.asyncIterator]() {
+                for await (const chunk of stream) {
+                    const c = chunk;
+                    const textPart = typeof c.text === 'function' ? c.text() : c.text;
+                    if (textPart) {
+                        wrote = true;
+                        yield textPart;
+                    }
+                }
+            }
+        };
+        const streamed = await streamText(res, iterable);
+        if (!wrote && !streamed) {
+            if (!res.headersSent) {
+                return res.status(502).end('Stream produced no content');
+            }
+        }
+        res.end();
+    }
+    catch (err) {
+        const providerDetails = describeGenAiError(err);
+        log.warn({
+            message: 'ai.stream.chat.failed',
+            providerDetails,
+            errorString: err?.message || err?.toString?.(),
+            reportId,
+            userId
+        });
+        if (!res.headersSent) {
+            res.status(502).json({ error: 'Failed to stream chat', providerDetails });
+        }
+        else {
+            res.end();
+        }
     }
 });

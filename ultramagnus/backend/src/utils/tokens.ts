@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env.ts';
+import { config } from '../config/env.js';
 import crypto from 'crypto';
 
 const ACCESS_TTL = '1h';

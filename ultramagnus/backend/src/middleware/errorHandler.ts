@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { logger } from '../utils/logger.ts';
+import { logger } from '../utils/logger.js';
 
 const isClientError = (status?: number) => !!status && status >= 400 && status < 500;
 

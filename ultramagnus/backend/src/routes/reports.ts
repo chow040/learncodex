@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.ts';
-import { getReportById } from '../services/reportDetailService.ts';
-import { createReport, listReportsPageByUser } from '../services/reportService.ts';
-import { validateReportSave, clampPagination } from '../utils/validation.ts';
-import { DEFAULT_PAGE_SIZE } from '../config/limits.ts';
+import { requireAuth } from '../middleware/auth.js';
+import { getReportById } from '../services/reportDetailService.js';
+import { createReport, listReportsPageByUser } from '../services/reportService.js';
+import { validateReportSave, clampPagination } from '../utils/validation.js';
+import { DEFAULT_PAGE_SIZE } from '../config/limits.js';
 
 export const reportsRouter = Router();
 

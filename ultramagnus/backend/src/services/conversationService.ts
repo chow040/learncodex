@@ -1,11 +1,11 @@
 import { and, count, desc, eq, lte, sql } from 'drizzle-orm';
-import { db } from '../db/client.ts';
+import { db } from '../db/client.js';
 import {
   conversationMessages,
   conversationSessions,
   conversationSummaries,
   reports
-} from '../db/schema.ts';
+} from '../db/schema.js';
 import {
   CONVERSATION_DEFAULT_WINDOW,
   CONVERSATION_MAX_WINDOW,
@@ -16,9 +16,9 @@ import {
   CONVERSATION_SUMMARY_MESSAGE_THRESHOLD,
   MAX_CONVERSATION_MESSAGE_BYTES,
   MAX_CONVERSATION_TOTAL_BYTES
-} from '../config/limits.ts';
-import { getGenAiClient } from '../clients/genai.ts';
-import { logger } from '../utils/logger.ts';
+} from '../config/limits.js';
+import { getGenAiClient } from '../clients/genai.js';
+import { logger } from '../utils/logger.js';
 
 type MessageRole = 'user' | 'assistant' | 'system';
 

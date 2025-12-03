@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { bootstrapLog } from '../utils/bootstrapLogger.ts';
+import { bootstrapLog } from '../utils/bootstrapLogger.js';
 dotenv.config();
 const nodeEnv = process.env.NODE_ENV || 'development';
 const defaultLogLevel = process.env.LOG_LEVEL || (nodeEnv === 'production' ? 'info' : 'debug');

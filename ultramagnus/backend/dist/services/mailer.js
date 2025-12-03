@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
-import { config } from '../config/env.ts';
-import { logger } from '../utils/logger.ts';
+import { config } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 const resendClient = config.resendApiKey ? new Resend(config.resendApiKey) : null;
 export const sendVerificationEmail = async (to, url) => {
     if (!resendClient) {

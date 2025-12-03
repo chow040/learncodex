@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { bootstrapLog } from '../utils/bootstrapLogger.ts';
+import { bootstrapLog } from '../utils/bootstrapLogger.js';
 
 dotenv.config();
 

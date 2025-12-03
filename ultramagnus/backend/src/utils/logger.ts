@@ -2,7 +2,7 @@ import { createLogger, format, transports } from 'winston';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { config } from '../config/env.ts';
+import { config } from '../config/env.js';
 
 const { combine, timestamp, errors, json, splat } = format;
 

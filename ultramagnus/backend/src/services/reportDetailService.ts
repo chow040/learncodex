@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db/client.ts';
-import { reports } from '../db/schema.ts';
-import type { ReportDetail } from '../types/dashboard.ts';
+import { db } from '../db/client.js';
+import { reports } from '../db/schema.js';
+import type { ReportDetail } from '../types/dashboard.js';
 
 export interface ReportLookupResult {
   status: 200 | 403 | 404;

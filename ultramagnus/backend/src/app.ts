@@ -2,19 +2,18 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { config } from './config/env.ts';
-import { authRouter } from './routes/auth.ts';
-import { aiRouter } from './routes/ai.ts';
-import { logRouter } from './routes/logs.ts';
-import { limitsRouter } from './routes/limits.ts';
-import { dashboardRouter } from './routes/dashboard.ts';
-import { reportsRouter } from './routes/reports.ts';
-import { bookmarksRouter } from './routes/bookmarks.ts';
-import { conversationRouter } from './routes/conversation.ts';
-import { aiStreamRouter } from './routes/aiStream.ts';
-import { correlationIdMiddleware } from './middleware/correlationId.ts';
-import { requestLogger } from './middleware/requestLogger.ts';
-import { errorHandler } from './middleware/errorHandler.ts';
+import { config } from './config/env.js';
+import { authRouter } from './routes/auth.js';
+import { aiRouter } from './routes/ai.js';
+import { logRouter } from './routes/logs.js';
+import { limitsRouter } from './routes/limits.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { reportsRouter } from './routes/reports.js';
+import { bookmarksRouter } from './routes/bookmarks.js';
+import { conversationRouter } from './routes/conversation.js';
+import { correlationIdMiddleware } from './middleware/correlationId.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 export const createApp = () => {
   const app = express();
@@ -40,7 +39,6 @@ export const createApp = () => {
   app.use('/api', reportsRouter);
   app.use('/api', bookmarksRouter);
   app.use('/api', conversationRouter);
-  app.use('/api', aiStreamRouter);
   app.use('/api', aiRouter);
 
   // 404 handler

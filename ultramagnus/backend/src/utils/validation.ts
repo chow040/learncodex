@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_REPORT_PAYLOAD_BYTES } from '../config/limits.ts';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_REPORT_PAYLOAD_BYTES } from '../config/limits.js';
 
 export interface PaginationInput {
   page?: number;
@@ -15,10 +15,10 @@ export const clampPagination = ({ page, pageSize }: PaginationInput = {}) => {
 };
 
 export interface ReportSaveInput {
-  title?: unknown;
-  ticker?: unknown;
-  status?: unknown;
-  type?: unknown;
+  title?: string;
+  ticker?: string;
+  status?: string;
+  type?: string;
   payload?: unknown;
 }
 
@@ -29,7 +29,15 @@ export interface ValidationResult<T> {
   data?: T;
 }
 
-export const validateReportSave = (body: ReportSaveInput): ValidationResult<Required<ReportSaveInput>> => {
+export interface ValidatedReportSave {
+  title: string;
+  ticker: string;
+  status: string;
+  type: string;
+  payload: unknown;
+}
+
+export const validateReportSave = (body: ReportSaveInput): ValidationResult<ValidatedReportSave> => {
   const { title, ticker, status, type, payload } = body || {};
   if (!title || !ticker || !status || !type || !payload) {
     return { ok: false, status: 400, message: 'title, ticker, status, type, and payload are required' };

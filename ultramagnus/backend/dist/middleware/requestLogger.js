@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger.ts';
+import { logger } from '../utils/logger.js';
 const durationMs = (start) => {
     const [secs, nanos] = process.hrtime(start);
     return Math.round(((secs * 1e9 + nanos) / 1e6) * 100) / 100;
