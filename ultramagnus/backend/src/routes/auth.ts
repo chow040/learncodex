@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/client.js';
-import { authUsers, userProfiles } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { authUsers, userProfiles, verificationTokens } from '../db/schema.js';
+import { desc, eq, lt } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
@@ -9,7 +9,6 @@ import { cookieOpts, createAccessToken, createRefreshToken, hashToken, verifyTok
 import { OAuth2Client } from 'google-auth-library';
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
-import { verificationTokens } from '../db/schema.js';
 import { sendVerificationEmail } from '../services/mailer.js';
 
 export const authRouter = Router();
@@ -102,17 +101,48 @@ authRouter.post('/login', async (req, res) => {
 
   const user = existing[0];
   if (user.verified !== 'true') {
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await db.insert(verificationTokens).values({ userId: user.id, token, expiresAt }).onConflictDoNothing();
-    const verificationUrl = `${config.frontendUrl}/verify?token=${token}`;
-    try {
-      await sendVerificationEmail(email, verificationUrl);
-    } catch (err) {
-      log.warn({ message: 'auth.login.verification_email_failed', err, userId: user.id, emailHash: emailFingerprint(email) });
+    const now = new Date();
+
+    // Clean up expired tokens for this user
+    await db.delete(verificationTokens).where(lt(verificationTokens.expiresAt, now));
+
+    const existingTokens = await db
+      .select()
+      .from(verificationTokens)
+      .where(eq(verificationTokens.userId, user.id))
+      .orderBy(desc(verificationTokens.expiresAt));
+
+    let tokenRecord = existingTokens.find((t) => t.expiresAt && new Date(t.expiresAt) > now);
+    let emailSent = false;
+    let resendAvailableAt = Date.now();
+
+    if (!tokenRecord) {
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const inserted = await db
+        .insert(verificationTokens)
+        .values({ userId: user.id, token, expiresAt })
+        .returning();
+      tokenRecord = inserted[0] || { token, expiresAt, userId: user.id, id: crypto.randomUUID() };
+      emailSent = false; // created but not sent; user can hit explicit resend
+    } else {
+      log.info({
+        message: 'auth.login.verification_pending',
+        userId: user.id,
+        emailHash: emailFingerprint(email)
+      });
     }
-    return res.status(403).json({ error: 'verification_required', verificationUrl });
+
+    const verificationUrl = `${config.frontendUrl}/verify?token=${tokenRecord.token}`;
+    return res.status(403).json({
+      error: 'verification_required',
+      verificationUrl,
+      emailSent,
+      resendAvailableAt,
+      message: 'Your email is not verified. Check your inbox or click Resend to get a new link.'
+    });
   }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     return res.status(400).json({ error: 'Invalid credentials.' });
@@ -142,6 +172,90 @@ authRouter.post('/login', async (req, res) => {
   return res.json({ user: { id: user.id, email }, profile });
 });
 
+authRouter.post('/resend-verification', async (req, res) => {
+  const log = req.log || logger;
+  const { email } = req.body || {};
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ error: 'Valid email is required.' });
+  }
+
+  const users = await db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1);
+  if (users.length === 0) {
+    return res.status(400).json({ error: 'User not found.' });
+  }
+
+  const user = users[0];
+  if (user.verified === 'true') {
+    return res.status(400).json({ error: 'already_verified' });
+  }
+
+  const now = new Date();
+  const RESEND_COOLDOWN_MS = 10 * 60 * 1000;
+
+  await db.delete(verificationTokens).where(lt(verificationTokens.expiresAt, now));
+
+  const existingTokens = await db
+    .select()
+    .from(verificationTokens)
+    .where(eq(verificationTokens.userId, user.id))
+    .orderBy(desc(verificationTokens.expiresAt));
+
+  let tokenRecord = existingTokens.find((t) => t.expiresAt && new Date(t.expiresAt) > now);
+  let emailSent = false;
+  let resendAvailableAt = Date.now();
+
+  if (!tokenRecord) {
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const inserted = await db
+      .insert(verificationTokens)
+      .values({ userId: user.id, token, expiresAt })
+      .returning();
+    tokenRecord = inserted[0] || { token, expiresAt, userId: user.id, id: crypto.randomUUID() };
+    resendAvailableAt = Date.now() + RESEND_COOLDOWN_MS;
+
+    try {
+      await sendVerificationEmail(email, `${config.frontendUrl}/verify?token=${tokenRecord.token}`);
+      emailSent = true;
+    } catch (err) {
+      log.warn({ message: 'auth.resend.verification_email_failed', err, userId: user.id, emailHash: emailFingerprint(email) });
+    }
+  } else {
+    const createdAtMs = tokenRecord.expiresAt
+      ? new Date(tokenRecord.expiresAt).getTime() - 24 * 60 * 60 * 1000
+      : Date.now();
+    resendAvailableAt = createdAtMs + RESEND_COOLDOWN_MS;
+    const canResend = Date.now() >= resendAvailableAt;
+
+    if (canResend) {
+      try {
+        await sendVerificationEmail(email, `${config.frontendUrl}/verify?token=${tokenRecord.token}`);
+        emailSent = true;
+        resendAvailableAt = Date.now() + RESEND_COOLDOWN_MS;
+      } catch (err) {
+        log.warn({ message: 'auth.resend.verification_email_failed', err, userId: user.id, emailHash: emailFingerprint(email) });
+      }
+    } else {
+      log.info({
+        message: 'auth.resend.verification_email_throttled',
+        userId: user.id,
+        emailHash: emailFingerprint(email),
+        resendAvailableAt
+      });
+    }
+  }
+
+  const verificationUrl = `${config.frontendUrl}/verify?token=${tokenRecord.token}`;
+  return res.status(202).json({
+    verificationUrl,
+    emailSent,
+    resendAvailableAt,
+    message: emailSent
+      ? 'Verification email sent. Check your inbox to continue.'
+      : 'You already have an active verification link. Try again in a few minutes.'
+  });
+});
+
 authRouter.post('/logout', async (_req, res) => {
   res.clearCookie('access_token', { path: '/' });
   res.clearCookie('refresh_token', { path: '/' });
@@ -156,8 +270,21 @@ authRouter.get('/me', async (req, res) => {
     if (!accessToken) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const decoded = verifyToken(accessToken);
-    if (decoded.type !== 'access') throw new Error('Invalid token');
+    let decoded;
+    try {
+      decoded = verifyToken(accessToken);
+    } catch (err) {
+      log.warn({ message: 'auth.me.invalid_token', err });
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (decoded.type !== 'access') {
+      log.warn({ message: 'auth.me.wrong_token_type', tokenType: decoded.type });
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/' });
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const userId = decoded.sub;
     const users = await db.select().from(authUsers).where(eq(authUsers.id, userId)).limit(1);
     if (users.length === 0) {
